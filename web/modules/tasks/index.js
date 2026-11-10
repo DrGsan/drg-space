@@ -14,7 +14,7 @@ const editableList=list=>Object.fromEntries(listFields.map(key=>[key,list[key]])
 const titleDay=day=>new Date(day+'T12:00:00').toLocaleDateString(locale(),{weekday:'long',day:'numeric',month:'long'});
 // Presence is updated independently and is not displayed in this workspace.
 // It must not rebuild reminder rows or an unchanged properties panel.
-const reminderSnapshot=(tasks,lists,friends,day)=>JSON.stringify([tasks,lists,friends,day],(key,value)=>key==='online'||key==='last_seen'?undefined:value);
+const reminderSnapshot=(tasks,lists,deletedLists,friends,day)=>JSON.stringify([tasks,lists,deletedLists,friends,day],(key,value)=>key==='online'||key==='last_seen'?undefined:value);
 class TaskWorkspace{
  constructor(host,ctx){
   this.host=host;this.ctx=ctx;this.lists=[];this.deletedLists=[];this.friends=[];this.tasks=ctx.state.tasks||[];this.expanded=new Set();this.collapsed=new Set();this.query='';this.showCompleted=false;this.sideOpen=false;this.disposed=false;this.loadSequence=0;this.editSequence=0;this.listEditSequence=0;this.cleanups=[];
@@ -55,8 +55,11 @@ class TaskWorkspace{
   this.loads=(this.loads||0)+1;
   const [tasks,lists,friends]=await Promise.all([this.ctx.api('/tasks'),this.ctx.api('/task-lists'),this.ctx.api('/task-lists/friends')]).finally(()=>{this.loads--;});
   if(this.disposed||sequence!==this.loadSequence||!this.host.isConnected)return;
-  const unchanged=background&&reminderSnapshot(tasks,lists,friends,today())===reminderSnapshot(this.tasks,this.lists,this.friends,this.renderedDay);
-  this.tasks=tasks;this.ctx.state.tasks=tasks;this.deletedLists=lists.filter(list=>list.deletion);this.lists=lists.filter(list=>!list.deletion);this.friends=friends;
+  // Compare the same active/trash partition on both sides. The server returns
+  // both sets; comparing it with active lists alone causes a repaint every poll.
+  const activeLists=lists.filter(list=>!list.deletion),deletedLists=lists.filter(list=>list.deletion);
+  const unchanged=background&&reminderSnapshot(tasks,activeLists,deletedLists,friends,today())===reminderSnapshot(this.tasks,this.lists,this.deletedLists,this.friends,this.renderedDay);
+  this.tasks=tasks;this.ctx.state.tasks=tasks;this.deletedLists=deletedLists;this.lists=activeLists;this.friends=friends;
   if(unchanged)return;
   if(this.view.kind==='list'&&!this.lists.some(list=>list.id===this.view.id))this.view={kind:'list',id:lists.find(list=>list.is_default)?.id||lists[0]?.id||null};
   if(this.taskBase&&!tasks.some(task=>task.id===this.taskBase.id)&&!this.dirty()){this.panel=null;this.taskBase=null;this.taskDraft=null;}

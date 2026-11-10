@@ -2,6 +2,14 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.0.1] — 2026-11-11 — Stable reminder background refresh
+
+- Unchanged reminder polls preserve list rows, the add field and the open properties panel when recently deleted lists exist.
+- Real reminder edits, recovery and deletion still refresh the displayed data.
+
+- **Installation:** Follow docs/updates.md with the existing Compose project and volumes.
+- **Compatibility:** No schema, environment, dependency or storage-format changes; no migration is required.
+
 ## [5.0.0] — 2026-11-10 — DrG Space self-hosted baseline
 
 - Speaker routing supports all participants and reconnects. Group calls require LiveKit; private and federated calls use TURN. Previous immutable web modules remain available to open tabs after deployment.
