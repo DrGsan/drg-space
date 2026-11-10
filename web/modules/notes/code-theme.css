@@ -1,0 +1,112 @@
+/* BlockNote's code surface is always black by default. Keep the surface and
+   Shiki palette in the same app theme, including readonly and shared editors.
+   These selectors also survive the later generic Markdown styles in app.css. */
+:root {
+  --note-inline-code-background: rgba(135, 131, 120, .15);
+  --note-inline-code-text: #eb5757;
+  --note-code-background: #f7f6f3;
+  --note-code-text: #37352f;
+  --note-code-muted: #62605b;
+  --note-code-border: #e6e4df;
+  --note-code-selection: #cbdcf6;
+}
+:root[data-scheme="dark"] {
+  --note-inline-code-text: #ff7b72;
+  --note-code-background: #20242c;
+  --note-code-text: #edf0f5;
+  --note-code-muted: #bdc5d0;
+  --note-code-border: #3c424d;
+  --note-code-selection: #3d5272;
+}
+.bn-editor .bn-inline-content code,
+.markdown code:not(pre code) {
+  color: var(--note-inline-code-text);
+  background: var(--note-inline-code-background);
+  font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: .85em;
+  font-weight: inherit;
+  line-height: inherit;
+  padding: .2em .4em;
+  border-radius: 3px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.bn-editor .bn-inline-content [data-style-type="textColor"] code { color: inherit; }
+.bn-editor .bn-inline-content [data-style-type="backgroundColor"] code,
+.bn-editor .bn-inline-content code:has([data-style-type="backgroundColor"]) { background: transparent; }
+.bn-editor .bn-block-content[data-content-type="codeBlock"],
+.markdown pre:has(> code) {
+  background: var(--note-code-background);
+  color: var(--note-code-text);
+  border: 1px solid var(--note-code-border);
+  border-radius: 8px;
+}
+.bn-editor .bn-block-content[data-content-type="codeBlock"] > pre {
+  background: transparent;
+  color: inherit;
+  border-radius: 0;
+  margin: 0;
+  padding: 40px 18px 18px;
+  line-height: 1.6;
+  white-space: pre;
+  overflow-x: auto;
+}
+.markdown pre:has(> code) {
+  padding: 18px;
+  line-height: 1.6;
+}
+.bn-editor .bn-block-content[data-content-type="codeBlock"] > pre > code,
+.markdown pre > code {
+  color: var(--note-code-text);
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 14px;
+  line-height: inherit;
+}
+.bn-editor .bn-block-content[data-content-type="codeBlock"] > pre > code {
+  display: block;
+}
+.bn-editor .bn-block-content[data-content-type="codeBlock"] > div > select {
+  width: auto;
+  max-width: calc(100% - 28px);
+  top: 8px;
+  left: 14px;
+  margin: 0;
+  padding: 2px 4px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--note-code-muted);
+  font-size: 11px;
+  line-height: 18px;
+  opacity: 1;
+  transition: none;
+}
+.bn-editor .bn-block-content[data-content-type="codeBlock"] > div > select:disabled {
+  color: var(--note-code-muted);
+  opacity: 1;
+  cursor: default;
+}
+.bn-editor .bn-block-content[data-content-type="codeBlock"] > div > select > option {
+  color: var(--note-code-text);
+  background: var(--note-code-background);
+}
+.bn-editor .bn-block-content[data-content-type="codeBlock"] code [style*="--shiki-light"],
+.markdown pre > code [style*="--shiki-light"] {
+  color: var(--shiki-light, var(--note-code-text));
+}
+:root[data-scheme="dark"] .bn-editor .bn-block-content[data-content-type="codeBlock"] code [style*="--shiki-dark"],
+:root[data-scheme="dark"] .markdown pre > code [style*="--shiki-dark"] {
+  color: var(--shiki-dark, var(--note-code-text));
+}
+.bn-editor .bn-block-content[data-content-type="codeBlock"] code ::selection,
+.markdown pre > code ::selection {
+  background: var(--note-code-selection);
+}
+.bn-container .bn-block-content[data-content-type="codeBlock"]:has(.note-mermaid-preview) {display:block;overflow:hidden}
+.bn-container .bn-block-content > .note-mermaid-preview {position:static;display:block;padding:16px;max-width:100%;overflow:auto;background:var(--white);color:var(--text);border-top:1px solid var(--note-code-border);user-select:text}
+.bn-container .note-mermaid-preview svg {display:block;max-width:100%;height:auto;margin:auto}
+.bn-container .note-mermaid-preview.is-error {color:var(--muted);font-family:inherit;font-size:13px;white-space:normal}
+.bn-container .note-mermaid-preview[aria-busy="true"] {opacity:.65}

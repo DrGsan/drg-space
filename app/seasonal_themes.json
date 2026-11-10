@@ -1,0 +1,367 @@
+[
+  {
+    "id": "halloween",
+    "name_key": "seasonalHalloween",
+    "start": [
+      10,
+      31
+    ],
+    "end": [
+      10,
+      31
+    ],
+    "date": [
+      10,
+      31
+    ],
+    "phrase_key": "holidayHalloweenPhrase",
+    "symbol": "🎃",
+    "particles": "leaves"
+  },
+  {
+    "id": "newyear",
+    "name_key": "seasonalNewYear",
+    "start": [
+      12,
+      20
+    ],
+    "end": [
+      1,
+      10
+    ],
+    "date": [
+      1,
+      1
+    ],
+    "phrase_key": "holidayNewyearPhrase",
+    "symbol": "🎄",
+    "particles": "snow"
+  },
+  {
+    "id": "valentine",
+    "name_key": "seasonalValentine",
+    "start": [
+      2,
+      14
+    ],
+    "end": [
+      2,
+      14
+    ],
+    "date": [
+      2,
+      14
+    ],
+    "phrase_key": "holidayValentinePhrase",
+    "symbol": "💗",
+    "particles": "hearts"
+  },
+  {
+    "id": "spring",
+    "name_key": "seasonalSpring",
+    "start": [
+      3,
+      8
+    ],
+    "end": [
+      3,
+      8
+    ],
+    "date": [
+      3,
+      8
+    ],
+    "phrase_key": "holidaySpringPhrase",
+    "symbol": "🌷",
+    "particles": "petals"
+  },
+  {
+    "id": "space",
+    "name_key": "seasonalSpace",
+    "start": [
+      4,
+      12
+    ],
+    "end": [
+      4,
+      12
+    ],
+    "date": [
+      4,
+      12
+    ],
+    "phrase_key": "holidaySpacePhrase",
+    "symbol": "🚀",
+    "particles": "stars"
+  },
+  {
+    "id": "hugs",
+    "name_key": "seasonalHugs",
+    "phrase_key": "holidayHugsPhrase",
+    "symbol": "🫂",
+    "start": [
+      1,
+      21
+    ],
+    "end": [
+      1,
+      21
+    ],
+    "date": [
+      1,
+      21
+    ],
+    "particles": "hearts"
+  },
+  {
+    "id": "pizza",
+    "name_key": "seasonalPizza",
+    "phrase_key": "holidayPizzaPhrase",
+    "symbol": "🍕",
+    "start": [
+      2,
+      9
+    ],
+    "end": [
+      2,
+      9
+    ],
+    "date": [
+      2,
+      9
+    ],
+    "particles": "none"
+  },
+  {
+    "id": "pi",
+    "name_key": "seasonalPi",
+    "phrase_key": "holidayPiPhrase",
+    "symbol": "π",
+    "start": [
+      3,
+      14
+    ],
+    "end": [
+      3,
+      14
+    ],
+    "date": [
+      3,
+      14
+    ],
+    "particles": "none"
+  },
+  {
+    "id": "laughter",
+    "name_key": "seasonalLaughter",
+    "phrase_key": "holidayLaughterPhrase",
+    "symbol": "🎭",
+    "start": [
+      4,
+      1
+    ],
+    "end": [
+      4,
+      1
+    ],
+    "date": [
+      4,
+      1
+    ],
+    "particles": "none"
+  },
+  {
+    "id": "starwars",
+    "name_key": "seasonalStarWars",
+    "phrase_key": "holidayStarWarsPhrase",
+    "symbol": "✦",
+    "start": [
+      5,
+      4
+    ],
+    "end": [
+      5,
+      4
+    ],
+    "date": [
+      5,
+      4
+    ],
+    "particles": "stars"
+  },
+  {
+    "id": "towel",
+    "name_key": "seasonalTowel",
+    "phrase_key": "holidayTowelPhrase",
+    "symbol": "🧺",
+    "start": [
+      5,
+      25
+    ],
+    "end": [
+      5,
+      25
+    ],
+    "date": [
+      5,
+      25
+    ],
+    "particles": "none"
+  },
+  {
+    "id": "music",
+    "name_key": "seasonalMusic",
+    "phrase_key": "holidayMusicPhrase",
+    "symbol": "🎵",
+    "start": [
+      6,
+      21
+    ],
+    "end": [
+      6,
+      21
+    ],
+    "date": [
+      6,
+      21
+    ],
+    "particles": "notes"
+  },
+  {
+    "id": "chocolate",
+    "name_key": "seasonalChocolate",
+    "phrase_key": "holidayChocolatePhrase",
+    "symbol": "🍫",
+    "start": [
+      7,
+      7
+    ],
+    "end": [
+      7,
+      7
+    ],
+    "date": [
+      7,
+      7
+    ],
+    "particles": "none"
+  },
+  {
+    "id": "beer",
+    "name_key": "seasonalBeer",
+    "phrase_key": "holidayBeerPhrase",
+    "symbol": "🍺",
+    "rule": {
+      "month": 8,
+      "weekday": 5,
+      "nth": 1
+    },
+    "particles": "none"
+  },
+  {
+    "id": "cats",
+    "name_key": "seasonalCats",
+    "phrase_key": "holidayCatsPhrase",
+    "symbol": "🐈",
+    "start": [
+      8,
+      8
+    ],
+    "end": [
+      8,
+      8
+    ],
+    "date": [
+      8,
+      8
+    ],
+    "particles": "none"
+  },
+  {
+    "id": "programmers",
+    "name_key": "seasonalProgrammers",
+    "phrase_key": "holidayProgrammersPhrase",
+    "symbol": "⌨",
+    "rule": {
+      "day_of_year": 256
+    },
+    "particles": "none"
+  },
+  {
+    "id": "pirate",
+    "name_key": "seasonalPirate",
+    "phrase_key": "holidayPiratePhrase",
+    "symbol": "🏴‍☠️",
+    "start": [
+      9,
+      19
+    ],
+    "end": [
+      9,
+      19
+    ],
+    "date": [
+      9,
+      19
+    ],
+    "particles": "none"
+  },
+  {
+    "id": "coffee",
+    "name_key": "seasonalCoffee",
+    "phrase_key": "holidayCoffeePhrase",
+    "symbol": "☕",
+    "start": [
+      10,
+      1
+    ],
+    "end": [
+      10,
+      1
+    ],
+    "date": [
+      10,
+      1
+    ],
+    "particles": "none"
+  },
+  {
+    "id": "kindness",
+    "name_key": "seasonalKindness",
+    "phrase_key": "holidayKindnessPhrase",
+    "symbol": "💛",
+    "start": [
+      11,
+      13
+    ],
+    "end": [
+      11,
+      13
+    ],
+    "date": [
+      11,
+      13
+    ],
+    "particles": "hearts"
+  },
+  {
+    "id": "birthday",
+    "name_key": "seasonalBirthday",
+    "phrase_key": "holidayBirthdayPhrase",
+    "symbol": "🎂",
+    "start": [
+      12,
+      29
+    ],
+    "end": [
+      12,
+      29
+    ],
+    "date": [
+      12,
+      29
+    ],
+    "priority": 10,
+    "particles": "confetti"
+  }
+]

@@ -1,0 +1,26 @@
+.federation-people{margin-block:1.5rem}.federation-heading{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap}.federation-heading>div,.federation-person-actions{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap}.federation-person{display:flex;align-items:center;justify-content:space-between;gap:1rem}.federation-person>div:first-child{display:grid;gap:.3rem;min-width:0}.federation-person small,.federation-fingerprint{overflow-wrap:anywhere}.federation-fingerprint{display:block;padding:.6rem;border-radius:8px;background:var(--surface-alt,var(--bg));font-size:.8rem;user-select:all}.federation-card-dialog textarea,[data-contact-import] textarea{font-family:ui-monospace,monospace;font-size:.8rem;resize:vertical;width:100%}.federation-remote-tree{border-top:1px solid var(--border);margin-top:1rem;padding-top:.75rem}.federation-remote-tree .tree-section-heading{gap:.5rem}.federation-remote-source{font-size:.8rem;color:var(--muted);overflow-wrap:anywhere}.federation-remote-note{padding:0;border:0}.federation-remote-note .editor-help{margin-top:1rem}.federation-access-list{display:grid;gap:.75rem}.federation-access-row{display:flex;align-items:center;justify-content:space-between;gap:1rem}.federation-access-row select{max-width:12rem}.federation-remote-error{padding:1rem;border-radius:8px;background:var(--surface-alt,var(--bg))}@media(max-width:650px){.federation-person{align-items:stretch;flex-direction:column}.federation-heading>div{width:100%}.federation-heading .secondary{flex:1}.federation-access-row{align-items:stretch;flex-direction:column}.federation-access-row select{max-width:none}}
+.workspace .preferences-surface .social-view .federation-people {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+  padding: 18px 20px;
+}
+.workspace .preferences-surface .social-view .federation-people .preference-group-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+}
+.federation-empty { display: grid; gap: 12px; }
+.federation-empty > p { margin: 0; }
+.federation-empty > button { justify-self: start; }
+.federation-people > .hint { margin: 0; }
+.federation-people > .error:empty { display: none; }
+.workspace .federation-heading [data-add-contact] {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+.workspace .federation-heading [data-add-contact]:hover,
+.workspace .federation-heading [data-add-contact]:focus-visible {
+  background: var(--blue-light);
+}

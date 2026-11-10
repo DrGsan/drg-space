@@ -1,0 +1,17 @@
+{
+  "publishedPageTitle": "Название опубликованной страницы",
+  "blocks": "Блоки",
+  "pageContentInMarkdown": "Текст страницы в Markdown",
+  "copyMyText": "Скопировать мой текст",
+  "reSave": "Повторить сохранение",
+  "changesAreSavedAutomatically": "Изменения сохраняются автоматически.",
+  "changesPending": "Есть изменения…",
+  "textCopied": "Текст скопирован.",
+  "copyTheSelectedText": "Скопируйте выделенный текст.",
+  "saving": "Сохраняем…",
+  "untitled": "Без названия",
+  "editingPermissionsHaveBeenRevokedYourTextRemains": "Право редактирования отозвано. Ваш текст остаётся в редакторе.",
+  "changesSaved": "Изменения сохранены.",
+  "savingNewChanges": "Сохраняем новые изменения…",
+  "changesNotSaved": "Изменения не сохранены."
+}

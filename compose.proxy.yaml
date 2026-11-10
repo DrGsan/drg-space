@@ -1,0 +1,11 @@
+# Optional: HTTPS inspection by an outbound proxy. Mount a combined public CA
+# bundle including its trusted root; never disable TLS verification.
+services:
+  app:
+    environment:
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1},postgres,app
+      SSL_CERT_FILE: /run/outbound-ca.pem
+    volumes:
+      - ${OUTBOUND_CA_FILE:?Set the absolute path to a combined CA bundle}:/run/outbound-ca.pem:ro

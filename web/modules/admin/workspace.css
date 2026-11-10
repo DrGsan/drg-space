@@ -1,0 +1,118 @@
+.admin-account-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.admin-account-heading h2{margin:0}
+.admin-locked{max-width:620px;margin:28px auto}
+.admin-unlock-dialog .modal{max-width:460px}
+.admin-friends-dialog .modal{max-width:520px}
+.admin-friend-picker{border:1px solid var(--line);border-radius:12px;margin:12px 0;overflow:hidden}
+.admin-friend-picker>summary{padding:12px 14px;cursor:pointer;font-weight:600}
+.admin-friend-picker>summary span{color:var(--muted);font-weight:400}
+.admin-friend-options{padding:0 12px 12px;min-width:0}
+.admin-friend-list{max-height:min(320px,40dvh);overflow-y:auto;overscroll-behavior:contain;margin-top:8px}
+.admin-friend-option{display:flex;align-items:center;gap:10px;padding:9px 6px;margin:0;border-radius:9px;cursor:pointer}
+.admin-friend-option:hover{background:var(--blue-light)}
+.admin-friend-option[hidden]{display:none}
+.admin-friend-option input[type=checkbox]{width:18px;height:18px;flex:0 0 18px;margin:0}
+.admin-friend-option .person-avatar{width:32px;height:32px;flex:0 0 32px}
+.admin-friend-option>span:last-child{display:grid;gap:2px;min-width:0;overflow-wrap:anywhere}
+.admin-friend-option small{font-size:12px;color:var(--muted)}
+.admin-managed-dialog .modal{max-width:540px}
+.admin-managed-dialog .admin-managed-avatar{display:flex;align-items:center;min-height:64px}
+.admin-managed-dialog .admin-managed-avatar img,.admin-managed-dialog .admin-managed-avatar .person-avatar{width:64px;height:64px;border-radius:50%;object-fit:cover}
+.admin-managed-dialog .admin-managed-avatar .person-avatar img{position:absolute}
+.admin-managed-dialog .admin-managed-connections{border:1px solid var(--line);border-radius:12px;margin:14px 0;padding:12px 14px;min-width:0}
+.admin-managed-dialog .admin-managed-connections legend{padding:0 5px;font-weight:600;font-size:13px}
+.admin-managed-dialog .admin-managed-connections .check-label{display:flex;align-items:center;gap:8px;overflow-wrap:anywhere}
+.admin-managed-dialog .check-label input[type=checkbox]{width:16px;height:16px;flex:0 0 16px;margin:0}
+.admin-managed-dialog input[type=file]{max-width:100%}
+
+.admin-family-photos .fp-access-help{margin:0 0 18px}
+.admin-family-photos form{display:grid;gap:16px;max-width:640px;margin:2px 0 0;min-width:0}
+.admin-family-photos .fp-access-toggle{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0;cursor:pointer}
+.admin-family-photos .fp-access-toggle>span{display:grid;gap:4px;min-width:0}
+.admin-family-photos .fp-access-toggle strong{font-size:13px;font-weight:600}
+.admin-family-photos .fp-access-toggle small{font-size:12px;font-weight:400;color:var(--muted)}
+.admin-family-photos input[type=checkbox]{width:18px;height:18px;flex:0 0 18px;margin:0;accent-color:var(--blue)}
+.admin-family-photos .fp-group-picker{border:1px solid var(--line);border-radius:12px;padding:0 14px 4px;margin:0;min-width:0}
+.admin-family-photos .fp-group-picker legend{padding:0 6px;font-size:12px;font-weight:600;color:var(--muted)}
+.admin-family-photos .fp-group-option{display:flex;align-items:center;gap:10px;min-height:46px;margin:0;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px;cursor:pointer}
+.admin-family-photos .fp-group-option:last-child{border-bottom:0}
+.admin-family-photos .fp-group-option>span{min-width:0;overflow-wrap:anywhere}
+.admin-family-photos .fp-group-option:has(input:disabled){opacity:.55;cursor:default}
+.admin-family-photos .fp-access-permissions{width:100%;margin:0}.fp-access-permissions input[type=checkbox]{width:auto;margin:0}.fp-access-permissions td:not(:first-child),.fp-access-permissions th:not(:first-child){text-align:center}.fp-access-permissions input:disabled{opacity:.4}
+.admin-family-photos .fp-access-actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px 16px}
+.admin-family-photos .fp-access-actions button{font-size:13px;min-height:36px;padding:8px 14px}
+.admin-family-photos .fp-access-actions [role=status]{flex:1 1 180px;margin:0;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.admin-family-photos .fp-access-actions [role=status]:empty{display:none}
+.admin-family-photos .fp-access-state{background:var(--bg);color:var(--muted)}
+.admin-family-photos .fp-access-state.is-enabled{background:var(--blue-light);color:var(--blue)}
+
+.admin-account-copy .person-presence{font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+
+.admin-storage-summary{display:flex;flex-wrap:wrap;gap:18px 36px;margin:8px 0 18px}
+.admin-storage-summary>span{display:grid;gap:5px;font-size:12px;color:var(--muted);min-width:0}
+.admin-storage-summary strong{font-size:24px;font-weight:650;color:var(--text)}
+.admin-storage-breakdown{margin:0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.admin-storage-breakdown>div{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.admin-storage-breakdown>div:last-child{border-bottom:0}
+.admin-storage-breakdown dt{font-size:13px;font-weight:600;min-width:0;overflow-wrap:anywhere}
+.admin-storage-breakdown dt small{display:block;margin-top:4px;font-size:11px;font-weight:400;line-height:1.5;color:var(--muted)}
+.admin-storage-breakdown dd{display:grid;justify-items:end;gap:5px;flex-shrink:0;max-width:40%;margin:0;font-size:13px;font-weight:600;text-align:right;overflow-wrap:anywhere}
+.admin-storage-breakdown dd .text-link{font-size:12px;min-height:32px}
+.admin-storage-breakdown .admin-storage-subset{padding-left:28px;background:color-mix(in srgb,var(--blue-light) 25%,var(--white))}
+.admin-storage-help{margin:12px 0 18px}
+@media(max-width:420px){.admin-storage-breakdown>div{padding:10px;gap:10px}.admin-storage-breakdown .admin-storage-subset{padding-left:20px}.admin-storage-breakdown dd{font-size:12px}.admin-storage-summary{gap:14px 24px}}
+
+.admin-account-filters{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:16px 0 12px}
+.admin-account-filters input{width:240px;min-width:0;max-width:100%;min-height:34px;margin:0;font-size:13px}
+.admin-account-filters select{width:auto;max-width:100%;min-width:0;min-height:34px;margin:0;font-size:12px;padding:6px 24px 6px 8px}
+.admin-accounts-scroll{max-width:100%;overflow:auto;border-top:1px solid var(--line);overscroll-behavior:contain}
+.admin-accounts-table{width:100%;min-width:0;border-collapse:collapse;text-align:left;font-size:12px}
+.admin-accounts-table th{padding:10px 9px;color:var(--muted);font-size:11px;font-weight:500;white-space:nowrap}
+.admin-accounts-table td{padding:9px;border-top:1px solid var(--line);vertical-align:middle}
+.admin-accounts-table tbody tr:hover{background:var(--bg)}
+.admin-table-person{display:flex;align-items:center;gap:9px;min-width:0}
+.admin-table-person>.person-avatar{width:29px;height:29px;flex:0 0 29px;font-size:12px}
+.admin-table-person .admin-account-copy{display:grid;gap:3px;min-width:0;overflow-wrap:anywhere}
+.admin-table-person strong{font-size:13px;font-weight:500}.admin-table-person small{font-size:11px;color:var(--muted)}
+.admin-table-secondary{display:block;max-width:150px;color:var(--muted);font-size:10px;line-height:1.5;margin-top:4px;overflow-wrap:anywhere}
+.admin-accounts-table .person-presence{font-size:11px;max-width:160px;line-height:1.4}
+.admin-role-badge{display:inline-block;border:1px solid var(--line);padding:3px 6px;border-radius:5px;font-size:10px}
+.workspace .preferences-surface .admin-site-role,.admin-site-role{width:auto;max-width:100%;min-width:0;min-height:30px;margin:0;padding:4px 22px 4px 6px;font-size:11px}
+.admin-2fa{font-size:11px;white-space:nowrap;color:var(--muted)}.admin-2fa.is-enabled{color:var(--sage)}
+.admin-table-size{font-size:12px;font-weight:500;white-space:nowrap}
+.admin-account-pagination{display:flex;align-items:center;justify-content:space-between;margin:12px 0 0;gap:12px;color:var(--muted);font-size:11px}
+.admin-account-pagination>div{display:flex;gap:6px}.admin-account-pagination button{padding:4px 10px;min-height:30px}
+.admin-account-empty{color:var(--muted)}
+.admin-account-details .modal{max-width:820px}
+.admin-account-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px;margin:20px 0}
+.admin-account-facts>div{padding:10px 0;border-bottom:1px solid var(--line);min-width:0}
+.admin-account-facts dt{font-size:11px;color:var(--muted)}.admin-account-facts dd{font-size:13px;margin:6px 0 0;overflow-wrap:anywhere}
+.admin-account-spaces>div{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12px}
+.admin-account-spaces strong{font-weight:500;overflow-wrap:anywhere}.admin-account-spaces span{color:var(--muted);text-align:right;overflow-wrap:anywhere}
+@media(max-width:600px){.admin-account-filters input{width:100%;flex:1 1 100%}.admin-account-filters select{flex:1 1 40%}.admin-account-facts{grid-template-columns:1fr}.admin-account-spaces>div{align-items:flex-start;flex-direction:column}.admin-account-spaces span{text-align:left}}
+
+.admin-accounts-table th:first-child{width:28%}.admin-accounts-table th:last-child{width:14%}
+.admin-accounts-table .admin-table-size{white-space:normal}.admin-accounts-table .admin-role-badge{white-space:normal}
+
+.fp-catalog-head{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 100px;gap:16px;padding:10px 24px 10px 2px;border-bottom:1px solid var(--line);font-size:11px;color:var(--muted)}
+.workspace .preferences-surface .admin-family-photos .admin-account>.admin-account-head{min-height:58px;padding:10px 2px;gap:10px}
+.workspace .preferences-surface .admin-family-photos .admin-account-copy strong{font-size:13px;font-weight:500}
+.workspace .preferences-surface .admin-family-photos .admin-account-head>.person-avatar{width:28px;height:28px;flex:0 0 28px}
+.fp-catalog-groups{flex:1;min-width:0;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.admin-family-photos .fp-access-state{width:85px;flex:0 0 85px;text-align:center;font-size:11px;white-space:normal}
+@media(max-width:700px){
+ .fp-catalog-head{display:none}
+ .workspace .preferences-surface .admin-family-photos .admin-account>.admin-account-head{display:grid;grid-template-columns:28px minmax(0,1fr) 85px 12px;gap:8px}
+ .admin-family-photos .fp-catalog-groups{grid-column:2/4;grid-row:2;font-size:11px}
+ .workspace .preferences-surface .admin-family-photos .admin-account>.admin-account-head::after{grid-column:4;grid-row:1}
+}
+
+.admin-family-photos [data-fp-group-management]{margin-bottom:28px;min-width:0}
+.admin-family-photos .fp-management-table{table-layout:fixed;width:100%}
+.admin-family-photos .fp-management-table th:first-child{width:24%}
+.admin-family-photos .fp-management-table th:last-child{width:17%}
+.admin-family-photos .fp-management-table td{vertical-align:top;overflow-wrap:anywhere}
+.admin-family-photos .fp-group-actions{display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.admin-family-photos .fp-group-actions button{white-space:normal;text-align:left}
+
+.admin-family-photos [data-fp-managed-group][hidden]{display:none!important}

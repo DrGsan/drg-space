@@ -1,0 +1,34 @@
+import {expect,chromium} from '@playwright/test';
+import {spawn} from 'node:child_process';
+import {mkdtemp,rm,mkdir,writeFile} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {createHmac} from 'node:crypto';
+
+function totp(secret){let bits='';for(const c of secret)bits+='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'.indexOf(c).toString(2).padStart(5,'0');const bytes=[];for(let i=0;i+8<=bits.length;i+=8)bytes.push(parseInt(bits.slice(i,i+8),2));const counter=Buffer.alloc(8);counter.writeBigUInt64BE(BigInt(Math.floor(Date.now()/30000)));const hash=createHmac('sha1',Buffer.from(bytes)).update(counter).digest(),offset=hash[19]&15;return String((hash.readUInt32BE(offset)&0x7fffffff)%1000000).padStart(6,'0');}
+const origin='http://127.0.0.1:8036',directory=await mkdtemp(tmpdir()+'/drg-static-cache-');
+const server=spawn(process.env.DRG_PYTHON||'.venv/bin/python',['-m','gunicorn','--no-control-socket','--config','gunicorn.conf.py','--bind','127.0.0.1:8036','tests.browser_app:app'],{env:{...process.env,DATA_DIR:directory,DATABASE_URL:'',REDIS_URL:'',FILE_STORAGE:'local',DATA_ENCRYPTION_ENABLED:'true',DATA_ENCRYPTION_KEY:'dGVzdC1vbmx5LWVuY3J5cHRpb24ta2V5LTMyLWJ5dGU=',APP_SECRET:'isolated-static-cache-test-secret-'.repeat(3),SETUP_TOKEN:'browser-test-setup-key',PUBLIC_URL:origin,CALL_STUN_URLS:'',CALL_TURN_URLS:''},stdio:['ignore','ignore','pipe']});
+let output='',browser;server.stderr.on('data',data=>output=(output+data).slice(-4000));
+try{
+ for(let i=0;i<100;i++){try{if((await fetch(origin+'/api/health')).ok)break;}catch{}if(server.exitCode!==null)throw Error(output);await new Promise(resolve=>setTimeout(resolve,100));}
+ browser=await chromium.launch({headless:true,channel:process.env.DRG_BROWSER_CHANNEL||undefined});const context=await browser.newContext({baseURL:origin,locale:'ru-RU',reducedMotion:'reduce'}),page=await context.newPage(),errors=[],scripts=[];
+ page.on('pageerror',e=>errors.push(e.message));page.on('response',r=>{if(new URL(r.url()).pathname.endsWith('.js'))scripts.push(new URL(r.url()).pathname)});
+ await page.goto('/');await expect(page.locator('input[type=password]').first()).toBeVisible();
+ const resources=()=>page.evaluate(()=>performance.getEntriesByType('resource').filter(e=>new URL(e.name).pathname.endsWith('.js')).map(e=>({path:new URL(e.name).pathname,transfer:e.transferSize,bytes:e.decodedBodySize})));
+ const cold=await resources();expect(cold.reduce((sum,e)=>sum+e.bytes,0)).toBeLessThan(3_000_000);expect(scripts.some(p=>/chunk-(?:blocks|data|mermaid)-/.test(p))).toBe(false);
+ await page.goto('about:blank');await page.goto('/');await expect(page.locator('input[type=password]').first()).toBeVisible();const warm=await resources();expect(warm.length).toBeGreaterThan(1);expect(warm.reduce((sum,e)=>sum+e.transfer,0)).toBeLessThan(1000);
+ let csrf='';const api=async(path,method='GET',data)=>{const r=await context.request.fetch('/api'+path,{method,data,headers:{Origin:origin,'X-CSRF-Token':csrf}});expect(r.ok(),path+' '+await r.text()).toBeTruthy();return r.json();};
+ csrf=(await api('/setup','POST',{login:'cacheowner',password:'Cache-test-password-123',token:'browser-test-setup-key'})).csrf;
+ const enrollment=await api('/2fa/enroll','POST',{password:'Cache-test-password-123'});await api('/2fa/confirm','POST',{code:totp(enrollment.secret)});csrf=(await api('/2fa/activate','POST',{saved_recovery_codes:true})).csrf;
+ await page.goto('/');await expect(page.locator('.workspace')).toBeVisible();expect(scripts.some(p=>/chunk-blocks-/.test(p))).toBe(false);
+ // Navigation away while the editor is still loading must not mount a stale view.
+ const slow=await browser.newContext({baseURL:origin,locale:'ru-RU',reducedMotion:'reduce',storageState:await context.storageState()});let release;const gate=new Promise(resolve=>release=resolve);
+ await slow.route('**/chunk-blocks-*.js',async route=>{await gate;await route.continue()});const slowPage=await slow.newPage();slowPage.on('pageerror',e=>errors.push(e.message));await slowPage.goto('/');await slowPage.locator('.sidebar [data-view=notes]').click();await expect(slowPage.locator('#notion-page')).toHaveAttribute('aria-busy','true');await slowPage.locator('#notes-main-menu').click();await expect(slowPage.locator('.workspace')).toHaveAttribute('data-current-view','home');release();await expect(slowPage.locator('.workspace')).toHaveAttribute('data-current-view','home');await slow.close();
+ const note=await api('/notes','POST',{title:'Cache and lazy editor',blocks:[{id:'paragraph',type:'paragraph',content:'Saved text'},{id:'diagram',type:'codeBlock',props:{language:'mermaid'},content:'flowchart LR\nA[Start] --> B[Done]'}]});
+ await page.goto('/page/'+note.id);await expect(page.locator('#page-title')).toHaveValue(note.title);await expect(page.locator('.note-mermaid-preview svg')).toBeVisible({timeout:30000});expect(scripts.some(p=>/chunk-blocks-/.test(p))).toBe(true);
+ await page.locator('[data-id=paragraph] .bn-inline-content').click();await page.keyboard.press('End');await page.keyboard.type(' edited');await expect.poll(async()=>(await api('/notes/'+note.id)).body).toContain('Saved text edited');
+ await page.locator('#change-icon').click();await expect(page.locator('.emoji-results .emoji-option').first()).toBeVisible();expect(scripts.some(p=>/chunk-data-/.test(p))).toBe(true);await page.locator('.modal-close').click();
+ await page.reload();await expect(page.locator('[data-id=paragraph] .bn-inline-content')).toHaveText('Saved text edited');expect(errors).toEqual([]);
+ const broken=await browser.newContext({baseURL:origin,locale:'ru-RU',reducedMotion:'reduce',storageState:await context.storageState()});await broken.route('**/chunk-blocks-*.js',route=>route.abort());const brokenPage=await broken.newPage();brokenPage.on('pageerror',e=>errors.push(e.message));await brokenPage.goto('/page/'+note.id);await expect(brokenPage.getByRole('alert')).toContainText('Не удалось загрузить редактор');await broken.unroute('**/chunk-blocks-*.js');await brokenPage.getByRole('button',{name:'Обновить страницу',exact:true}).click();await expect(brokenPage.locator('[data-id=paragraph] .bn-inline-content')).toHaveText('Saved text edited');await broken.close();expect(errors).toEqual([]);
+ await mkdir('artifacts/static-performance',{recursive:true});await writeFile('artifacts/static-performance/browser-cache.json',JSON.stringify({cold,warm,coldJsBytes:cold.reduce((s,e)=>s+e.bytes,0),warmJsTransfer:warm.reduce((s,e)=>s+e.transfer,0),editorOnDemand:true,emojiOnDemand:true,diagramOnDemand:true,navigationWhileLoading:true,missingChunkRecovery:true,saveAndReload:true,errors},null,2));
+ console.log('HTTP cache, lazy editor/emoji/diagram, navigation cancellation and save/reload passed.');
+}finally{await browser?.close();server.kill('SIGTERM');await new Promise(resolve=>server.exitCode!==null?resolve():server.once('exit',resolve));await rm(directory,{recursive:true,force:true});}

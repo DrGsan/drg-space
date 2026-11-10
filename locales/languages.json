@@ -1,0 +1,7 @@
+{
+  "defaultLanguage": "ru",
+  "languages": {
+    "ru": {"name": "Русский", "locale": "ru-RU", "direction": "ltr"},
+    "en": {"name": "English", "locale": "en-GB", "direction": "ltr"}
+  }
+}

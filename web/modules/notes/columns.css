@@ -1,0 +1,33 @@
+/* Keep the editor's real nested children; only their layout changes. */
+.bn-root .bn-block:has(>.node-columnList)>.bn-block-group{display:flex;gap:32px;margin:0;padding:0;border:0;width:100%;align-items:stretch}
+.bn-root .bn-block:has(>.node-columnList)>.bn-block-group>.bn-block-outer{flex:var(--column-width,1) 1 0;min-width:0;position:relative}
+.bn-root .bn-block:has(>.node-column)>.bn-block-group{margin:0;padding:0;border:0;min-height:28px}
+/* Layout wrappers aren't semantic indentation. BlockNote's previous-depth
+   correction otherwise pulls the first heading of a column into the gutter. */
+.bn-root .bn-block:has(>.node-column)>.bn-block-group>.bn-block-outer{margin-left:0;margin-inline-start:0}
+.bn-root [data-content-type=columnList],.bn-root [data-content-type=column]{min-height:0;height:0;padding:0!important;margin:0!important;overflow:visible;display:block}
+.note-columns-marker,.note-column-marker{height:0;position:relative;overflow:visible;width:100%}
+.bn-root .note-column-menu{position:absolute;right:0;top:-25px;z-index:3;min-height:24px;min-width:24px;padding:0 5px;border:0;border-radius:4px;background:var(--surface);color:var(--muted);font-size:18px;line-height:24px;opacity:0;pointer-events:none}
+.bn-root .note-columns-marker>.mantine-Menu-root{display:contents}
+.bn-root .note-columns-marker .note-column-menu{left:-26px;right:auto;top:0}
+.bn-root .bn-block:has(>.node-column):hover>.node-column .note-column-menu,.bn-root .bn-block:has(>.node-columnList):hover>.node-columnList .note-column-menu,.bn-root .note-column-menu:focus-visible,.bn-root .note-column-menu[aria-expanded=true]{opacity:1;pointer-events:auto}
+.bn-root .note-column-menu:hover{background:var(--hover)}
+.drg-column-drop-guide{position:fixed;width:3px;border-radius:2px;background:var(--accent,#4964f3);pointer-events:none;z-index:10000}
+.bn-root .note-column-resize{display:block;position:absolute;right:-21px;top:0;width:10px;height:28px;min-width:0;min-height:0;padding:0;border:0;border-radius:4px;background:transparent;color:var(--muted);cursor:col-resize;touch-action:none;opacity:0;z-index:2}
+.bn-root .note-column-resize::after{content:'';position:absolute;width:2px;top:0;bottom:0;left:4px;border-radius:2px;background:currentColor}
+.bn-root .bn-block-outer:has(>[data-node-type=blockContainer]>.node-column):hover .note-column-resize,.bn-root .note-column-resize:focus-visible{opacity:1}
+.bn-root .bn-block:has(>.node-columnList)>.bn-block-group>.bn-block-outer:last-child .note-column-resize{display:none}
+.bn-root .bn-editor[contenteditable=false] .note-column-resize{display:none}
+.bn-root .bn-editor[contenteditable=false] .note-column-menu,
+.bn-root:has(>.bn-editor[contenteditable=false]) .note-column-dropdown{display:none}
+@media(max-width:640px){
+ .bn-root .bn-block:has(>.node-columnList)>.bn-block-group{display:block}
+ .bn-root .bn-block:has(>.node-columnList)>.bn-block-group>.bn-block-outer+.bn-block-outer{margin-top:12px}
+ .bn-root .note-column-resize{display:none}
+ .bn-root .bn-block:has(>.node-column):focus-within>.node-column .note-column-menu{opacity:1;pointer-events:auto}
+}
+
+.bn-root .node-columnList,.bn-root .node-column{height:0;min-height:0;margin:0;padding:0;overflow:visible}
+/* Empty insertion targets belong after leaf blocks, not before a layout's children. */
+.bn-root .bn-block:has(>.node-columnList)>.bn-trailing-block,
+.bn-root .bn-block:has(>.node-column)>.bn-trailing-block{display:none}

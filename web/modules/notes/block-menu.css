@@ -1,0 +1,77 @@
+.bn-root .drg-block-menu {
+  width: 280px;
+  max-width: calc(100vw - 24px);
+  max-height: min(640px, calc(100dvh - 24px));
+  padding: 5px;
+  overflow: visible;
+  border-radius: 10px;
+  box-shadow: 0 4px 20px #0002;
+}
+.bn-root .drg-block-menu-search {
+  padding: 4px;
+}
+.bn-root .drg-block-menu-search input {
+  width: 100%;
+  min-height: 34px;
+  margin: 0;
+  padding: 6px 9px;
+  border: 1px solid var(--bn-colors-border);
+  border-radius: 5px;
+  background: var(--bn-colors-menu-background);
+  color: var(--bn-colors-menu-text);
+  font: inherit;
+  font-size: 13px;
+}
+.bn-root .drg-block-menu-search input:focus {
+  outline: 2px solid var(--blue, #4263eb);
+  outline-offset: -1px;
+}
+.bn-root .drg-block-menu .drg-block-menu-item,
+.bn-root .drg-block-submenu .drg-block-menu-item {
+  min-height: 33px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.bn-root .drg-block-submenu {
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  border-radius: 8px;
+}
+.bn-root :is(.drg-block-menu,.drg-block-submenu) .mantine-Menu-itemLabel {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.bn-root .drg-block-menu-danger {
+  color: var(--bn-colors-highlights-red-text, #b42318);
+}
+.bn-root .drg-block-menu-meta,
+.bn-root .drg-block-menu-empty {
+  margin: 0;
+  padding: 7px 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted, #737b88);
+}
+.bn-root .drg-block-type-icon {
+  display: inline-flex;
+  min-width: 20px;
+  justify-content: center;
+  font-size: 12px;
+}
+.bn-root .drg-block-color {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--bn-colors-border);
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+}

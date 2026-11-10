@@ -1,0 +1,14 @@
+.space-deletion-screen{display:grid;place-items:center;min-height:60vh;padding:clamp(20px,5vw,70px);text-align:center;width:100%;box-sizing:border-box}.space-deletion-screen>div{max-width:660px}.space-deletion-screen h2{overflow-wrap:anywhere}.space-deletion-screen p{line-height:1.65}.space-deletion-icon{font-size:64px;color:var(--muted)}.space-deletion-screen .text-link{display:block;margin:18px auto}.space-audit-scroll{overflow:auto}.space-audit-table{border-collapse:collapse;width:100%;font-size:13px}.space-audit-table th,.space-audit-table td{padding:12px 10px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}.space-audit-table td:last-child{overflow-wrap:anywhere;min-width:0}.space-invite-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}[data-new-link]{margin:16px 0}[data-new-link] input{width:100%;box-sizing:border-box}
+
+/* Inline status in a workspace card uses the card's existing heading. */
+.space-deletion-screen.is-compact{display:block;min-height:0;padding:0;text-align:left}
+.space-deletion-screen.is-compact>div{display:grid;grid-template-columns:28px minmax(0,1fr);column-gap:12px;max-width:none}
+.space-deletion-screen.is-compact>div>:not(.space-deletion-icon){grid-column:2;min-width:0}
+.space-deletion-screen.is-compact .space-deletion-icon{grid-column:1;grid-row:1 / 6;align-self:start;font-size:28px;line-height:1}
+.space-deletion-screen.is-compact h3{margin:0;font-size:15px;line-height:1.4}
+.space-deletion-screen.is-compact p{margin:6px 0 0;font-size:13px;line-height:1.45}
+.space-deletion-screen.is-compact [data-restore-space]{justify-self:start;margin:12px 0 0;max-width:100%}
+.space-deletion-screen.is-compact [data-deletion-error]:empty{display:none}
+
+.space-audit-table th:last-child{width:40%}.space-audit-table :is(th,td){border-color:var(--line)}
+@media(max-width:700px){.space-audit-table tbody td:last-child{grid-column:1/-1}}

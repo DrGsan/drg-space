@@ -1,0 +1,25 @@
+.workspace>.content>.topbar[hidden]{display:none}
+.workspace #view-content>.section-heading{display:flex;align-items:center;flex-wrap:nowrap;gap:16px;width:100%;max-width:none;min-height:64px;margin:0 0 12px;padding:8px 0}
+.workspace #view-content>.section-heading>.section-heading-copy{position:relative;flex:1;min-width:0}
+.workspace #view-content>.section-heading .section-heading-copy h1{margin:0;font-size:24px;line-height:1.2;font-weight:700;letter-spacing:-.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.workspace #view-content>.section-heading .section-heading-copy>p{position:absolute;top:100%;left:0;width:100%;margin:4px 0 0;font-size:11px;line-height:1.3;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.workspace #view-content>.section-heading>.section-heading-actions{display:flex;align-items:center;flex:none;gap:8px;margin:0}
+.workspace #view-content>.section-heading>.section-heading-actions:empty{display:none}
+.workspace #view-content .section-heading-actions .dashboard-tools{display:flex;align-items:center;gap:8px;margin:0}
+.workspace #view-content .section-heading-actions button{flex-shrink:0;min-height:34px;font-size:12px;border-radius:9px}
+.workspace #view-content>.section-heading>.inbox-button{flex:none}
+.workspace #view-content .section-heading-actions #refresh-social{margin-left:0}
+@media(max-width:760px){
+ .workspace #view-content>.section-heading{gap:8px}
+ .workspace #view-content>.section-heading .section-heading-copy h1{font-size:20px}
+ html:not(.app-standalone) .workspace #view-content .section-heading-actions button[data-section-icon]{width:34px;height:34px;min-height:34px;padding:4px;font-size:0}
+ html:not(.app-standalone) .workspace #view-content .section-heading-actions button[data-section-icon]::before{content:attr(data-section-icon);font-size:22px;line-height:1}
+ .workspace #view-content .section-heading-actions .dashboard-tools [data-layout-status]{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+ html.app-standalone .workspace #view-content>.section-heading{display:none;min-height:0;margin:0 0 12px;padding:0}
+ html.app-standalone .workspace:not(.notes-open):not(.tasks-open):not(.chat-open):not(.files-open) #view-content>.section-heading.has-section-actions{display:flex}
+ html.app-standalone .workspace #view-content>.section-heading>.section-heading-copy{display:none}
+ html.app-standalone .workspace #view-content>.section-heading>.section-heading-actions{justify-content:flex-end;flex:1;min-width:0;flex-wrap:wrap}
+ html.app-standalone .workspace #view-content .section-heading-actions [data-back],html.app-standalone .workspace #view-content .section-heading-actions [data-back-settings]{display:none}
+ html.app-standalone .workspace #view-content .section-heading-actions button{min-height:44px}
+ html.app-standalone .workspace #customize-dashboard{width:44px;height:44px}
+}

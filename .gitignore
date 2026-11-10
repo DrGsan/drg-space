@@ -1,0 +1,42 @@
+.env
+.env.*
+!.env.example
+.cloudflare-tunnel.token
+.venv
+node_modules
+__pycache__/
+.pytest_cache/
+data/
+app/static/
+*.sqlite3*
+.DS_Store
+artifacts/
+test-results/
+playwright-report/
+
+# Local IDE preferences and the existing private repository access token.
+.idea/
+/gitea_codex-token.txt
+
+# Private operational instructions and signing material never enter this repository.
+AGENTS.md
+.agents/
+.codex/
+private/
+*.pem
+*.key
+*.p12
+*.pfx
+*.mobileprovision
+
+# Excluded application sources and private operator material.
+ios/
+AGENTS.md
+.agents/
+.codex/
+private/
+*.pem
+*.key
+*.p12
+*.pfx
+*.mobileprovision

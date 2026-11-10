@@ -1,0 +1,55 @@
+.notes-shell .notion-page.is-database-page .page-canvas{max-width:1040px;padding:40px 40px 60px;min-width:0}
+.notes-shell .notion-page.is-database-page .page-decoration{min-height:0;margin:0;position:relative;height:0}
+.notes-shell .notion-page.is-database-page #change-cover{position:absolute;right:0;bottom:8px;opacity:0;background:var(--white)}
+.notes-shell .notion-page.is-database-page .page-canvas:hover #change-cover,.notes-shell .notion-page.is-database-page #change-cover:focus-visible{opacity:1}
+.database-page-heading{display:flex;align-items:center;gap:10px;min-width:0}
+.notes-shell .notion-page.is-database-page .database-page-heading .page-icon{width:34px;height:40px;font-size:30px;flex-shrink:0}
+.notes-shell .notion-page.is-database-page .database-page-heading .page-custom-icon{width:30px;height:30px}
+.notes-shell .notion-page.is-database-page .page-title-input{font-size:32px;min-height:44px;margin:0;min-width:0;width:100%;font-weight:700}
+.is-database-page .editor-help{display:none}
+.note-database{margin:8px 0 24px;min-width:0}
+.note-database .db-toolbar{align-items:center;flex-wrap:nowrap;border:0;padding:0 0 12px;gap:10px}
+.note-database .db-view-tabs{gap:4px;min-width:0}
+.note-database .db-view-tabs .tab{border:0;background:transparent;color:var(--muted);border-radius:20px;padding:6px 12px;font-size:13px;line-height:20px;box-shadow:none}
+.note-database .db-view-tabs .tab.active{background:var(--bg);color:var(--text)}
+.note-database .db-controls{flex-wrap:nowrap;align-items:center;gap:3px;flex-shrink:0;margin:0}
+.note-database .db-controls .icon-btn{width:28px;height:28px;font-size:18px;color:var(--muted)}
+.note-database .db-controls .db-filter-active{color:var(--blue)}
+.note-database .db-controls .primary{padding:5px 11px;min-height:29px;line-height:20px;font-size:13px;border-radius:6px;margin-left:4px}
+.note-database .db-open{font-weight:400;display:flex;gap:8px;align-items:center;color:var(--text);font-size:14px;min-width:0;text-decoration:none;line-height:1.6}
+.note-database .db-open:hover{color:var(--text)}
+.db-record-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;flex:0 0 18px;font-size:16px;line-height:20px}
+.db-record-icon .page-custom-icon{width:16px;height:16px;object-fit:contain}
+.db-list-row{display:flex;align-items:center;min-height:32px;gap:12px;padding:3px 7px;border-radius:4px;position:relative}
+.db-list-row:hover,.db-list-row:focus-within{background:var(--bg)}
+.db-list-row>.db-open{flex:1;overflow:hidden;text-align:left;min-width:0}
+.db-list-row>.db-open>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.db-list-properties{display:flex;gap:14px;align-items:center;justify-content:flex-end;flex-shrink:0;font-size:13px}
+.db-list-property{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.db-list-property.db-edited-time{font-variant-numeric:tabular-nums;max-width:none}
+.db-row-edit{position:absolute;right:-28px;opacity:0;width:26px;height:26px}
+.db-list-row:hover .db-row-edit,.db-row-edit:focus-visible{opacity:1}
+.db-tag{display:inline-block;background:var(--blue-light);color:var(--text);font-weight:400;line-height:18px;font-size:12px;padding:0 5px;border-radius:3px;white-space:nowrap}
+.db-tag-1{background:color-mix(in srgb,#b69265 18%,var(--white))}.db-tag-2{background:color-mix(in srgb,#878681 16%,var(--white))}.db-tag-3{background:color-mix(in srgb,#cb8c74 20%,var(--white))}.db-tag-4{background:color-mix(in srgb,#bcb83f 20%,var(--white))}
+.note-database .db-gallery{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:6px 0}
+.note-database .db-card{position:relative;padding:0;margin:0;border:1px solid color-mix(in srgb,var(--text) 12%,var(--white));border-radius:9px;overflow:hidden;box-shadow:0 2px 8px #00000004;min-width:0}
+.note-database .db-card:hover{background:var(--bg)}
+.db-card-preview{display:block;border:0;border-bottom:1px solid var(--line);background:var(--white);width:100%;padding:0;height:148px;cursor:pointer}
+.db-card-preview img{width:100%;height:100%;object-fit:contain;display:block}
+.db-card-body{padding:10px 11px 12px;position:relative}
+.note-database .db-card .db-open{align-items:flex-start;line-height:22px;padding-right:3px}
+.note-database .db-card-property{display:block;font-size:12px;color:var(--text);margin-top:7px}
+.note-database .db-card .db-edit{position:absolute;top:3px;right:3px;opacity:0;background:var(--white);border:1px solid var(--line);border-radius:5px;width:26px;height:24px;margin:0}
+.db-card:hover .db-edit,.db-card .db-edit:focus-visible{opacity:1}
+.note-database .db-column .db-card{margin-bottom:10px}
+.db-new-page{display:block;background:none;border:0;border-radius:4px;color:var(--muted);font-size:14px;padding:6px 8px;margin-top:4px;cursor:pointer;text-align:left}
+.db-new-page:hover{background:var(--bg);color:var(--text)}
+.note-database .db-search{margin:0 0 10px;padding:6px 10px;width:100%;min-height:32px;font-size:13px}
+.note-database .db-table-wrap{border-radius:0;border:0;border-top:1px solid var(--line);max-width:100%;direction:ltr}
+.note-database .db-table th,.note-database .db-table td{padding:8px 10px}
+.note-database .db-table th{background:transparent;font-size:12px;color:var(--muted);font-weight:400}
+.note-database .db-table th .muted{display:none}
+.note-database .db-table td:first-child{min-width:220px}
+@media(max-width:850px){.note-database .db-gallery{grid-template-columns:repeat(2,minmax(0,1fr))}.db-list-property:not(.db-edited-time){max-width:100px}}
+@media(max-width:600px){.notes-shell .notion-page.is-database-page .page-canvas{padding:24px 20px 40px}.note-database .db-gallery{grid-template-columns:minmax(0,1fr)}.note-database .db-toolbar{display:flex;flex-wrap:wrap}.db-list-row{flex-wrap:wrap;gap:0 8px;padding:6px;min-height:38px}.db-list-row>.db-open{flex-basis:100%}.db-list-properties{padding-left:26px;gap:10px;font-size:11px;min-height:20px}.db-list-property.db-edited-time{color:var(--muted)}.db-row-edit{right:0;top:4px}.db-list-row>.db-open{padding-right:18px}.note-database .db-controls .icon-btn{width:26px}.note-database .db-controls{margin-left:auto}}
+.note-database .db-gallery .db-card{padding:0;border-top:1px solid color-mix(in srgb,var(--text) 12%,var(--white))}

@@ -1,0 +1,174 @@
+name: Checks
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['docs/**', '**/*.md']
+  pull_request:
+    paths-ignore: ['docs/**', '**/*.md']
+  workflow_dispatch:
+    inputs:
+      extended:
+        description: 'Run all database/encryption modes, ARM64 and Docker persistence'
+        type: boolean
+        default: false
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  # These Actions run on Node 24 internally; setup-node selects Node 26 for the
+  # frontend build and tests. GitHub-hosted runners meet their 2.327.1 minimum.
+  arm64-sqlite:
+    if: github.event_name == 'workflow_dispatch' && inputs.extended
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Check distributable repository contents
+        run: python3 scripts/check-public-content.py
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.14.8"
+      - run: python -m venv .venv
+      - run: .venv/bin/python -m pip install --upgrade pip==26.2.1
+      - run: .venv/bin/pip install -r requirements.lock.txt
+      - run: .venv/bin/python -m pytest -q --durations=20 tests/test_storage_encryption.py tests/test_admin.py tests/test_personal_data.py tests/test_next_features.py
+  test:
+    # Opt in after the account's free minutes are available. Missing/false
+    # keeps push/PR events from starting billable runners; manual runs remain.
+    if: github.event_name == 'workflow_dispatch' || vars.DRG_CI_AUTOMATIC_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Enabled automatic runs retain the full production-style backend and
+        # browser checks. Other modes remain available through Run workflow.
+        include: ${{ fromJSON(inputs.extended && '[{"engine":"postgres","encryption":"true"},{"engine":"postgres","encryption":"false"},{"engine":"sqlite","encryption":"true"},{"engine":"sqlite","encryption":"false"}]' || '[{"engine":"postgres","encryption":"true"}]') }}
+    services:
+      postgres:
+        image: postgres:18.6-alpine
+        env:
+          POSTGRES_USER: drg_test
+          POSTGRES_DB: drg_test
+          POSTGRES_PASSWORD: disposable-ci-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U drg_test -d drg_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DRG_TEST_DATABASE_URL: ${{ matrix.engine == 'postgres' && 'postgresql://drg_test:disposable-ci-password@127.0.0.1:5432/drg_test' || '' }}
+      DRG_STORAGE_TEST_POSTGRES_URL: postgresql://drg_test:disposable-ci-password@127.0.0.1:5432/drg_test
+      DRG_TEST_ENCRYPTION_ENABLED: ${{ matrix.encryption }}
+      # The chat fixture is H.264 MP4; Chrome includes this proprietary codec,
+      # while Playwright's Linux Chromium build does not.
+      DRG_BROWSER_CHANNEL: chrome
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Check distributable repository contents
+        run: python3 scripts/check-public-content.py
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.14.8"
+      - uses: actions/setup-node@v7.1.0
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+        with:
+          node-version: "26.11.1"
+          cache: npm
+      - run: npm install --global npm@12.2.0
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - run: python -m venv .venv
+      - run: .venv/bin/python -m pip install --upgrade pip==26.2.1
+      - run: .venv/bin/pip install -r requirements.lock.txt
+      - run: npm ci
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - run: npm run build
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - run: node --test tests/*.test.mjs
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - run: .venv/bin/python -m pytest -q --durations=20 --basetemp="${{ runner.temp }}/drg-pytest"
+      - name: Install Chrome for browser tests
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          for attempt in 1 2 3; do
+            if npx playwright install --with-deps chrome; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::Chrome installation failed after 3 attempts."
+              exit 1
+            fi
+            echo "::warning::Chrome installation attempt $attempt failed; retrying."
+            sleep "$((attempt * 10))"
+          done
+      - run: npx playwright test
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - run: node tests/browser/telegram-messaging.mjs
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - run: node tests/browser/people-groups.mjs
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - run: node tests/browser/people-names.mjs
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - run: node tests/browser/deletion-grace.mjs
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - run: node tests/browser/admin-account-table.mjs
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - run: node tests/browser/site-roles.mjs
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - run: node tests/browser/compact-catalogs.mjs
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - run: node tests/browser/secret-vault.mjs
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - run: node tests/browser/static-cache.mjs
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - run: node tests/browser/notion-import.mjs
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - run: node tests/browser/workspace-error.mjs
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - run: node tests/browser/workspace-loading.mjs
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - run: node tests/browser/bottom-tabs.mjs
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: test-artifacts-${{ matrix.engine }}-${{ matrix.encryption }}
+          retention-days: 7
+          path: |
+            artifacts/
+            test-results/
+            ${{ runner.temp }}/drg-pytest/**/gunicorn-test.log
+  docker-persistence:
+    if: github.event_name == 'workflow_dispatch' && inputs.extended
+    # One disposable PostgreSQL deployment checks the built image, restarts and
+    # encrypted restore. This doesn't connect to the live deployment or S3.
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      DRG_DOCKER_TEST_POSTGRES: 'true'
+      DRG_DOCKER_TEST_IMAGE: drg-site-ci-image
+      DRG_TEST_ARTIFACT_DIR: artifacts/docker
+      GUNICORN_WORKERS: '3'
+      GUNICORN_THREADS: '32'
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Check distributable repository contents
+        run: python3 scripts/check-public-content.py
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.14.8"
+      - run: python -m venv .venv
+      - run: .venv/bin/python -m pip install --upgrade pip==26.2.1
+      - run: .venv/bin/pip install -r requirements.lock.txt
+      - run: docker build --tag "$DRG_DOCKER_TEST_IMAGE" .
+      - run: .venv/bin/python tests/docker_social_smoke.py
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: docker-persistence-logs
+          retention-days: 7
+          path: artifacts/docker/

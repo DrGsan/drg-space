@@ -1,0 +1,7 @@
+.auth-card .passkey-login{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:46px;margin-top:12px;border-radius:12px;font-size:14px}
+.auth-card [data-passkey-login-status]{font-size:12px;line-height:1.5;margin:10px 0 0;color:var(--muted)}
+.auth-card .passkey-login[hidden]{display:none}
+.passkey-row{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line)}
+.passkey-row>div{flex:1;display:grid;gap:5px;min-width:0}.passkey-row strong{overflow-wrap:anywhere;font-size:14px}.passkey-row small{font-size:11px;color:var(--muted);overflow-wrap:anywhere}.passkey-row button{min-height:40px;flex-shrink:0;font-size:12px}
+[data-passkey-add]{margin-top:16px}
+@media(max-width:600px){.passkey-row{flex-wrap:wrap;gap:4px 14px}.passkey-row>div{flex-basis:100%}.passkey-row button{min-height:44px}.auth-card .passkey-login{min-height:50px}}

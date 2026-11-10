@@ -1,0 +1,28 @@
+/* Indentation indicates nesting. Actual quotes keep their own border. This
+   also fixes existing notes without rewriting their contents or structure. */
+.bn-root .bn-editor .bn-block-group .bn-block .bn-block-group
+  .bn-block-outer:not([data-prev-depth-changed])::before {
+  border-left: 0;
+}
+
+.bn-mantine .bn-side-menu{height:28px;align-items:center;gap:0}
+.bn-root .bn-side-menu .bn-button{width:24px;height:24px;min-width:24px;min-height:24px;padding:2px;border-radius:4px;color:var(--muted);flex:none}
+.bn-root .bn-side-menu .bn-button svg{display:block;width:18px;height:18px;color:inherit}
+.drg-toggle-drop-target{position:fixed;z-index:1100;pointer-events:none;border:1px dashed var(--blue);background:color-mix(in srgb,var(--blue) 8%,transparent);border-radius:5px}
+
+/* One default document typography for created and imported pages. */
+.bn-root [data-content-type="heading"]{--level:1.875em}
+.bn-root [data-content-type="heading"][data-level="2"]{--level:1.5em}
+.bn-root [data-content-type="heading"][data-level="3"]{--level:1.25em}
+.bn-root [data-prev-level="1"]{--prev-level:1.875em}
+.bn-root [data-prev-level="2"]{--prev-level:1.5em}
+.bn-root [data-prev-level="3"]{--prev-level:1.25em}
+.bn-root .bn-block-outer .bn-block>.bn-block-content[data-content-type="heading"]{font-weight:600}
+
+.bn-root .bn-editor .bn-block-content[data-content-type="heading"]>h1,
+.bn-root .bn-editor .bn-block-content[data-content-type="heading"]>h2,
+.bn-root .bn-editor .bn-block-content[data-content-type="heading"]>h3{font-size:inherit!important;line-height:1.3;font-weight:600;margin:0}
+.bn-root .bn-editor .bn-block-content>p{font-size:inherit;line-height:inherit}
+
+/* Quote content follows the saved block color instead of a hard-coded gray. */
+.bn-root .bn-editor [data-content-type="quote"] blockquote {color:inherit;border-left-color:currentColor}

@@ -1,0 +1,191 @@
+.notes-shell .page-top-actions .icon-btn svg,
+.notes-shell .notes-main-menu svg,
+.note-menu-row > svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
+.notes-shell .page-top-actions #favorite-page[aria-pressed="true"] {
+  color: #b58429;
+}
+.notes-shell .notion-page .page-top-actions #share-page {
+  font-size: 12px;
+  font-weight: 400;
+  padding: 4px 8px;
+  box-shadow: none;
+}
+.notes-shell .notion-page .page-top-actions .icon-btn:hover,
+.notes-shell .notion-page .page-top-actions #share-page:hover,
+.notes-shell .notion-page .page-top-actions .icon-btn[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+.note-page-menu {
+  position: fixed;
+  z-index: 80;
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  box-shadow: 0 5px 20px #0002, 0 1px 3px #0001;
+  background: var(--white);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.note-menu-search {
+  flex-shrink: 0;
+  padding: 5px;
+}
+.note-menu-search input {
+  width: 100%;
+  min-height: 32px;
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 5px;
+  font-size: 13px;
+  background: var(--bg);
+}
+.note-menu-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.note-menu-section {
+  padding: 5px 0;
+}
+.note-menu-section + .note-menu-section,
+.note-menu-footer {
+  border-top: 1px solid var(--line);
+}
+.note-page-menu button {
+  color: var(--text);
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+  border-radius: 5px;
+  font: inherit;
+  text-align: left;
+}
+.note-page-menu button:hover,
+.note-page-menu button:focus-visible {
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+}
+.note-page-menu .note-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 32px;
+  padding: 5px 8px;
+}
+.note-menu-row > span:first-of-type {
+  flex: 1;
+}
+.note-page-menu .note-menu-row.danger {
+  color: var(--danger, #b93838);
+}
+.note-menu-fonts,
+.note-editor-modes {
+  display: flex;
+  gap: 3px;
+}
+.note-menu-fonts > button {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 7px 2px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.note-menu-fonts > button[aria-pressed="true"],
+.note-editor-modes > button[aria-pressed="true"] {
+  color: var(--blue);
+  background: var(--blue-light);
+}
+.note-font-sample {
+  font-size: 26px;
+  line-height: 1.1;
+}
+.note-font-serif { font-family: Georgia, 'Times New Roman', serif; }
+.note-font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.note-menu-label {
+  display: block;
+  padding: 3px 8px 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.note-editor-modes > button {
+  flex: 1;
+  padding: 6px 8px;
+  text-align: center;
+}
+.note-menu-switch {
+  position: relative;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 16px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--muted) 30%, var(--white));
+}
+.note-menu-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+}
+.note-menu-row[aria-checked="true"] .note-menu-switch {
+  background: var(--blue);
+}
+.note-menu-row[aria-checked="true"] .note-menu-switch::after {
+  left: 14px;
+}
+.note-menu-footer {
+  display: grid;
+  gap: 5px;
+  padding: 9px 8px 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.note-menu-footer > span:last-child {
+  font-size: 10px;
+}
+.note-menu-empty { padding: 8px; }
+.move-blocks-targets {
+  max-height: min(420px, 55dvh);
+  overflow-y: auto;
+}
+.notes-shell .note-linked-block {
+  background: color-mix(in srgb, var(--blue) 12%, transparent);
+  border-radius: 4px;
+  transition: background .3s;
+}
+.notes-shell .notion-page[data-page-font="serif"] .page-canvas {
+  --note-page-font: Georgia, 'Times New Roman', serif;
+}
+.notes-shell .notion-page[data-page-font="mono"] .page-canvas {
+  --note-page-font: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.notes-shell .notion-page[data-page-font="serif"] .bn-editor,
+.notes-shell .notion-page[data-page-font="mono"] .bn-editor,
+.notes-shell .notion-page[data-page-font="serif"] .page-title-input,
+.notes-shell .notion-page[data-page-font="mono"] .page-title-input {
+  --bn-font-family: var(--note-page-font);
+  font-family: var(--note-page-font);
+}
+.notes-shell .notion-page.page-small-text .bn-editor {
+  font-size: 13px;
+}
+.notes-shell .notion-page.page-small-text .page-title-input {
+  font-size: clamp(25px, 2.5vw, 32px);
+}
+.note-page-menu [hidden] { display: none !important; }

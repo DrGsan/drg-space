@@ -1,0 +1,33 @@
+.chat-shell .chat-message.has-visual-media{width:420px;max-width:min(78%,440px);padding:0;overflow:visible}
+.chat-shell .has-visual-media>.chat-message-meta{padding:9px 10px 5px;margin:0}
+.chat-shell .has-visual-media>.chat-reply-quote{margin:0 8px 6px;max-width:calc(100% - 16px)}
+.chat-shell .has-visual-media>.chat-message-text{padding:8px 10px 2px}
+.chat-shell .has-visual-media>.chat-message-footer{padding:2px 9px 5px;margin:0}
+.chat-shell .has-visual-media.media-only>.chat-message-footer{position:absolute;bottom:6px;right:6px;min-height:0;padding:2px 6px;border-radius:12px;color:#fff;background:#0008;pointer-events:none}
+.chat-shell .has-visual-media>.chat-attachments:not(:empty){padding:7px 10px}
+.chat-media-album{width:min(420px,100%);min-width:0;display:flex;flex-direction:column;gap:3px;border-radius:inherit;overflow:hidden}
+.chat-media-row{display:flex;gap:3px;aspect-ratio:2;min-width:0;overflow:hidden}
+.chat-shell .chat-media-tile,.chat-media-tile{position:relative;display:block;flex:1;min-width:0;width:0;height:auto;min-height:0;overflow:hidden;border:0;border-radius:0;padding:0;margin:0;background:var(--bg);color:var(--text);cursor:pointer}
+.chat-media-tile>img,.chat-media-tile>video{display:block;width:100%;height:100%;max-width:none;max-height:none;object-fit:cover;pointer-events:none}
+.chat-media-tile.has-video-poster{background-position:center;background-repeat:no-repeat;background-size:cover}
+.chat-media-tile.has-video-poster>video{visibility:hidden}
+.chat-media-album.is-single .chat-media-tile.has-video-poster{background-size:contain}
+.chat-media-album.is-single .chat-media-tile>img,.chat-media-album.is-single .chat-media-tile>video{object-fit:contain}
+.chat-shell .chat-message.has-visual-media{flex-shrink:0;box-sizing:border-box;min-width:144px}
+.chat-media-album.is-single .chat-media-row{min-height:0;max-height:420px}
+.chat-shell .chat-drafts video{display:block;flex-shrink:0;width:42px;height:42px;object-fit:cover;border-radius:5px}
+.chat-media-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);display:grid;place-items:center;width:42px;height:42px;padding-left:3px;border-radius:50%;background:#0009;color:#fff;font-size:19px;line-height:1;pointer-events:none}
+.chat-media-wait{display:grid;place-items:center;min-height:100px;padding:14px;font-size:12px}
+.chat-media-anchor{display:block;height:0;overflow:hidden}
+@media(max-width:760px){
+  .chat-shell .chat-message.has-visual-media,
+  .chat-shell .chat-message.has-visual-media.mine,
+  .chat-shell .chat-message.has-visual-media.is-direct-message{max-width:min(74%,calc(100% - 80px),420px);min-width:0;padding:0}
+  .chat-media-play{width:36px;height:36px;font-size:16px}
+}
+
+.chat-shell .chat-media-tile.is-unavailable,.chat-media-tile.is-unavailable{background:#000;color:#fff}.chat-media-tile.is-unavailable>.chat-media-wait{padding:12px;line-height:1.45}
+
+.chat-media-album.is-portrait-stack{max-height:min(440px,65dvh);display:grid;grid-template-columns:3fr 1fr;grid-auto-rows:minmax(0,1fr)}.chat-media-album.is-portrait-stack .chat-media-row{display:contents}.chat-media-album.is-portrait-stack .chat-media-tile{width:100%;height:100%}.chat-media-album.is-portrait-stack .chat-media-row:first-child>.chat-media-tile:first-child{grid-column:1;grid-row:1 / span 3}.chat-media-album.is-portrait-stack:has(.chat-media-tile:nth-child(3)):not(:has(.chat-media-row:nth-child(2))) {grid-template-columns:2fr 1fr}.chat-media-album.is-portrait-stack:not(:has(.chat-media-row:nth-child(2))) .chat-media-tile:first-child{grid-row:1 / span 2}
+
+.chat-media-frame{position:relative;width:100%;border-radius:inherit;overflow:hidden}.chat-shell .chat-media-frame>.chat-message-footer{position:absolute;right:6px;bottom:6px;display:flex;align-items:center;gap:4px;min-height:0;margin:0;padding:2px 6px;border-radius:9px;background:#0009;color:#fff;line-height:16px;pointer-events:none;white-space:nowrap}.chat-shell .has-visual-media>.chat-reactions{padding:5px 0 0}.chat-shell .media-only{background:transparent;box-shadow:none}.chat-shell .media-only .chat-message-meta{padding-inline:9px}

@@ -1,0 +1,26 @@
+
+:root[data-theme="ocean"] { --bg:#f5f6fa; --white:#ffffff; --text:#252b36; --muted:#737c8e; --line:#e4e9f2; --blue:#4667e8; --blue-light:#eef1ff; }
+:root[data-theme="sage"] { --bg:#f3f7f4; --white:#ffffff; --text:#24362c; --muted:#687d70; --line:#dfe9e2; --blue:#398968; --blue-light:#eaf4ee; }
+:root[data-theme="amber"] { --bg:#faf7f0; --white:#fffdfa; --text:#3e3323; --muted:#88795e; --line:#eee4d3; --blue:#a57228; --blue-light:#f7eddb; }
+:root[data-theme="lilac"] { --bg:#f7f4fa; --white:#ffffff; --text:#352b42; --muted:#84748f; --line:#e9e1f0; --blue:#8b5fba; --blue-light:#f1eafa; }
+:root[data-theme="rose"] { --bg:#fcf5f7; --white:#ffffff; --text:#402c34; --muted:#917581; --line:#eedee5; --blue:#b64a79; --blue-light:#fbe9f0; }
+:root[data-theme="slate"] { --bg:#f1f5f7; --white:#ffffff; --text:#273641; --muted:#6c8190; --line:#dce6ed; --blue:#4e697e; --blue-light:#e7eff4; }
+:root[data-scheme="dark"] { --bg:#121925; --white:#1d2736; --text:#e3eaf5; --muted:#adbbd0; --line:#34435a; --blue:#91a9ff; --blue-light:#293951; }
+:root[data-theme="sage"][data-scheme="dark"] { --bg:#101d17; --white:#1b2c23; --text:#e1eee5; --muted:#a6c1b0; --line:#344e40; --blue:#88cfaa; --blue-light:#294836; }
+:root[data-theme="amber"][data-scheme="dark"] { --bg:#211a12; --white:#30271c; --text:#f0e5d1; --muted:#c5b699; --line:#554633; --blue:#e8ba70; --blue-light:#493a24; }
+:root[data-theme="lilac"][data-scheme="dark"] { --bg:#1b1425; --white:#2a2137; --text:#ece2f6; --muted:#c0acca; --line:#493954; --blue:#c6a1ef; --blue-light:#41304f; }
+:root[data-theme="rose"][data-scheme="dark"] { --bg:#23151c; --white:#34232c; --text:#f4e0e9; --muted:#d0afbf; --line:#573848; --blue:#f09fc1; --blue-light:#4c2d3f; }
+:root[data-theme="slate"][data-scheme="dark"] { --bg:#131c22; --white:#202e38; --text:#e0eaf0; --muted:#afc2cd; --line:#3a4d59; --blue:#9dc2dc; --blue-light:#2e4657; }
+.weather-panel { background:linear-gradient(130deg,var(--blue-light),var(--white)); }
+.weather-panel,.weather-details { border-color:var(--line); }
+.weather-panel .eyebrow,.weather-details,.weather-source { color:var(--muted); }
+:root[data-scheme="dark"] .primary { color:var(--bg); }
+:root[data-scheme="dark"] .security-badge,:root[data-scheme="dark"] .security-status > span { background:var(--blue-light); color:var(--blue); }
+:root[data-scheme="dark"] .bn-container { --bn-colors-editor-background:var(--white); --bn-colors-editor-text:var(--text); --bn-colors-menu-background:var(--white); --bn-colors-menu-text:var(--text); --bn-colors-border:var(--line); }
+.bn-editor { background:var(--white); color:var(--text); }
+.bn-container .block-callout { background:var(--blue-light); color:var(--text); }
+.page-tree-row.selected,.template-card { background:var(--blue-light); color:var(--text); }
+
+:root[data-scheme="dark"] .calendar-day.selected { color:var(--bg); }
+.avatar { background:var(--blue-light); color:var(--blue); }
+input,textarea,select { border-color:var(--line); }

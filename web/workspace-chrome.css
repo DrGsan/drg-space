@@ -1,0 +1,101 @@
+:root {
+  --app-safe-top: env(safe-area-inset-top, 0px);
+  --app-safe-right: env(safe-area-inset-right, 0px);
+  --app-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --app-safe-left: env(safe-area-inset-left, 0px);
+  --app-height: calc(100dvh - var(--app-safe-top) - var(--app-safe-bottom));
+}
+/* Installed apps can extend behind the system status/title area. Keep the
+   content inside its safe bounds, including fixed and sticky navigation. */
+body {
+  padding: var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  height: var(--app-safe-top);
+  background: var(--bg);
+  z-index: 2000;
+  pointer-events: none;
+}
+/* Keep the installed app's root scroll view stationary. iOS otherwise applies
+   its system scroll-edge effect across the first row of the application. */
+html.app-standalone {position:fixed;inset:0;overflow:hidden;background:var(--mobile-canvas,var(--bg));overscroll-behavior:none}
+html.app-standalone body {position:fixed;inset:0;margin:0;padding:0;overflow:hidden;overscroll-behavior:none;background:var(--mobile-canvas,var(--bg))}
+html.app-standalone #app {position:absolute;inset:var(--app-safe-top) var(--app-safe-right) var(--app-safe-bottom) var(--app-safe-left);height:auto;overflow:auto;overscroll-behavior:contain;isolation:isolate}
+html.app-standalone .workspace > .sidebar {background:var(--white)}
+/* A real opaque sibling stays outside every scrolling surface. Unlike a
+   pseudo-element on the root scroll view it is stable through view changes. */
+#app-status-background {position:fixed;inset:0 0 auto;height:var(--app-safe-top);background:var(--bg);z-index:2000;pointer-events:none}
+html.app-standalone body::before {content:none}
+
+.workspace > .sidebar {
+  top: var(--app-safe-top);
+  bottom: var(--app-safe-bottom);
+  left: var(--app-safe-left);
+}
+body #notification-toasts {
+  top: calc(22px + var(--app-safe-top));
+  right: calc(22px + var(--app-safe-right));
+}
+@media (max-width: 650px) {
+  .workspace > .sidebar {
+    top: auto;
+    bottom: auto;
+    left: auto;
+  }
+}
+.workspace .inbox-button,
+.workspace #customize-dashboard {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 7px;
+  border-radius: 6px;
+  color: var(--muted);
+}
+.workspace .inbox-button:hover,
+.workspace .inbox-button:focus-visible,
+.workspace #customize-dashboard:hover,
+.workspace #customize-dashboard:focus-visible {
+  background: var(--blue-light);
+  color: var(--text);
+}
+.workspace .inbox-button svg {
+  flex-shrink: 0;
+}
+.workspace #customize-dashboard svg {
+  flex-shrink: 0;
+  stroke-width: 1.7;
+}
+.workspace .inbox-button .notification-count {
+  position: absolute;
+  right: -4px;
+  top: -2px;
+  min-width: 16px;
+  padding: 1px 4px;
+  font-size: 9px;
+  line-height: 14px;
+}
+/* Notes use their own page tree; the application rail returns on exit. */
+.workspace.notes-open {
+  display: block;
+  min-height: var(--app-height);
+}
+.workspace.notes-open > .content {
+  width: 100%;
+  max-width: 100%;
+  min-height: var(--app-height);
+  margin: 0;
+  padding: 0;
+  background: var(--white);
+}
+.workspace.notes-open #view-content,
+.workspace.notes-open .notes-shell .notes-workspace,
+.workspace.notes-open .notes-shell .notion-page {
+  min-height: var(--app-height);
+}

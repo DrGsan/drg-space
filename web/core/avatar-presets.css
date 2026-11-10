@@ -1,0 +1,8 @@
+.avatar-preset-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0 10px}
+.avatar-preset-tabs button[aria-pressed=true]{background:var(--blue-light);color:var(--blue);border-color:var(--blue)}
+.avatar-preset-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;max-width:390px;margin-bottom:18px}
+.avatar-preset-grid button{display:flex;align-items:center;flex-direction:column;gap:6px;padding:8px 4px;border:1px solid transparent;background:transparent;color:var(--text);border-radius:14px;min-width:0;font:inherit;font-size:12px;cursor:pointer}
+.avatar-preset-grid img{width:min(100%,80px);height:auto;aspect-ratio:1;object-fit:cover;border-radius:50%}
+.avatar-preset-grid button[aria-pressed=true]{border-color:var(--blue);background:var(--blue-light)}
+.avatar-preset-grid button:hover{border-color:var(--line)}
+.avatar-preset-grid button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}

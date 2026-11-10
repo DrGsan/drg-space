@@ -1,0 +1,128 @@
+{
+  "language": "en",
+  "documents": [
+    {
+      "path": "CHANGELOG.md",
+      "purpose": "User-facing release notes"
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "purpose": "Contributor guide"
+    },
+    {
+      "path": "INSTALL.md",
+      "purpose": "Installation guide"
+    },
+    {
+      "path": "README.md",
+      "purpose": "Project overview and developer entry point"
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "purpose": "Attribution and license reference"
+    },
+    {
+      "path": "app/geodata/README.md",
+      "purpose": "Attribution and license reference"
+    },
+    {
+      "path": "docs/README.md",
+      "purpose": "Documentation navigation"
+    },
+    {
+      "path": "docs/admin-backups.md",
+      "purpose": "Account administration, backup and restore"
+    },
+    {
+      "path": "docs/clients.md",
+      "purpose": "Browser and Web App compatibility"
+    },
+    {
+      "path": "docs/cloudflare-tunnel.md",
+      "purpose": "Cloudflare Tunnel deployment"
+    },
+    {
+      "path": "docs/data-retention.md",
+      "purpose": "Retention deadlines and cleanup"
+    },
+    {
+      "path": "docs/data-storage.md",
+      "purpose": "Storage backends and encryption"
+    },
+    {
+      "path": "docs/family-photos.md",
+      "purpose": "Optional Telegram archive integration"
+    },
+    {
+      "path": "docs/federation.md",
+      "purpose": "Server federation configuration and access"
+    },
+    {
+      "path": "docs/localization.md",
+      "purpose": "Translation catalogs and validation"
+    },
+    {
+      "path": "docs/modularity.md",
+      "purpose": "Module and widget development"
+    },
+    {
+      "path": "docs/nginx-public.md",
+      "purpose": "Existing reverse proxy configuration"
+    },
+    {
+      "path": "docs/note-import-formats.md",
+      "purpose": "Archive import formats and fidelity"
+    },
+    {
+      "path": "docs/notes.md",
+      "purpose": "Block notes and database editing"
+    },
+    {
+      "path": "docs/notion-sync.md",
+      "purpose": "Notion OAuth, synchronization and recovery"
+    },
+    {
+      "path": "docs/personal-data.md",
+      "purpose": "Account data export and import"
+    },
+    {
+      "path": "docs/production-workers.md",
+      "purpose": "Gunicorn workers and coordination"
+    },
+    {
+      "path": "docs/secret-vault.md",
+      "purpose": "Secret vault protection and recovery"
+    },
+    {
+      "path": "docs/security.md",
+      "purpose": "Authentication, authorization and operational security"
+    },
+    {
+      "path": "docs/sharing.md",
+      "purpose": "Page publications, file links and disposal"
+    },
+    {
+      "path": "docs/social-collaboration.md",
+      "purpose": "Contacts, groups and collaboration"
+    },
+    {
+      "path": "docs/updates.md",
+      "purpose": "Upgrade compatibility and commands"
+    },
+    {
+      "path": "docs/voice-calls.md",
+      "purpose": "TURN and LiveKit call configuration"
+    },
+    {
+      "path": "docs/web-push.md",
+      "purpose": "Web Push setup and behavior"
+    },
+    {
+      "path": "docs/workspace.md",
+      "purpose": "Projects, reminders, files and dashboard"
+    }
+  ],
+  "third_party_roots": [
+    "web/public/assets/licenses/"
+  ]
+}

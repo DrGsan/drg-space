@@ -1,0 +1,8 @@
+[data-account-waiting]>div{width:100%;min-width:0}
+[data-account-waiting] details{margin:20px 0;padding:12px;border:1px solid var(--line);border-radius:12px;text-align:left}
+[data-account-waiting] summary{cursor:pointer}
+[data-account-note-list]{display:flex;flex-wrap:wrap;gap:8px}
+[data-account-waiting] [data-account-note-list] .text-link{display:inline-block;max-width:100%;margin:10px 0;overflow-wrap:anywhere;text-align:left}
+[data-account-note-view]{min-width:0;overflow-wrap:anywhere}
+[data-account-note-view] pre{max-width:100%;overflow:auto}
+[data-account-note-view] img,[data-account-note-view] video{max-width:100%;height:auto}

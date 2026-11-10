@@ -1,0 +1,60 @@
+.note-access-overlay{position:fixed;inset:0;z-index:1300;color:var(--text)}
+.note-access-popover{position:fixed;max-height:calc(100dvh - 24px);overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--white);box-shadow:0 8px 30px #0002;font-size:13px;scrollbar-width:thin}
+.note-access-tabs{display:flex;gap:16px;align-items:center;padding:0 15px;height:43px;border-bottom:1px solid var(--line);position:relative}
+.note-access-tabs>button{padding:12px 2px 10px;border:0;border-radius:0;background:transparent;color:var(--muted);font-size:13px;font-weight:500;min-height:0}
+.note-access-tabs>button.active{color:var(--text);border-bottom:2px solid var(--text)}
+.note-access-tabs>.modal-close{position:static;margin-left:auto;padding:4px;width:24px;height:24px;font-size:21px;border:0;border-radius:5px;line-height:1}
+.note-access-body{padding:14px 15px 8px}
+.note-access-invite{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;margin-bottom:13px}
+.note-access-friends{grid-column:1/-1;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.note-access-friends summary{padding:9px;cursor:pointer;font-size:12px}
+.note-access-friend-list{max-height:210px;overflow:auto;border-top:1px solid var(--line)}
+.note-access-friend-list>label{display:flex;align-items:center;gap:9px;padding:7px 9px;margin:0;cursor:pointer}
+.note-access-friend-list>label:hover{background:var(--bg)}
+.note-access-friend-list input{width:15px;height:15px;min-height:0;margin:0;flex-shrink:0}
+.note-access-friend-list .person-avatar{width:29px;height:29px;flex:0 0 29px}
+.note-access-friend-list>label>span:last-child{display:grid;gap:3px;min-width:0}
+.note-access-friend-list strong{font-weight:500;font-size:12px;overflow-wrap:anywhere}
+.note-access-friend-list small{color:var(--muted);font-size:11px}
+.note-access-friend-list>p{padding:7px 9px}
+.note-access-invite select{min-height:31px;margin:0;padding:5px 8px;width:100%;font-size:12px;border-radius:5px;background:var(--white)}
+.note-access-invite>.primary{min-height:31px;padding:5px 12px;border-radius:5px;font-size:12px;margin:0;box-shadow:none}
+.note-access-member{display:flex;align-items:center;gap:9px;padding:7px 0;min-height:52px}
+.note-access-member>.person-avatar{width:31px;height:31px;flex:0 0 31px;font-size:13px}
+.note-access-person{min-width:0;flex:1;display:grid;gap:3px}
+.note-access-person>strong{font-size:13px;font-weight:500;overflow-wrap:anywhere;line-height:1.35}
+.note-access-person>strong>span{font-weight:400;color:var(--muted)}
+.note-access-person>small{font-size:11px;color:var(--muted);overflow-wrap:anywhere;line-height:1.4}
+.note-access-person .page-owner-label{display:inline;font-size:10px;color:var(--muted);margin:0}
+.note-access-manager{color:var(--muted);font-size:12px;white-space:nowrap}
+.note-access-role{display:flex;align-items:center;gap:7px;color:var(--muted);background:transparent;border:0;border-radius:5px;font-size:12px;padding:5px 4px;min-height:28px;white-space:nowrap;box-shadow:none}
+.note-access-role:hover:not(:disabled),.note-access-role[aria-expanded=true]{background:var(--bg);color:var(--text)}
+.note-access-role:disabled{opacity:1;cursor:default}
+.note-access-role-menu{position:fixed;max-height:calc(100dvh - 24px);overflow:auto;padding:5px;border:1px solid var(--line);border-radius:9px;background:var(--white);box-shadow:0 6px 24px #0002;font-size:13px;z-index:1}
+.note-access-role-menu>p{margin:5px 7px 7px;font-size:11px;color:var(--muted)}
+.note-access-role-menu>button{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:42px;width:100%;padding:8px 9px;border:0;border-radius:5px;background:transparent;color:var(--text);text-align:left;box-shadow:none}
+.note-access-role-menu>button:hover,.note-access-role-menu>button:focus-visible{background:var(--bg)}
+.note-access-role-menu>button>span:first-child{display:grid;gap:4px}
+.note-access-role-menu strong{font-size:13px;font-weight:500}
+.note-access-role-menu small{font-size:11px;color:var(--muted);line-height:1.4}
+.note-access-role-menu [aria-checked=true]>span:last-child{color:var(--blue);font-size:15px}
+.note-access-role-menu hr{margin:5px 4px;border:0;border-top:1px solid var(--line)}
+.note-access-role-menu>.note-access-remove{justify-content:flex-start;min-height:34px;gap:8px;color:var(--text);font-size:13px}
+.note-access-note{margin:10px 0 5px;font-size:11px;line-height:1.5;color:var(--muted)}
+.note-access-footer{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding:10px 15px;font-size:11px;color:var(--muted)}
+.note-access-footer>.secondary{border-radius:5px;font-size:12px;padding:6px 8px;min-height:30px;background:transparent}
+.note-access-error{padding:0 15px;font-size:12px}.note-access-error:empty{display:none}
+@media(max-width:400px){.note-access-body{padding:12px}.note-access-person>strong{font-size:12px}.note-access-role,.note-access-manager{font-size:11px}.note-access-member{gap:7px}.note-access-footer{padding:10px 12px}}
+.note-audience-settings{border-top:1px solid var(--line);margin-top:12px;padding-top:10px;font-size:12px}
+.note-audience-settings summary{cursor:pointer;padding:7px 0}
+.note-audience-settings form{margin:8px 0}.note-audience-settings label{font-size:12px}
+.note-audience-settings select{font-size:12px;min-height:30px;margin:4px 0;padding:5px;width:100%}
+.note-audience-settings .hint{font-size:11px;line-height:1.5}
+.note-audience-list{max-height:210px;overflow:auto}
+.note-audience-list>label{display:flex;gap:8px;align-items:center;justify-content:space-between;margin:0;padding:6px 0;min-width:0}
+.note-audience-list>label>span{flex:1;display:grid;gap:3px;min-width:0;overflow-wrap:anywhere}
+.note-audience-list small{font-size:10px;color:var(--muted)}
+.note-audience-list select{width:135px;flex:0 0 135px;max-width:50%}
+.note-access-person .note-access-source{font-size:10px;line-height:1.4;color:var(--muted)}
+
+.note-audience-preview{border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:12px}.note-audience-preview p{font-size:12px}.note-audience-preview small{display:block;color:var(--muted)}

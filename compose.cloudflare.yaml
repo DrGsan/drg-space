@@ -1,0 +1,54 @@
+# Optional, remotely managed Cloudflare Tunnel. Include this file explicitly in
+# every subsequent Compose invocation; retain the server's existing override.
+services:
+  app:
+    environment:
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.18.0.1/32},172.30.73.2/32
+    networks:
+      default: {}
+      cloudflare: {}
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.0@sha256:9b49eed8f62806d5d45ddf59ecefb5710429598ea6d3fcccd2af938f621b2b07
+    restart: unless-stopped
+    stop_grace_period: 40s
+    user: ${CLOUDFLARED_UID:-1000}:${CLOUDFLARED_GID:-1000}
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --metrics
+      - 127.0.0.1:2000
+      - run
+      - --token-file
+      - /run/secrets/cloudflare_tunnel_token
+    secrets:
+      - cloudflare_tunnel_token
+    networks:
+      cloudflare:
+        ipv4_address: 172.30.73.2
+    depends_on:
+      app:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+secrets:
+  cloudflare_tunnel_token:
+    file: ${CLOUDFLARED_TOKEN_FILE:-./.cloudflare-tunnel.token}
+
+networks:
+  # Keep the existing network and its addresses; PostgreSQL, Garage and the
+  # loopback Tailscale route must not move to the tunnel's separate subnet.
+  default: {}
+  cloudflare:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.73.0/24

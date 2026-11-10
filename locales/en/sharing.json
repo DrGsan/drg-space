@@ -1,0 +1,17 @@
+{
+  "publishedPageTitle": "Published page title",
+  "blocks": "Blocks",
+  "pageContentInMarkdown": "Page content in Markdown",
+  "copyMyText": "Copy my text",
+  "reSave": "Re-save",
+  "changesAreSavedAutomatically": "Changes are saved automatically.",
+  "changesPending": "Changes pending…",
+  "textCopied": "Text copied.",
+  "copyTheSelectedText": "Copy the selected text.",
+  "saving": "Saving…",
+  "untitled": "Untitled",
+  "editingPermissionsHaveBeenRevokedYourTextRemains": "Editing permissions have been revoked. Your text remains in the editor.",
+  "changesSaved": "Changes saved.",
+  "savingNewChanges": "Saving new changes…",
+  "changesNotSaved": "Changes not saved."
+}

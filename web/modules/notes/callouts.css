@@ -1,0 +1,23 @@
+.bn-container .bn-block:has(> .react-renderer > .bn-block-content .block-callout[data-callout-kind]:not([data-callout-kind="default"])) {--callout-color:#4840ff;--callout-tint:#ebebff;border-left:4px solid var(--callout-color);border-radius:4px;background:var(--callout-tint);padding:0 10px 0 8px;margin:4px 0;color:var(--text)}
+.bn-container .bn-block:has(> .react-renderer > .bn-block-content .block-callout[data-callout-kind="warning"]:not([data-callout-kind="default"])){--callout-color:#e93950;--callout-tint:#fcecef}
+.bn-container .bn-block:has(> .react-renderer > .bn-block-content .block-callout[data-callout-kind="success"]:not([data-callout-kind="default"])){--callout-color:#239b58;--callout-tint:#eaf7ef}
+.bn-container .bn-block:has(> .react-renderer > .bn-block-content .block-callout[data-callout-kind="tip"]:not([data-callout-kind="default"])){--callout-color:#f4b725;--callout-tint:#fff9eb}
+:root[data-scheme="dark"] .bn-container .bn-block:has(> .react-renderer > .bn-block-content .block-callout[data-callout-kind]:not([data-callout-kind="default"])) {--callout-tint:color-mix(in srgb,var(--callout-color) 17%,var(--white))}
+.bn-container .block-callout[data-callout-kind]:not([data-callout-kind="default"]) {display:flex;align-items:flex-start;gap:8px;padding:7px 0;background:transparent;border-radius:0;color:var(--text);width:100%}
+.bn-container .block-callout > .callout-symbol {flex:0 0 18px;line-height:1.6;display:inline-flex;align-items:center;min-height:24px;color:var(--callout-color)}
+.bn-container .block-callout > .callout-symbol svg{display:block}
+.bn-container .block-callout > div {min-width:0;flex:1}
+.bn-container .block-callout > button.callout-symbol {border:0;border-radius:3px;padding:0;margin:0;background:transparent;font:inherit;cursor:pointer}
+.bn-container .block-callout > button.callout-symbol:hover {background:var(--hover)}
+.bn-container .block-callout > button.callout-symbol:focus-visible {outline:2px solid var(--blue);outline-offset:2px}
+.bn-container .bn-block:has(> .react-renderer > .bn-block-content .block-callout[data-callout-kind]:not([data-callout-kind="default"])) > .bn-block-group {margin:0 0 6px 26px;padding-left:0;border:0}
+.bn-container .block-callout[data-callout-kind]:not([data-callout-kind="default"]):has(> div:empty) {height:0;padding:0;min-height:0}
+.bn-container .block-callout[data-callout-kind]:not([data-callout-kind="default"]):has(> div:empty) > .callout-symbol {transform:translateY(7px)}
+
+.bn-container .block-callout[data-callout-kind]:not([data-callout-kind="default"]) a {color:inherit;text-decoration:underline;text-underline-offset:2px}
+
+/* Paint the saved color on the complete container, including nested content. */
+.bn-container .bn-block:has(> .react-renderer > .bn-block-content > .block-callout[data-callout-kind="default"]) {padding:16px;margin:4px 0;border-radius:4px;background:var(--note-callout-background)}
+.bn-container .bn-block-content:has(> .block-callout[data-callout-kind="default"]) {padding:0;background:transparent}
+.bn-container .block-callout[data-callout-kind="default"] {padding:0;background:transparent;border-radius:0;gap:8px;color:inherit}
+.bn-container .bn-block:has(> .react-renderer > .bn-block-content > .block-callout[data-callout-kind="default"]) > .bn-block-group {margin:0 0 0 26px;padding:0;border:0}

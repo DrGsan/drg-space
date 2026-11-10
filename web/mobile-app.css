@@ -1,0 +1,231 @@
+/* The phone app has its own chrome. Browser and desktop workspaces retain
+   their navigation, including a desktop installation of the same PWA. */
+.mobile-app-tabs,.mobile-screen-title,.mobile-secondary-back,.mobile-notes-title,.mobile-task-views,.mobile-chat-section,.mobile-room-search,.mobile-note-share{display:none}
+.chat-shell .chat-sidebar-heading>.mobile-room-search,.chat-shell .chat-search>.mobile-room-search,.chat-shell .mobile-chat-section,.notes-shell .mobile-note-share{display:none}
+@media(max-width:760px){
+  html.app-standalone{--mobile-canvas:var(--bg);background:var(--mobile-canvas)}
+  html.app-standalone:has(.workspace.chat-open .chat-shell.room-open){--mobile-canvas:var(--chat-canvas)}
+  html.app-standalone:has(.workspace.tasks-open),html.app-standalone:has(.workspace.notes-open .notes-shell:not(.mobile-notes-list)){--mobile-canvas:var(--white)}
+  html.app-standalone body,html.app-standalone #app,html.app-standalone #app-status-background{background:var(--mobile-canvas)}
+  html.app-standalone body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+  html.app-standalone #app{scrollbar-width:none}
+  html.app-standalone:not(.chat-viewport) #app{inset:auto var(--app-safe-right) auto var(--app-safe-left);top:calc(var(--mobile-viewport-top,0px) + var(--app-safe-top));height:max(0px,calc(var(--mobile-viewport-height,100dvh) - var(--app-safe-top) - var(--mobile-safe-bottom,var(--app-safe-bottom))))}
+  html.app-standalone.mobile-keyboard .workspace>.mobile-app-tabs{display:none}
+  html.app-standalone .workspace{--mobile-tabs-height:64px;--mobile-tabs-bottom:max(12px,calc(var(--app-safe-bottom) - 10px));--mobile-tabs-space:calc(var(--mobile-tabs-height) + var(--mobile-tabs-bottom) + 12px);position:relative;display:flex;flex-direction:column;width:100%;height:100%;min-height:0;overflow:hidden;padding:0;background:var(--mobile-canvas,var(--bg))}
+  html.app-standalone.mobile-keyboard .workspace{--mobile-tabs-space:0px}
+  html.app-standalone .workspace:has(.chat-shell.room-open){--mobile-tabs-space:0px}
+  html.app-standalone .workspace>.sidebar{display:none}
+  html.app-standalone .workspace>.content{flex:1;min-width:0;min-height:0;width:100%;max-width:none;height:auto;margin:0;padding:0 0 var(--mobile-tabs-space);overflow:auto;overscroll-behavior:contain;background:var(--mobile-canvas,var(--bg))}
+  /* The canvas reaches the screen edge; only controls are inset. A floating
+     island is anchored to the measured workspace, never the layout viewport. */
+  html.app-standalone:not(.mobile-keyboard) #app:has(.workspace):not(:has(.chat-shell.room-open)){height:max(0px,calc(var(--mobile-viewport-height,100dvh) - var(--app-safe-top)))}
+  html.app-standalone .workspace .mobile-app-tabs{--mobile-tab-selection:color-mix(in srgb,var(--text) 12%,transparent);position:absolute;z-index:80;inset:auto 12px var(--mobile-tabs-bottom);display:flex;align-items:stretch;gap:2px;height:var(--mobile-tabs-height);padding:4px;border:1px solid color-mix(in srgb,var(--text) 16%,transparent);border-radius:999px;background:color-mix(in srgb,var(--white) 58%,transparent);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);box-shadow:inset 0 1px 1px #fff3,0 6px 24px #0002}
+  html.app-standalone .mobile-app-tabs>button{display:flex;flex:1 1 auto;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:0;min-height:52px;padding:5px 2px;border:0;border-radius:999px;background:transparent;color:var(--muted);font:500 clamp(9.5px,2.7vw,10.5px)/1.2 -apple-system,BlinkMacSystemFont,sans-serif;box-shadow:none}
+  html.app-standalone .mobile-app-tabs>button svg{width:24px;height:24px;stroke-width:1.8}
+  html.app-standalone .mobile-app-tabs>button[aria-current=page]{background:color-mix(in srgb,var(--text) 12%,transparent);color:var(--blue)}
+  html.app-standalone .mobile-app-tabs.has-tab-indicator>button{position:relative;z-index:1;transition:color 130ms ease-out}
+  html.app-standalone .mobile-app-tabs.has-tab-indicator>button[aria-current=page]{background:transparent}
+  .mobile-tab-indicator{position:absolute;left:0;z-index:0;pointer-events:none;border-radius:999px;background:var(--mobile-tab-selection);transition:transform 350ms cubic-bezier(.22,1,.36,1)}
+  html.app-standalone .mobile-app-tabs>button:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+  html.app-standalone .workspace:has(.chat-shell.room-open)>.mobile-app-tabs{display:none}
+  html.app-standalone .workspace .topbar{position:sticky;top:0;z-index:10;display:flex;gap:8px;min-height:60px;margin:0;padding:8px 16px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(20px)}
+  html.app-standalone .workspace .topbar>span,html.app-standalone .workspace .topbar>#new-note{display:none}
+  html.app-standalone .workspace .mobile-screen-title{display:block;flex:1;color:var(--text);font-size:22px;font-weight:700;letter-spacing:-.5px}
+  html.app-standalone .workspace .topbar>.inbox-button{order:2;min-width:44px;min-height:44px}
+  html.app-standalone .workspace .mobile-secondary-back{display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;color:var(--blue);font:32px/1 sans-serif;min-height:44px;min-width:36px;padding:0}
+  html.app-standalone .workspace[data-current-view=settings] .mobile-secondary-back{display:none}
+  html.app-standalone .workspace:not(.notes-open):not(.tasks-open):not(.chat-open):not(.files-open) #view-content{padding:18px 16px 24px}
+  html.app-standalone .workspace:not(.notes-open):not(.tasks-open):not(.chat-open):not(.files-open) #view-content>.page-heading{display:none}
+  html.app-standalone .workspace .panel{padding:18px;border-radius:18px;min-width:0}
+  html.app-standalone .workspace h1{font-size:26px;line-height:1.2;letter-spacing:-.6px}
+  html.app-standalone .workspace h2{font-size:19px;line-height:1.3;letter-spacing:-.3px}
+  html.app-standalone .workspace input:not([type=checkbox]):not([type=radio]),html.app-standalone .workspace select,html.app-standalone .workspace textarea{font-size:16px}
+  html.app-standalone .workspace .primary,html.app-standalone .workspace .secondary{min-height:44px;border-radius:12px}
+  html.app-standalone .enroll{min-height:100%;padding:24px 16px}
+  html.app-standalone .enroll .auth-card{margin-top:20px}
+  /* Messages: the existing contacts/calls switch moves above the list. */
+  html.app-standalone .workspace.chat-open>.content{overflow:hidden;padding-bottom:0}
+  html.app-standalone .workspace.chat-open #view-content{height:100%;min-height:0}
+  html.app-standalone .workspace.chat-open .chat-shell{height:100%;min-height:0}
+  html.app-standalone .chat-shell .chat-sidebar{position:relative;width:100%;padding:0;background:var(--bg)}
+  html.app-standalone .chat-shell .chat-nav-head{position:absolute;right:58px;top:7px;padding:0;min-height:44px;border:0;z-index:3}
+  html.app-standalone .chat-shell #chat-main-menu{display:none}
+  html.app-standalone .chat-shell .chat-nav-head .inbox-button{width:44px;height:44px;padding:11px}
+  html.app-standalone .chat-shell .chat-sidebar-heading{order:0;min-height:60px;margin:0;padding:8px 16px}
+  html.app-standalone .chat-shell .chat-sidebar-heading h1{font-size:26px;letter-spacing:-.7px}
+  html.app-standalone .chat-shell .chat-sidebar-heading>button{width:44px;height:44px}
+  html.app-standalone .chat-shell .chat-push-setup{order:1;margin:0 16px 8px;font-size:12px;border-radius:12px}
+  html.app-standalone .chat-shell .chat-search{order:2;margin:0 16px 10px;padding:6px 12px;min-height:42px;border-radius:12px;background:var(--white)}
+  html.app-standalone .chat-shell .chat-search input{min-height:28px;font-size:16px}
+  html.app-standalone .chat-shell .chat-section-tabs{order:3;display:flex;flex-shrink:0;gap:2px;margin:0 16px 10px;padding:3px;background:var(--white);border:1px solid var(--line);border-radius:12px}
+  html.app-standalone .chat-shell .chat-section-tabs>button{flex:1;min-height:34px;height:34px;padding:4px;font-size:13px;border-radius:9px;color:var(--muted)}
+  html.app-standalone .chat-shell .chat-section-tabs>button[aria-selected=true]{color:var(--blue);background:var(--blue-light)}
+  html.app-standalone .chat-shell .chat-section-tabs>button svg,html.app-standalone .chat-shell [data-chat-section=settings]{display:none}
+  html.app-standalone .chat-shell .chat-tabs{order:4;padding:0 12px;min-height:42px}
+  html.app-standalone .chat-shell .chat-tabs>button{font-size:13px;min-height:42px}
+  html.app-standalone .chat-shell .chat-room-list{order:5;min-height:0;padding-bottom:var(--mobile-tabs-space);scroll-padding-bottom:var(--mobile-tabs-space)}
+  html.app-standalone .chat-shell .chat-room,html.app-standalone .chat-shell .chat-contact{min-height:76px;padding:12px 16px;border-radius:0}
+  html.app-standalone .chat-shell .chat-room strong,html.app-standalone .chat-shell .chat-contact strong{font-size:16px}
+  html.app-standalone .chat-shell .chat-room-preview{font-size:14px}
+  html.app-standalone .chat-shell .chat-header{min-height:62px;padding:8px 12px}
+  html.app-standalone .chat-shell .chat-compose-notice .chat-help{display:none}
+  html.app-standalone .chat-shell .chat-composer{padding:8px 10px}
+  /* Notes show the page list first; opening a note gives the editor its width. */
+  html.app-standalone .workspace.notes-open>.content{overflow:hidden;background:var(--bg)}
+  html.app-standalone .workspace.notes-open #view-content{height:100%;min-height:0}
+  html.app-standalone .notes-shell{height:100%;min-height:0;overflow:hidden}
+  html.app-standalone .notes-shell .notes-navigation{position:absolute;top:0;left:0;right:0;transform:none;display:flex;width:auto;height:56px;padding:6px 12px;background:var(--white);border-bottom:1px solid var(--line)}
+  html.app-standalone .notes-shell .notes-main-menu{flex:1;gap:6px;width:auto;min-height:44px;justify-content:flex-start;color:var(--blue);font-size:16px}
+  html.app-standalone .notes-shell .notes-main-menu-label{display:inline;font-size:16px}
+  html.app-standalone .notes-shell #toggle-pages-sidebar{display:none}
+  html.app-standalone .notes-shell .notes-navigation>.inbox-button{min-width:44px;min-height:44px}
+  html.app-standalone .notes-shell .notes-workspace{display:block;min-height:0;height:100%;padding-top:56px}
+  html.app-standalone .notes-shell .pages-sidebar{position:static;display:none;width:100%;height:100%;min-height:0;padding:12px 16px;transform:none;margin:0;border-radius:0;border:0;background:var(--bg);box-shadow:none;overflow:auto}
+  html.app-standalone .notes-shell.mobile-notes-list .pages-sidebar:not([hidden]){display:flex}
+  html.app-standalone .notes-shell.mobile-notes-list .notion-page{display:none}
+  html.app-standalone .notes-shell .mobile-notes-title{display:none;margin:0;font-size:26px;flex:1}
+  html.app-standalone .notes-shell.mobile-notes-list .notes-main-menu{display:none}
+  html.app-standalone .notes-shell.mobile-notes-list .mobile-notes-title{display:block}
+  html.app-standalone .notes-shell .pages-sidebar-head{min-height:44px}
+  html.app-standalone .notes-shell .pages-sidebar-head .icon-btn{width:44px;height:44px;font-size:24px;color:var(--blue)}
+  html.app-standalone .notes-shell .pages-sidebar>input{min-height:44px;border-radius:12px;margin:6px 0 12px;padding:10px 12px;background:var(--white)}
+  html.app-standalone .notes-shell .page-tree-row{min-height:52px;border-bottom:1px solid var(--line)}
+  html.app-standalone .notes-shell .tree-open{min-height:50px;font-size:16px}
+  html.app-standalone .notes-shell .notion-page{height:100%;min-height:0;padding:0;overflow:auto}
+  html.app-standalone .notes-shell .notion-page .page-top{position:sticky;top:0;min-height:48px;padding:6px 12px;flex-wrap:wrap}
+  html.app-standalone .notes-shell .notion-page .page-top-actions{margin-left:auto;min-height:40px}
+  html.app-standalone .notes-shell .notion-page .breadcrumbs{display:none}
+  html.app-standalone .notes-shell .notion-page .page-canvas{padding:18px 24px 32px 32px}
+  html.app-standalone .notes-shell .notion-page .page-title-input{font-size:32px!important;line-height:1.2;padding:8px 0;letter-spacing:-.6px}
+  html.app-standalone .notes-shell .notion-page .bn-editor{font-size:16px;line-height:1.5}
+  html.app-standalone .notes-shell .editor-help{display:none}
+  /* Reminders keep their model, editor and save path; phone starts at Today. */
+  html.app-standalone .workspace.tasks-open>.content{overflow:hidden}
+  html.app-standalone .workspace.tasks-open #view-content{height:100%;min-height:0}
+  html.app-standalone .tasks-shell,html.app-standalone .tasks-shell.has-properties{height:100%;min-height:0;display:block}
+  html.app-standalone .tasks-shell .tasks-center{height:100%;padding:0 16px}
+  html.app-standalone .tasks-shell .tasks-toolbar{min-height:52px}
+  html.app-standalone .tasks-shell .tasks-icon-button,html.app-standalone .tasks-shell .tasks-toolbar-actions .tasks-icon-button{width:44px;height:44px}
+  html.app-standalone .tasks-shell .tasks-center-heading{padding-top:2px;margin-bottom:14px}
+  html.app-standalone .tasks-shell .tasks-center-heading h1{font-size:28px}
+  html.app-standalone .tasks-shell .tasks-center-heading p{font-size:13px}
+  html.app-standalone .tasks-shell .mobile-task-views{display:flex;gap:3px;flex-shrink:0;padding:3px;margin:0 0 12px;background:var(--bg);border-radius:12px}
+  html.app-standalone .mobile-task-views>button{flex:1;min-height:36px;border:0;border-radius:9px;background:none;color:var(--muted);font-size:13px;font-weight:500;line-height:1.2}
+  html.app-standalone .mobile-task-views>button[aria-pressed=true]{background:var(--blue-light);color:var(--blue)}
+  html.app-standalone .tasks-shell .tasks-row-title{font-size:16px;min-height:26px}
+  html.app-standalone .tasks-shell .tasks-row-meta,html.app-standalone .tasks-shell .tasks-row-notes{font-size:12px}
+  html.app-standalone .tasks-shell .tasks-reminder-row{min-height:58px;padding-top:12px;padding-bottom:12px}
+  html.app-standalone .tasks-shell input.tasks-complete{width:24px;height:24px;min-width:24px;min-height:24px;flex-basis:24px}
+  html.app-standalone .tasks-shell .tasks-row-info,html.app-standalone .tasks-shell .tasks-row-flag{width:32px;height:32px;opacity:1}
+  html.app-standalone .tasks-shell .tasks-sidebar{width:min(310px,90vw);padding:12px 16px;border-radius:0 20px 20px 0}
+  html.app-standalone .tasks-shell .tasks-smart-view{min-height:76px;padding:12px}
+  html.app-standalone .tasks-shell .tasks-smart-view>span:last-child,html.app-standalone .tasks-shell .tasks-list-name{font-size:14px}
+  html.app-standalone .tasks-shell .tasks-list-button{min-height:48px}
+  html.app-standalone .tasks-shell .tasks-main-menu{min-height:44px;color:var(--blue)}
+  html.app-standalone .tasks-shell .tasks-main-menu>span{font-size:16px}
+  html.app-standalone .tasks-shell .tasks-properties{width:100%!important;max-width:420px;bottom:var(--app-safe-bottom);border-radius:20px 0 0 20px}
+  /* All secondary sections and account controls remain reachable. */
+  html.app-standalone .settings-grid{display:flex;flex-direction:column;gap:1px;min-width:0;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--line)}
+  html.app-standalone .mobile-setting-row{background:var(--white)}
+  html.app-standalone .mobile-setting-row>summary{display:flex;justify-content:space-between;align-items:center;min-height:54px;padding:14px 16px;list-style:none;font-size:16px;cursor:pointer}
+  html.app-standalone .mobile-setting-row>summary::-webkit-details-marker{display:none}
+  html.app-standalone .mobile-setting-row>summary::after{content:'›';font-size:24px;color:var(--muted)}
+  html.app-standalone .mobile-setting-row[open]>summary::after{transform:rotate(90deg)}
+  html.app-standalone .mobile-setting-row>.panel{border:0;border-radius:0;padding:6px 16px 20px;box-shadow:none}
+  html.app-standalone .mobile-setting-row>.panel>h2{display:none}
+  html.app-standalone .mobile-account{display:flex;align-items:center;gap:12px;margin:0 0 24px;padding:4px 0}
+  html.app-standalone .mobile-account .avatar{width:54px;height:54px;border-radius:50%;overflow:hidden}
+  html.app-standalone .mobile-account>div{display:grid;gap:5px;min-width:0}
+  html.app-standalone .mobile-account strong{font-size:19px;overflow-wrap:anywhere}
+  html.app-standalone .mobile-account>div>span{font-size:13px;color:var(--muted)}
+  html.app-standalone .mobile-more-sections>h2{font-size:13px;letter-spacing:.3px;color:var(--muted);margin:0 0 9px 12px}
+  html.app-standalone .mobile-section-links{display:grid;border:1px solid var(--line);border-radius:18px;overflow:hidden;margin-bottom:24px;background:var(--white)}
+  html.app-standalone .mobile-section-links>button{display:flex;align-items:center;gap:12px;width:100%;min-height:54px;padding:12px 16px;border:0;border-bottom:1px solid var(--line);background:none;color:var(--text);text-align:left;font-size:16px;line-height:1.3}
+  html.app-standalone .mobile-section-links>button:last-child{border-bottom:0}
+  html.app-standalone .mobile-section-links svg{width:21px;height:21px;color:var(--blue)}
+  html.app-standalone .mobile-section-links>button>span:last-child{margin-left:auto;font-size:24px;color:var(--muted)}
+  html.app-standalone .mobile-signout{display:block;width:100%;min-height:50px;margin-top:24px;border:1px solid var(--line);border-radius:16px;background:var(--white);color:var(--danger,#d54b55);font-size:16px}
+}
+@media(prefers-reduced-motion:reduce){html.app-standalone .mobile-app-tabs.has-tab-indicator>button,.mobile-tab-indicator{transition:none!important}}
+@media(max-width:760px) and (prefers-reduced-transparency:reduce){html.app-standalone .workspace .mobile-app-tabs{background:var(--white);backdrop-filter:none;-webkit-backdrop-filter:none}}
+
+@media(max-width:760px){
+  html.app-standalone .mobile-back-hint{position:fixed;z-index:180;display:flex;align-items:center;justify-content:center;width:44px;height:44px;border:1px solid var(--line);border-radius:50%;background:var(--white);color:var(--muted);box-shadow:0 3px 16px #0002;font:36px/1 -apple-system,BlinkMacSystemFont,sans-serif;pointer-events:none;user-select:none;-webkit-user-select:none}
+  html.app-standalone .mobile-back-hint.is-ready{background:var(--blue);color:var(--white);border-color:var(--blue)}
+}
+
+/* One 44px navigation bar below the system safe area. Search and filters
+   expand only when used; document content never becomes another toolbar. */
+@media(max-width:760px){
+ html.app-standalone .workspace{--mobile-bar-height:44px}
+ html.app-standalone .workspace .topbar{height:var(--mobile-bar-height);min-height:var(--mobile-bar-height);padding:0 8px;gap:4px}
+ html.app-standalone .workspace .mobile-screen-title{font-size:17px;line-height:1.2;letter-spacing:-.2px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ html.app-standalone .workspace .mobile-secondary-back{min-width:36px}
+ html.app-standalone .workspace:not(.notes-open):not(.tasks-open):not(.chat-open):not(.files-open) #view-content{padding-top:12px}
+ /* The section picker replaces the extra contacts/calls/chats row. */
+ html.app-standalone .chat-shell .chat-sidebar-heading{height:44px;min-height:44px;padding:0 8px;gap:0;padding-right:52px}
+ html.app-standalone .chat-shell .chat-sidebar-heading h1{display:none}
+ html.app-standalone .chat-shell .mobile-chat-section{display:flex;align-items:center;flex:1;min-width:0;gap:2px}
+ html.app-standalone .chat-shell .mobile-chat-section select{appearance:none;-webkit-appearance:none;width:auto;max-width:calc(100% - 14px);height:44px;min-height:44px;margin:0;padding:0 4px;border:0;border-radius:0;background:transparent;color:var(--text);font:600 17px/1.2 -apple-system,BlinkMacSystemFont,sans-serif;box-shadow:none;text-overflow:ellipsis}
+ html.app-standalone .chat-shell .mobile-chat-section>span:last-child{color:var(--muted);font-size:16px;pointer-events:none}
+ html.app-standalone .chat-shell .chat-nav-head{top:0;right:8px;min-height:44px}
+ html.app-standalone .chat-shell .chat-sidebar-heading>button{flex:none;width:40px;height:44px;min-height:44px}
+ html.app-standalone .chat-shell .mobile-room-search{display:inline-flex;align-items:center;justify-content:center}
+ html.app-standalone .chat-shell .chat-section-tabs,html.app-standalone .chat-shell .chat-push-setup{display:none}
+ html.app-standalone .chat-shell .chat-search{display:none;margin:2px 12px 6px;min-height:36px;padding:0 8px}
+ html.app-standalone .chat-shell.is-list-searching .chat-search{display:flex}
+ html.app-standalone .chat-shell .chat-search input{min-width:0;min-height:34px;padding:4px;font-size:16px}
+ html.app-standalone .chat-shell .chat-search>button{flex:none;width:36px;height:36px;padding:8px}
+ html.app-standalone .chat-shell .chat-tabs{min-height:40px;height:40px;padding:0 8px;gap:12px;flex-shrink:0}
+ html.app-standalone .chat-shell .chat-tabs>button{height:40px;min-height:40px;padding:0 2px;font-size:13px;white-space:nowrap}
+ html.app-standalone .chat-shell .chat-header{height:44px;min-height:44px;padding:0 8px;gap:4px}
+ html.app-standalone .chat-shell .chat-header-identity{min-height:36px;gap:6px}
+ html.app-standalone .chat-shell .chat-header h2{font-size:15px;line-height:18px;letter-spacing:0}
+ html.app-standalone .chat-shell .chat-header-subtitle{font-size:10px;line-height:12px;margin:0;gap:3px}
+ html.app-standalone .chat-shell .chat-header .person-avatar,html.app-standalone .chat-shell .chat-header .chat-group-avatar{width:32px;height:32px;flex:none;font-size:13px}
+ html.app-standalone .chat-shell .chat-header .chat-icon-button,html.app-standalone .chat-shell .chat-header .chat-back,html.app-standalone .chat-shell .chat-header-actions>button{width:36px;height:44px;min-height:44px;padding:8px}
+ html.app-standalone .chat-shell .chat-header-actions{gap:0}
+ html.app-standalone .chat-shell .chat-retention-inline{padding:2px 12px;font-size:10px;line-height:13px}
+ /* The document's existing actions share the back/bell navigation bar. */
+ html.app-standalone .notes-shell .notes-navigation{height:44px;padding:0 8px;gap:0}
+ html.app-standalone .notes-shell .notes-workspace{padding-top:44px}
+ html.app-standalone .notes-shell .notes-main-menu{min-height:44px;min-width:44px;width:44px;padding:0;flex:0 0 44px}
+ html.app-standalone .notes-shell .notes-main-menu-label{display:none}
+ html.app-standalone .notes-shell .notes-navigation>.inbox-button{flex:none;width:44px;height:44px;padding:11px;margin-left:auto}
+ html.app-standalone .notes-shell.mobile-notes-list .mobile-notes-title{position:absolute;width:1px;height:1px;margin:0;padding:0;overflow:hidden;clip-path:inset(50%)}
+ html.app-standalone .notes-shell .pages-sidebar{padding:0 12px 8px;gap:6px}
+ html.app-standalone .notes-shell .pages-sidebar-head{position:absolute;top:0;left:12px;right:56px;z-index:13;height:44px;min-height:44px;gap:0}
+ html.app-standalone .notes-shell .pages-sidebar-head select{height:44px;min-height:44px;margin:0;padding:0 4px 0 0;font-size:17px;font-weight:600;border:0;background:transparent;box-shadow:none}
+ /* Keep the native picker, sizing its arrow to the selected label rather
+    than the entire header. Older engines retain the existing working select. */
+ @supports(field-sizing:content){
+  html.app-standalone .notes-shell .pages-sidebar-head select{field-sizing:content;flex:0 1 auto;width:auto;min-width:44px;max-width:100%;text-overflow:ellipsis}
+ }
+ html.app-standalone .notes-shell .pages-sidebar-head .icon-btn{width:40px;height:44px}
+ html.app-standalone .notes-shell .pages-sidebar>input{height:36px;min-height:36px;margin:4px 0 2px;padding:6px 10px}
+ html.app-standalone .notes-shell .notion-page .page-top{position:static;min-height:0;height:0;padding:0;margin:0;border:0}
+ html.app-standalone .notes-shell .notion-page .page-top-actions{position:fixed;z-index:14;top:calc(var(--mobile-viewport-top,0px) + var(--app-safe-top));right:calc(var(--app-safe-right) + 52px);max-width:calc(100% - 100px);height:44px;min-height:44px;margin:0;display:flex;align-items:center;justify-content:flex-end;flex-wrap:nowrap;gap:0;background:transparent}
+ html.app-standalone .notes-shell .notion-page .page-top-actions .icon-btn,html.app-standalone .notes-shell .notion-page .page-top-actions #share-page{flex:none;display:inline-flex;align-items:center;justify-content:center;width:40px;height:44px;min-height:44px;margin:0;padding:8px;border:0;border-radius:0;background:none}
+ html.app-standalone .notes-shell .notion-page .page-top-actions svg{width:20px;height:20px}
+ html.app-standalone .notes-shell .notion-page .note-share-label{display:none}
+ html.app-standalone .notes-shell .notion-page .mobile-note-share{display:inline-flex}
+ html.app-standalone .notes-shell .page-top-actions #page-save-status{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+ html.app-standalone .notes-shell #retry-page-save{width:36px;height:44px;font-size:0;padding:0}
+ html.app-standalone .notes-shell #retry-page-save::before{content:'↻';font-size:22px}
+ /* A single row holds the list title, count and existing task controls. */
+ html.app-standalone .tasks-shell .tasks-center{position:relative;padding:0 12px}
+ html.app-standalone .tasks-shell .tasks-toolbar{position:absolute;inset:0 8px auto;height:44px;min-height:44px;pointer-events:none}
+ html.app-standalone .tasks-shell .tasks-toolbar button{pointer-events:auto}
+ html.app-standalone .tasks-shell .tasks-center-heading{height:44px;min-height:44px;align-items:center;padding:0 88px 0 40px;margin:0;gap:6px}
+ html.app-standalone .tasks-shell .tasks-center-heading>div{min-width:0}
+ html.app-standalone .tasks-shell .tasks-center-heading h1{font-size:17px;line-height:22px;letter-spacing:-.2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ html.app-standalone .tasks-shell .tasks-center-heading>strong{font-size:14px;line-height:22px;letter-spacing:0}
+ html.app-standalone .tasks-shell .tasks-center-heading p{display:none}
+ html.app-standalone .tasks-shell [data-task-save-status]{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+ html.app-standalone .tasks-shell .mobile-task-views{height:40px;min-height:40px;padding:3px;margin:0 0 4px;gap:3px}
+ html.app-standalone .mobile-task-views>button{height:34px;min-height:34px}
+ html.app-standalone .tasks-shell .tasks-list-options{order:2;min-height:28px;margin:0;padding:0}
+ html.app-standalone .tasks-shell .tasks-scroll-area{order:1}
+ html.app-standalone .tasks-shell .tasks-add-area{order:3}
+ html.app-standalone .tasks-shell .tasks-list-options .tasks-text-button{font-size:11px;padding:4px}
+}

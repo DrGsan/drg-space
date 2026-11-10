@@ -1,0 +1,17 @@
+{$SITE_DOMAIN} {
+    @uploads path /api/media
+    @restores path /api/admin/backups/restore
+    @regular not path /api/media /api/admin/backups/restore
+    request_body @uploads {
+        max_size 12MB
+    }
+    request_body @restores {
+        max_size 513MiB
+    }
+    request_body @regular {
+        max_size 1MB
+    }
+    reverse_proxy app:8000 {
+        header_up X-Forwarded-For {remote_host}
+    }
+}

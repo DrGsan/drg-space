@@ -1,0 +1,12 @@
+.chat-context-layer{position:fixed;inset:0;z-index:1000;background:#0000;backdrop-filter:blur(0);-webkit-backdrop-filter:blur(0);transition:background .18s ease,backdrop-filter .18s ease,-webkit-backdrop-filter .18s ease;overscroll-behavior:none}
+.chat-context-layer.is-open{background:#0005;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.chat-context-layer .chat-context-preview{position:fixed!important;min-height:0!important;margin:0;padding:0;background:transparent;overflow:hidden!important;border-radius:16px;pointer-events:none;opacity:0;transform:scale(.97);transition:opacity .18s ease,transform .18s ease}
+.chat-context-preview>.chat-message{box-sizing:border-box;margin:0!important;width:100%!important;max-width:100%!important;min-width:0!important;box-shadow:0 8px 24px #0002}
+.chat-context-preview .chat-message-meta{padding-top:0}
+.chat-context-layer .chat-message-menu{max-width:calc(100vw - 24px);opacity:0;animation:none;transform:translateY(-5px) scale(.97);transform-origin:top center;transition:opacity .18s ease,transform .18s ease}
+.chat-context-layer.is-open .chat-context-preview,.chat-context-layer.is-open .chat-message-menu{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){.chat-context-layer,.chat-context-layer .chat-context-preview,.chat-context-layer .chat-message-menu{transition:none}}
+
+.chat-message-menu:has(.chat-quick-reactions){width:310px;max-width:calc(100vw - 24px)}.chat-quick-reactions{display:flex;align-items:center;justify-content:space-between;gap:1px;padding:4px 2px 9px;margin-bottom:4px;border-bottom:1px solid var(--line)}.chat-message-menu .chat-quick-reactions button{display:grid;place-items:center;flex:1;min-width:0;width:auto;padding:7px 1px;font-size:23px;line-height:1;background:none;border:0;border-radius:50%}.chat-message-menu .chat-quick-reactions button:hover,.chat-message-menu .chat-quick-reactions button:focus-visible{background:var(--bg)}.chat-quick-reactions svg{width:18px;height:18px}
+
+.chat-message-menu button.is-destructive{color:var(--danger,#e5484d);margin-top:5px;border-top:1px solid var(--line);border-radius:0 0 9px 9px;padding-top:10px}

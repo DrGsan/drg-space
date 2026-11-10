@@ -1,0 +1,8 @@
+{
+  "system": "System",
+  "language": "Language",
+  "accountHint": "This language preference applies to your account. Notes, messages and files keep their original content.",
+  "systemHint": "System mode follows your browser language, with Russian as the fallback for unsupported languages.",
+  "formatExample": "Format example: {{date}} · {{number}}",
+  "save": "Save language"
+}

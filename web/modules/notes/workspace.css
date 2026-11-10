@@ -1,0 +1,600 @@
+/* The page tree and document share one compact workspace. Scoped selectors
+   keep these rules independent from the application and publication surfaces. */
+.notes-shell {
+  position: relative;
+  min-width: 0;
+  background: var(--white);
+}
+.notes-shell .notes-navigation {
+  position: sticky;
+  top: var(--app-safe-top);
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  width: 220px;
+  height: 0;
+  margin: 0;
+  padding: 0 8px;
+  transform: translateY(22px);
+}
+.notes-shell .notes-navigation > .icon-btn,
+.notes-shell .notes-main-menu {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 28px;
+  width: 28px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+}
+.notes-shell .notes-main-menu {
+  flex: 1;
+  justify-content: flex-start;
+  gap: 7px;
+  width: auto;
+  min-width: 0;
+  padding: 0 5px;
+  white-space: nowrap;
+}
+.notes-shell .notes-main-menu-label {
+  font-size: 12px;
+}
+.notes-shell .notes-navigation .inbox-button {
+  flex-basis: 30px;
+  width: 30px;
+  padding: 6px;
+}
+.notes-shell .notes-navigation .notification-count {
+  right: -1px;
+  top: -1px;
+}
+.notes-shell.pages-collapsed .notes-navigation {
+  width: 116px;
+}
+.notes-shell.pages-collapsed .notes-main-menu {
+  flex: 0 0 28px;
+  width: 28px;
+  justify-content: center;
+  padding: 0;
+}
+.notes-shell.pages-collapsed .notes-main-menu-label {
+  display: none;
+}
+.notes-shell .notes-navigation .icon-btn:hover,
+.notes-shell .notes-navigation .icon-btn:focus-visible,
+.notes-shell .notes-main-menu:hover,
+.notes-shell .notes-main-menu:focus-visible {
+  background: var(--blue-light);
+  color: var(--text);
+}
+.notes-shell .notes-workspace {
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 0;
+  margin: 0;
+  min-height: var(--app-height);
+}
+.notes-shell .notes-workspace.pages-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+.notes-shell .pages-sidebar {
+  position: sticky;
+  top: var(--app-safe-top);
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  height: var(--app-height);
+  min-height: 240px;
+  padding: 44px 8px 10px;
+  border-right: 1px solid var(--line);
+  border-bottom: 0;
+  background: var(--bg);
+}
+.notes-shell .pages-sidebar-head {
+  min-height: 28px;
+  gap: 2px;
+  padding-left: 0;
+  margin: 0;
+}
+.notes-shell .pages-sidebar-head select {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  min-height: 28px;
+  padding: 4px 3px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.notes-shell .pages-sidebar-head .icon-btn {
+  flex: 0 0 26px;
+  width: 26px;
+  height: 28px;
+  padding: 0;
+  border-radius: 5px;
+  color: var(--muted);
+  font-size: 18px;
+}
+.notes-shell .pages-sidebar-head .icon-btn:hover,
+.notes-shell .pages-sidebar-head select:hover {
+  background: var(--blue-light);
+}
+.notes-shell .pages-sidebar > input {
+  width: 100%;
+  min-height: 30px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  background: var(--white);
+}
+.notes-shell #page-tree {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.notes-shell .tree-section-label {
+  padding: 13px 7px 5px;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .7px;
+  color: var(--muted);
+}
+.notes-shell .page-tree-row {
+  min-height: 30px;
+  margin: 0;
+  border-radius: 5px;
+}
+.notes-shell .tree-toggle,
+.notes-shell .tree-add {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 28px;
+  padding: 2px;
+  color: var(--muted);
+}
+.notes-shell .tree-toggle:disabled {
+  opacity: 0;
+}
+.notes-shell .tree-open {
+  gap: 7px;
+  padding: 5px 0;
+  color: var(--text);
+  font-size: 12px;
+}
+.notes-shell .tree-open > span:first-child {
+  display: inline-flex;
+  flex: 0 0 18px;
+  justify-content: center;
+  align-items: center;
+}
+.notes-shell .tree-add {
+  opacity: 0;
+  pointer-events: none;
+}
+.notes-shell .page-tree-row:hover .tree-add,
+.notes-shell .page-tree-row:focus-within .tree-add {
+  opacity: 1;
+  pointer-events: auto;
+}
+.notes-shell .favorite-page {
+  padding: 7px 8px;
+  border-radius: 5px;
+  color: var(--text);
+}
+.notes-shell .favorite-page:hover,
+.notes-shell .favorite-page:focus-visible {
+  background: var(--blue-light);
+}
+.notes-shell .pages-sidebar-footer {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 2px 0;
+  border-top: 0;
+}
+.notes-shell .pages-sidebar-footer .text-link,
+.notes-shell .pages-tools > summary {
+  padding: 4px;
+  border-radius: 5px;
+  font-size: 11px;
+  line-height: 20px;
+  color: var(--muted);
+}
+.notes-shell .pages-tools {
+  position: relative;
+}
+.notes-shell .pages-tools > summary {
+  list-style: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.notes-shell .pages-tools > summary::-webkit-details-marker {
+  display: none;
+}
+.notes-shell .pages-tools > summary:hover,
+.notes-shell .pages-tools > summary:focus-visible {
+  background: var(--blue-light);
+  color: var(--text);
+}
+.notes-shell .pages-tool-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  z-index: 14;
+  min-width: 176px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  box-shadow: 0 6px 20px #0002;
+}
+.notes-shell .pages-tool-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: var(--text);
+  text-align: left;
+  font-size: 12px;
+}
+.notes-shell .pages-tool-menu button:hover,
+.notes-shell .pages-tool-menu button:focus-visible {
+  background: var(--blue-light);
+}
+.notes-shell .notion-page {
+  position: relative;
+  align-self: stretch;
+  min-height: var(--app-height);
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  background: var(--white);
+}
+.notes-shell .notion-page .page-top {
+  position: sticky;
+  top: var(--app-safe-top);
+  z-index: 5;
+  min-height: 44px;
+  padding: 5px 14px;
+  gap: 5px 12px;
+  border-bottom: 0;
+  background: var(--white);
+}
+.notes-shell.pages-collapsed .page-top {
+  padding-left: 120px;
+}
+.notes-shell .notion-page .breadcrumbs {
+  flex: 1;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+.notes-shell .notion-page .crumb {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 160px;
+  padding: 4px 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.notes-shell .notion-page .page-top-actions {
+  width: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.notes-shell .page-top-actions #page-save-status {
+  display: block;
+  width: auto;
+  order: initial;
+  margin: 0 5px 0 0;
+  font-size: 10px;
+}
+.notes-shell .notion-page .page-top-actions .secondary {
+  min-height: 28px;
+  padding: 4px 7px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font-size: 11px;
+}
+.notes-shell .notion-page .page-top-actions .secondary:hover {
+  background: var(--blue-light);
+}
+.notes-shell .notion-page .page-top-actions .icon-btn {
+  width: 26px;
+  height: 28px;
+  padding: 0;
+  font-size: 18px;
+}
+.notes-shell .notion-page .page-edit-controls {
+  gap: 0;
+  margin: 0 5px 0 0;
+  padding: 0;
+  border: 0;
+}
+.notes-shell .page-edit-controls .tab {
+  min-height: 26px;
+  padding: 4px 6px;
+  border-radius: 5px;
+  font-size: 10px;
+  line-height: 18px;
+  color: var(--muted);
+}
+.notes-shell .page-edit-controls .tab.active {
+  background: var(--blue-light);
+  color: var(--text);
+}
+.notes-shell .page-cover-wrap {
+  position: relative;
+}
+.notes-shell .notion-page .page-cover {
+  height: clamp(180px, 30vh, 300px);
+}
+.notes-shell .page-cover-wrap .cover-attribution {
+  position: absolute;
+  right: 10px;
+  bottom: 6px;
+  margin: 0;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: #0009;
+  color: #fff;
+  font-size: 9px;
+}
+.notes-shell .notion-page .page-canvas {
+  display: flow-root;
+  max-width: 996px;
+  margin: 0 auto;
+  padding: 30px 48px 60px;
+}
+.notes-shell .notion-page.full-width .page-canvas {
+  max-width: none;
+  padding-right: clamp(24px, 4vw, 56px);
+  padding-left: clamp(64px, 5vw, 88px);
+}
+.notes-shell .notion-page.has-cover .page-canvas {
+  padding-top: 0;
+}
+.notes-shell .notion-page .page-decoration {
+  position: relative;
+  z-index: 1;
+  align-items: center;
+  min-height: 52px;
+  gap: 12px;
+  margin: 0 0 10px;
+}
+.notes-shell .notion-page.has-cover .page-decoration {
+  margin-top: -28px;
+  min-height: 64px;
+  margin-bottom: 12px;
+}
+.notes-shell .notion-page .page-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  border-radius: 6px;
+  font-size: 44px;
+  line-height: 1;
+}
+.notes-shell .notion-page.has-cover .page-icon {
+  width: 64px;
+  height: 64px;
+  font-size: 54px;
+}
+.notes-shell .notion-page .page-icon .page-custom-icon {
+  width: 48px;
+  height: 48px;
+}
+.notes-shell .notion-page.has-cover .page-icon .page-custom-icon {
+  width: 56px;
+  height: 56px;
+}
+.notes-shell .notion-page .page-icon:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.notes-shell .notion-page #change-cover {
+  padding: 5px;
+  border-radius: 5px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.notes-shell .notion-page #change-cover:hover,
+.notes-shell .notion-page #change-cover:focus-visible {
+  background: var(--blue-light);
+  color: var(--text);
+}
+.notes-shell .notion-page .page-title-input {
+  min-height: 56px;
+  margin: 0 0 14px;
+  padding: 4px 0;
+  font-size: clamp(32px, 3vw, 40px);
+  line-height: 1.2;
+  letter-spacing: -.8px;
+  color: var(--text);
+}
+.notes-shell .notion-page .page-title-input:disabled {
+  color: var(--text);
+  -webkit-text-fill-color: var(--text);
+  opacity: 1;
+}
+.notes-shell .notion-page .rich-editor {
+  min-width: 0;
+  min-height: 280px;
+}
+.notes-shell .notion-page .bn-editor {
+  font-size: 16px;
+  line-height: 1.5 !important;
+}
+.notes-shell .notion-page .live-presence {
+  margin: 0 0 10px;
+  font-size: 10px;
+}
+.notes-shell .notion-page .editor-help {
+  margin-top: 16px;
+  font-size: 10px;
+}
+.notes-shell .notion-page .page-welcome {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 64px 28px;
+}
+@media (hover: none) {
+  .notes-shell .tree-add {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+@media (max-width: 800px) {
+  .notes-shell .notes-workspace,
+  .notes-shell .notes-workspace.pages-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .notes-shell .pages-sidebar {
+    grid-column: 1;
+    grid-row: 1;
+    z-index: 8;
+    justify-self: start;
+    top: calc(44px + var(--app-safe-top));
+    width: min(260px, calc(100vw - 36px));
+    height: calc(var(--app-height) - 44px);
+    min-height: 220px;
+    margin-top: 44px;
+    padding-top: 8px;
+    border: 1px solid var(--line);
+    border-radius: 0 8px 8px 0;
+    box-shadow: 5px 5px 22px #0002;
+  }
+  .notes-shell .notes-navigation {
+    width: 116px;
+  }
+  .notes-shell .notes-main-menu {
+    flex: 0 0 28px;
+    width: 28px;
+    justify-content: center;
+    padding: 0;
+  }
+  .notes-shell .notes-main-menu-label {
+    display: none;
+  }
+  .notes-shell .pages-sidebar-head {
+    padding-left: 0;
+  }
+  .notes-shell .notion-page {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .notes-shell .notion-page .page-top {
+    padding-left: 120px;
+  }
+  .notes-shell .notion-page .page-top-actions {
+    max-width: 100%;
+    gap: 3px;
+  }
+  .notes-shell .notion-page .page-canvas,
+  .notes-shell .notion-page.full-width .page-canvas {
+    padding-right: 24px;
+    padding-left: 64px;
+  }
+  .notes-shell .notion-page .page-cover {
+    height: 180px;
+  }
+}
+@media (max-width: 480px) {
+  .notes-shell .notion-page .page-top {
+    gap: 2px 8px;
+    padding-right: 8px;
+  }
+  .notes-shell .notion-page .page-top-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .notes-shell .page-top-actions #page-save-status {
+    flex: 1;
+    margin-right: 0;
+  }
+  .notes-shell .notion-page .page-edit-controls {
+    margin-right: auto;
+  }
+  .notes-shell .notion-page .page-canvas,
+  .notes-shell .notion-page.full-width .page-canvas {
+    padding-right: 24px;
+    padding-left: 32px;
+  }
+  .notes-shell .notion-page .page-title-input {
+    min-height: 48px;
+    font-size: 32px;
+  }
+}
+
+.page-tree-row[data-drop-zone="before"],.page-tree-row[data-drop-zone="after"]{position:relative}
+.page-tree-row[data-drop-zone="before"]::before,.page-tree-row[data-drop-zone="after"]::after{content:"";position:absolute;left:calc(var(--depth)*14px + 8px);right:4px;height:3px;background:var(--blue);border-radius:3px;pointer-events:none;z-index:2}
+.page-tree-row[data-drop-zone="before"]::before{top:-1px}
+.page-tree-row[data-drop-zone="after"]::after{bottom:-1px}
+.notes-tree-section{position:relative}
+.tree-end-drop{position:absolute;left:4px;right:4px;bottom:-14px;height:14px;border-top:3px solid transparent}
+.tree-end-drop.drop-root,.tree-section-label.drop-root{border-top:3px solid var(--blue)}
+/* The personal workspace lists shared pages directly; families retain their
+   independent workspace, tree and creation scope. */
+.notes-shell .tree-section-heading{display:flex;align-items:center;gap:4px;margin-top:14px;padding:0 5px}
+.notes-shell .tree-section-heading .tree-section-label{flex:1;padding:0;font-size:11px;letter-spacing:0;text-transform:none;line-height:28px}
+.notes-shell .tree-section-heading>.icon-btn{width:24px;height:24px;min-height:0;padding:0;color:var(--muted);font-size:17px;background:transparent}
+.notes-shell .notes-tree-section>.hint{font-size:11px;line-height:1.5;margin:4px 9px 10px}
+.notes-shell .tree-page-owner{display:flex;flex:0 0 18px;margin-right:3px}
+.notes-shell .tree-page-owner .person-avatar{width:18px;height:18px;flex-basis:18px;font-size:10px}
+.notes-shell .tree-page-owner .person-online-dot,.page-participants .person-online-dot{display:none}
+.notes-shell .tree-root-drop{height:4px;border-radius:3px}
+.notes-shell .tree-root-drop.drop-root{background:var(--blue)}
+.notes-shell .pages-sidebar-footer{display:grid;grid-template-columns:1fr auto;gap:2px 4px}
+.notes-shell #customize-sidebar{grid-column:1/-1;text-align:left;justify-content:flex-start}
+.notes-shell .page-participants{display:inline-flex;align-items:center;padding:3px 4px;min-height:30px;border:0;background:transparent;border-radius:5px}
+.notes-shell .page-participants:hover{background:var(--bg)}
+.notes-shell .page-participants .person-avatar,.notes-shell .participants-more{width:25px;height:25px;flex:0 0 25px;font-size:11px;margin-left:-7px;border:2px solid var(--white)}
+.notes-shell .page-participants .person-avatar:first-child{margin-left:0}
+.notes-shell .participants-more{display:grid;place-items:center;border-radius:50%;background:var(--bg)}
+.page-member-role>.person-avatar{flex:0 0 30px;width:30px;height:30px;font-size:12px}
+.page-owner-label{display:block;font-size:10px;font-weight:400;color:var(--muted);margin-top:3px}
+.sidebar-customizer{padding:0 4px;display:flex;flex-direction:column;gap:6px}
+.sidebar-customizer>.hint{font-size:11px;margin:14px 3px 4px}
+.sidebar-setting-row{display:flex;align-items:center;gap:4px;min-height:34px;border-radius:5px}
+.sidebar-setting-row:hover{background:var(--blue-light)}
+.sidebar-grip{color:var(--muted);cursor:grab;display:flex;align-items:center;justify-content:center;align-self:center;flex:0 0 10px;line-height:1}
+.notes-shell .sidebar-setting-row label{display:flex;flex:1;align-items:center;gap:6px;font-size:12px;margin:0;min-width:0}
+.sidebar-setting-row input[type=checkbox]{width:13px;height:13px;margin:0}
+.sidebar-setting-row .icon-btn{width:23px;height:25px;min-height:0;padding:0;font-size:14px;background:transparent}
+.sidebar-customizer>[data-sidebar-done]{position:sticky;bottom:0;width:100%;margin-top:10px}
+.sidebar-customizer>[data-sidebar-reset]{text-align:left;font-size:11px;margin-top:10px}
+.sidebar-share-choice{display:flex;align-items:center;gap:10px;width:100%;padding:8px;margin:5px 0;border-radius:6px;border:1px solid var(--line);background:transparent;text-align:left}
+.sidebar-share-choice .person-avatar{width:30px;height:30px;font-size:12px}
+@media(max-width:540px){.notes-shell .page-participants .person-avatar{width:21px;height:21px;flex-basis:21px}.notes-shell .page-participants .person-avatar:nth-child(n+3){display:none}}
+/* Every row reserves the same arrow and icon columns, including leaf pages
+   and page links in Favorites/Recent. Emoji and custom images share one box. */
+.notes-shell .tree-toggle {min-width:22px;max-width:22px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
+.notes-shell .tree-toggle:disabled {visibility:hidden}
+.notes-shell .tree-open > .tree-page-icon,.notes-shell .favorite-page > .tree-page-icon {width:18px;height:20px;flex:0 0 18px;display:inline-flex;align-items:center;justify-content:center;line-height:1;font-size:14px}
+.notes-shell .tree-page-icon .page-custom-icon {width:16px;height:16px;object-fit:contain;margin:0;vertical-align:middle}
+.notes-shell .favorite-page {display:flex;align-items:center;gap:7px;padding:5px 0 5px 22px;min-height:30px}
+.notes-shell .tree-page-title {min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.notes-shell .pages-sidebar-footer{display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:6px 0}.notes-shell .pages-sidebar-footer .text-link,.notes-shell .pages-tools>summary{display:flex;align-items:center;justify-content:flex-start;gap:8px;width:100%;box-sizing:border-box;margin:0;padding:6px 8px;text-align:left;font-size:12px;line-height:20px}.notes-shell .pages-sidebar-footer svg{width:16px;height:16px;flex:0 0 16px}.notes-shell .pages-tools{width:100%}

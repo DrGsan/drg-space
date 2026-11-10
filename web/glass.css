@@ -1,0 +1,140 @@
+/* A paint-only appearance: widget geometry and each workspace's navigation
+   remain owned by their existing styles. Never filter a workspace ancestor:
+   backdrop-filter would make its fixed menus/dialogs relative to that box. */
+#app-wallpaper { display: none; }
+:root[data-interface="glass"] {
+  --glass-panel: color-mix(in srgb, var(--white) 70%, transparent);
+  --glass-reading: color-mix(in srgb, var(--white) 94%, transparent);
+  --glass-rail: color-mix(in srgb, var(--white) 66%, transparent);
+  --glass-edge: #ffffffb8;
+  --glass-shadow: 0 8px 28px #47351e0d, inset 0 1px 0 #ffffff8c;
+  --glass-wash: #fff8ee24;
+  --muted: #625f58;
+}
+:root[data-interface="glass"][data-scheme="dark"] {
+  --glass-panel: color-mix(in srgb, var(--white) 80%, transparent);
+  --glass-reading: color-mix(in srgb, var(--white) 96%, transparent);
+  --glass-rail: color-mix(in srgb, var(--white) 82%, transparent);
+  --glass-edge: #ffffff24;
+  --glass-shadow: 0 8px 28px #00000018, inset 0 1px 0 #ffffff0d;
+  --glass-wash: #07111e80;
+  --muted: #bac5d2;
+}
+:root[data-interface="glass"] body:has(:is(.workspace,.workspace-loading,.workspace-error)) { isolation: isolate; }
+html.app-standalone[data-interface="glass"]:has(:is(.workspace,.workspace-loading,.workspace-error)),
+html.app-standalone[data-interface="glass"]:has(:is(.workspace,.workspace-loading,.workspace-error)) body,
+html.app-standalone[data-interface="glass"]:has(:is(.workspace,.workspace-loading,.workspace-error)) #app { background: transparent; }
+:root[data-interface="glass"] body:has(:is(.workspace,.workspace-loading,.workspace-error)) > #app-wallpaper {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--bg);
+  background-image: linear-gradient(var(--glass-wash), var(--glass-wash)), var(--app-wallpaper, none);
+  background-position: center;
+  background-size: cover;
+}
+:root[data-interface="glass"] .workspace > .sidebar,
+:root[data-interface="glass"] .widget-grid > .panel,
+:root[data-interface="glass"] .preferences-surface .preference-rows,
+:root[data-interface="glass"] .social-view > .panel,
+:root[data-interface="glass"] .expense-layout > .panel {
+  background: var(--glass-panel);
+  border-color: var(--glass-edge);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: blur(22px) saturate(125%);
+  backdrop-filter: blur(22px) saturate(125%);
+}
+:root[data-interface="glass"] .workspace > .sidebar { background: var(--glass-rail); }
+:root[data-interface="glass"] .preferences-surface .preference-row,
+:root[data-interface="glass"] .preferences-surface .preference-row > .panel { background: transparent; }
+:root[data-interface="glass"] .workspace .nav-btn.active {
+  background: color-mix(in srgb, var(--blue-light) 85%, transparent);
+}
+:root[data-interface="glass"] .workspace .page-heading,
+:root[data-interface="glass"] .workspace > .content > .topbar {
+  text-shadow: 0 1px 6px color-mix(in srgb, var(--white) 85%, transparent);
+}
+:root[data-interface="glass"] .workspace .page-heading { position: relative; isolation: isolate; }
+/* Keep the subtitle in the heading's measured copy, rather than floating
+   below its single-line title and crossing the glass panel's bottom edge. */
+:root[data-interface="glass"] .workspace #view-content > .section-heading .section-heading-copy > p {
+  position: static;
+}
+:root[data-interface="glass"] .workspace .page-heading::before {
+  content: "";
+  position: absolute;
+  inset: 0 -10px 0;
+  z-index: -1;
+  border-radius: 14px;
+  background: var(--glass-rail);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+:root[data-interface="glass"] .workspace .quiet-note { color: var(--text); text-shadow: 0 1px 4px var(--white); }
+:root[data-interface="glass"] .widget-grid .task-widget-add,
+:root[data-interface="glass"] .widget-grid .bookmark-link,
+:root[data-interface="glass"] .widget-grid .recent-note,
+:root[data-interface="glass"] .widget-grid .expense-widget-account {
+  background: color-mix(in srgb, var(--white) 36%, transparent);
+}
+/* Documents and message history have denser reading surfaces. Only the outer
+   rails show the photograph; editor blocks and popovers keep solid colours. */
+:root[data-interface="glass"] .workspace:is(.notes-open,.tasks-open,.files-open,.chat-open) > .content,
+:root[data-interface="glass"] .notes-shell,
+:root[data-interface="glass"] .tasks-shell,
+:root[data-interface="glass"] .chat-shell { background: transparent; }
+:root[data-interface="glass"] .notes-shell .pages-sidebar,
+:root[data-interface="glass"] .tasks-shell .tasks-sidebar,
+:root[data-interface="glass"] .tasks-shell .tasks-properties,
+:root[data-interface="glass"] .chat-shell .chat-sidebar,
+:root[data-interface="glass"] .drive-workspace-header {
+  background: var(--glass-rail);
+  -webkit-backdrop-filter: blur(22px) saturate(120%);
+  backdrop-filter: blur(22px) saturate(120%);
+}
+:root[data-interface="glass"] .notes-shell .notion-page,
+:root[data-interface="glass"] .tasks-shell .tasks-center,
+:root[data-interface="glass"] .chat-shell .chat-main,
+:root[data-interface="glass"] .drive-panel {
+  background: var(--glass-reading);
+}
+:root[data-interface="glass"] .notes-shell .bn-editor { background: transparent; }
+:root[data-interface="glass"] .workspace .mobile-app-tabs {
+  border-color: var(--glass-edge);
+  box-shadow: var(--glass-shadow);
+}
+@media (max-width: 760px) {
+  /* The list heading belongs to the navigation bar above the sidebar. A
+     backdrop filter on the sidebar creates a new containing block, moving
+     that heading into the list and duplicating native select text in WebKit. */
+  html.app-standalone[data-interface="glass"] .notes-shell .pages-sidebar {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  html.app-standalone[data-interface="glass"] .workspace,
+  html.app-standalone[data-interface="glass"] .workspace > .content { background: transparent; }
+  html.app-standalone[data-interface="glass"] .workspace .topbar { background: var(--glass-panel); }
+  /* Keep one continuous canvas behind both the reminders and floating tabs. */
+  html.app-standalone[data-interface="glass"] .workspace.tasks-open { background: var(--glass-panel); }
+  html.app-standalone[data-interface="glass"] .tasks-shell .tasks-center { background: transparent; }
+  html.app-standalone[data-interface="glass"] .workspace .page-heading::before { content: none; }
+  html.app-standalone[data-interface="glass"] .preferences-surface .settings-grid { background: transparent; }
+  html.app-standalone[data-interface="glass"] .preferences-surface .settings-grid .preference-rows { background: var(--glass-panel); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-interface="glass"] {
+    --glass-panel: var(--white);
+    --glass-reading: var(--white);
+    --glass-rail: var(--white);
+  }
+  :root[data-interface="glass"] .workspace :is(.panel,.sidebar,.preference-rows,.pages-sidebar,.tasks-sidebar,.tasks-properties,.chat-sidebar,.drive-workspace-header) {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  :root[data-interface="glass"] .workspace .page-heading::before { -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-interface="glass"] { --glass-panel: var(--white); --glass-rail: var(--white); }
+}

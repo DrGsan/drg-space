@@ -1,0 +1,114 @@
+.workspace[data-current-view=social]>.content>.topbar[hidden]{display:none}
+.workspace .preferences-surface .social-view{padding:0}
+.workspace .social-heading>#refresh-social{margin-left:auto}
+.workspace[data-current-view=social] #refresh-social{font-size:24px;line-height:1;flex-shrink:0}
+.workspace .preferences-surface .social-view .preference-group-title{font-size:12px;margin:0 0 10px 15px}
+.workspace .preferences-surface .social-card{width:100%}
+.workspace .preferences-surface .social-members{display:grid;margin-bottom:16px}
+.workspace .preferences-surface .social-member{display:flex;align-items:center;gap:12px;min-height:68px;padding:12px 0;border-bottom:1px solid var(--line)}
+.workspace .preferences-surface .social-member:last-child{border-bottom:0}
+.workspace .preferences-surface .social-member>.person-avatar{flex:0 0 36px;width:36px;height:36px;font-size:14px}
+.workspace .preferences-surface .social-member>span:not(.person-avatar){display:grid;gap:3px;flex:1;min-width:0}
+.workspace .preferences-surface .social-member strong{font-size:14px;overflow-wrap:anywhere}
+.workspace .preferences-surface .social-member small,.workspace .preferences-surface .social-member .person-presence{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.workspace .preferences-surface .social-member-remove{display:flex;align-items:center;justify-content:center;flex:0 0 32px;width:32px;height:32px;border:0;border-radius:50%;background:transparent;color:var(--muted);font-size:22px}
+.workspace .preferences-surface .social-member-remove:hover{color:var(--red);background:var(--bg)}
+.workspace .preferences-surface .social-card .social-actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px}
+.workspace .preferences-surface .social-card .social-actions>.text-link{min-height:36px}
+.workspace .preferences-surface .social-create label{max-width:460px;margin:0 0 14px}
+.workspace .preferences-surface .social-create :is(input,select){display:block;width:100%;margin-top:8px}
+.workspace .preferences-surface .social-person-icon{background:transparent}
+.workspace .preferences-surface .social-person-icon .person-avatar{width:36px;height:36px;font-size:14px}
+.workspace .preferences-surface .social-request{padding:14px 20px;border:0;border-radius:0;border-bottom:1px solid var(--line);gap:12px}
+.workspace .preferences-surface .social-request:last-child{border-bottom:0}
+.workspace .preferences-surface .social-request>div{min-width:0;overflow-wrap:anywhere}
+.workspace .preferences-surface .social-request>div:last-child{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.workspace .preferences-surface .social-help{margin:0;font-size:12px}
+@media(max-width:760px){
+ .workspace .preferences-surface .social-request{padding:14px 16px}
+ .workspace .social-heading>h1{font-size:22px}
+ html.app-standalone .workspace[data-current-view=social] .topbar>#refresh-social{min-width:44px;min-height:44px}
+}
+
+.family-avatar-form{display:flex;flex-direction:column;align-items:flex-start;gap:12px;min-width:0}
+.family-avatar-picker{display:flex;align-items:center;justify-content:center;width:96px;height:96px;padding:4px;border:1px solid var(--line);border-radius:50%;background:transparent}
+.family-avatar-picker .person-avatar{width:86px;height:86px;font-size:32px}
+.family-avatar-form .hint{margin:0;max-width:460px}
+.family-avatar-form [data-family-photo-status]{font-size:13px;color:var(--muted);margin:0;overflow-wrap:anywhere}
+.family-avatar-form button{min-height:40px}
+.space-management-dialog .modal{max-width:1060px}
+.space-management-tabs{display:flex;gap:8px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.space-management-tabs button{border:0;background:transparent;color:var(--muted);border-radius:0;padding:10px 8px}
+.space-management-tabs [aria-current=page]{color:var(--text);border-bottom:2px solid var(--blue)}
+.space-team-create{display:flex;align-items:end;gap:10px;margin:0 0 16px}
+.space-team-create label{flex:1 1 0;min-width:0;margin:0}
+.space-team-create input{display:block;width:100%;min-width:0}
+.space-management-dialog .space-team-create>.primary{width:auto;flex:0 0 auto}
+.space-team-create button{flex-shrink:0}
+.space-team-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+@media(max-width:480px){.space-team-create{align-items:stretch;flex-direction:column}.space-management-tabs{gap:0}.space-management-tabs button{font-size:12px}}
+
+.space-table-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px}
+.space-table-toolbar input{width:260px;max-width:100%;min-width:0;margin:0;min-height:34px;font-size:13px}
+.space-table-toolbar select{width:auto;max-width:100%;min-height:34px;margin:0;font-size:12px;padding:6px 24px 6px 9px}
+.space-table-scroll{max-width:100%;overflow:auto;border-top:1px solid var(--line);overscroll-behavior:contain}
+.space-table{width:100%;min-width:0;border-collapse:collapse;text-align:left;font-size:12px}
+.space-table th{padding:10px 12px;color:var(--muted);font-size:11px;font-weight:500;white-space:nowrap}
+.space-table th button{border:0;padding:0;background:transparent;color:inherit;font:inherit;cursor:pointer}
+.space-table td{height:52px;padding:8px 12px;border-top:1px solid var(--line);vertical-align:middle}
+.space-table tbody tr:hover{background:var(--bg)}
+.space-table-person{display:flex;align-items:center;gap:10px;min-width:0}
+.space-table-person>.person-avatar{width:28px;height:28px;flex:0 0 28px;font-size:12px}
+.space-table-person>span:last-child{display:grid;gap:3px;min-width:0;overflow-wrap:anywhere}
+.space-table-person strong{font-size:13px;font-weight:500}.space-table-person small{font-size:11px;color:var(--muted)}
+.space-table select{font-size:12px;min-height:30px;width:auto;max-width:160px;margin:0;padding:4px 22px 4px 7px}
+.space-table input[type=checkbox]{width:16px;height:16px;min-height:0;margin:0}
+.space-table .person-presence{font-size:11px;max-width:150px;white-space:normal}
+.space-table-date{color:var(--muted);white-space:nowrap;font-size:11px}
+.space-role-badge,.space-team-badges>span{display:inline-block;border:1px solid var(--line);border-radius:5px;padding:3px 6px;line-height:1.3;font-size:11px;white-space:nowrap}
+.space-team-badges{display:flex;gap:4px;flex-wrap:wrap;max-width:200px}
+.space-table-empty{color:var(--muted)}
+.space-table-pagination{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0 16px;font-size:11px;color:var(--muted)}
+.space-table-pagination>div{display:flex;gap:6px}.space-table-pagination button{min-height:30px;padding:4px 10px}
+.space-avatar-stack{display:flex;align-items:center;padding-left:4px}
+.space-avatar-stack>.person-avatar,.space-avatar-more{width:27px;height:27px;flex:0 0 27px;border:2px solid var(--white);margin-left:-4px;font-size:10px}
+.space-avatar-more{display:inline-flex;align-items:center;justify-content:center;background:var(--blue-light);color:var(--text);border-radius:50%}
+.space-team-open{font:inherit;font-weight:500;border:0;background:transparent;color:var(--text);cursor:pointer;text-align:left;padding:4px 0}
+.space-team-editor>label{max-width:460px}.space-team-editor>label>input{width:100%;display:block}
+.space-team-editor .space-table{min-width:0}
+.space-team-editor .space-team-actions>.primary{width:auto}
+.workspace .preferences-surface [data-space-people]{padding:4px 0 0;min-width:0}
+@media(max-width:600px){.space-table-toolbar{gap:8px}.space-table-toolbar input{flex:1 1 100%;width:100%}.space-table-toolbar select{flex:1;min-width:0}.space-table td,.space-table th{padding:8px}.space-table-person{min-width:0}.space-team-create{flex-direction:column;align-items:stretch}}
+
+.space-team-badges>.space-table-empty{border:0;padding:0}
+
+.person-name-button{font:inherit;font-weight:inherit;color:inherit;text-align:inherit;padding:0;max-width:100%;overflow-wrap:anywhere}.person-name-button:hover{text-decoration:underline}
+
+/* A compact catalog outside, a single readable participant table inside. */
+.workspace .preferences-surface .social-catalog .preference-rows{border-radius:10px}
+.workspace .preferences-surface .social-catalog .preference-row>summary{min-height:58px;padding:10px 16px;gap:10px}
+.workspace .preferences-surface .social-catalog .preference-label>strong{font-size:13px;font-weight:500}
+.workspace .preferences-surface .social-catalog .preference-description{font-size:11px;display:block}
+.workspace .preferences-surface .social-catalog .preference-icon,.workspace .preferences-surface .social-catalog .social-person-icon .person-avatar{width:30px;height:30px;flex-basis:30px}
+.social-catalog-facts{display:grid;grid-template-columns:70px 60px 125px;gap:12px;align-items:center;font-size:12px;color:var(--muted);flex:0 0 auto}
+.social-catalog-facts small{display:none}
+.social-catalog-head{display:grid;grid-template-columns:minmax(0,1fr) 70px 60px 125px;gap:12px;padding:10px 52px 10px 16px;color:var(--muted);font-size:11px;border-bottom:1px solid var(--line)}
+.workspace .preferences-surface .social-catalog .preference-row>.panel{padding:12px 16px 20px;border-top:1px solid var(--line)}
+.social-catalog .space-table-person{min-width:0}.social-catalog .space-table th,.social-catalog .space-table td{padding:8px}
+@media(max-width:700px){
+ .social-catalog-head{display:none}
+ .workspace .preferences-surface .social-catalog .preference-row>summary{flex-wrap:wrap;position:relative;padding-right:32px}
+ .workspace .preferences-surface .social-catalog .preference-label{flex:1 1 calc(100% - 50px)}
+ .workspace .preferences-surface .social-catalog .preference-row>summary::after{position:absolute;right:12px;top:18px}
+ .social-catalog-facts{grid-template-columns:auto auto minmax(0,1fr);gap:12px;flex:1 1 100%;padding-left:40px;font-size:11px}
+ .social-catalog-facts small{display:inline;margin-left:3px;font-size:10px}
+ .space-table-date{white-space:normal}.space-avatar-stack{flex-wrap:wrap}
+}
+.social-contact-catalog .social-catalog-head{grid-template-columns:minmax(0,1fr) 160px 100px}
+.social-contact-row .social-catalog-facts{grid-template-columns:160px 100px}
+.social-contact-row .social-catalog-facts .person-presence{font-size:11px;white-space:normal}
+@media(max-width:700px){.social-contact-row .social-catalog-facts{grid-template-columns:minmax(0,1fr) auto}}
+.space-table [data-people-sort-heading]{width:28%}
+.space-table:has(.has-selection) th:first-child{width:40px}
+
+.space-bulk-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0}.space-bulk-actions select{width:auto;min-width:100px}.space-bulk-actions>span{font-size:13px;color:var(--muted)}

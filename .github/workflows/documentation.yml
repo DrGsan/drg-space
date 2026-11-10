@@ -1,0 +1,17 @@
+name: Documentation
+on:
+  push:
+    branches: [main]
+    paths: ['**/*.md', '**/*.markdown', 'documentation.json', 'scripts/check-documentation.py', 'scripts/check-public-content.py', '.github/workflows/documentation.yml']
+  pull_request:
+    paths: ['**/*.md', '**/*.markdown', 'documentation.json', 'scripts/check-documentation.py', 'scripts/check-public-content.py', '.github/workflows/documentation.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  documentation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Validate maintained documentation and distributable contents
+        run: python3 scripts/check-public-content.py

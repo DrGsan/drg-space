@@ -1,0 +1,35 @@
+services:
+  app:
+    environment:
+      TRUSTED_PROXIES: 172.30.73.2/32
+    networks:
+      default:
+        ipv4_address: 172.30.73.3
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?Set SITE_DOMAIN in .env}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1},app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      default:
+        ipv4_address: 172.30.73.2
+    depends_on:
+      app:
+        condition: service_healthy
+volumes:
+  caddy-data:
+  caddy-config:
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.73.0/24

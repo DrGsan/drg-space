@@ -1,0 +1,50 @@
+# Only scripts/federation-docker.py supplies these paths and a unique project name.
+# No host ports, application .env, existing volumes, or Docker socket mounts.
+x-probe: &probe
+  image: ${FEDERATION_TEST_IMAGE:?Run scripts/federation-docker.py}
+  user: "${FEDERATION_TEST_UID:?}:${FEDERATION_TEST_GID:?}"
+  read_only: true
+  init: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  pids_limit: 64
+  mem_limit: 256m
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=64m
+  healthcheck:
+    test: ["CMD", "python", "scripts/federation/docker_node.py", "health"]
+    interval: 2s
+    timeout: 3s
+    start_period: 2s
+    retries: 20
+
+services:
+  alice:
+    <<: *probe
+    volumes:
+      - ${FEDERATION_TEST_FIXTURES:?}/alice:/fixtures:ro
+    networks:
+      isolated:
+        aliases: [alice.federation.test]
+  bob:
+    <<: *probe
+    volumes:
+      - ${FEDERATION_TEST_FIXTURES:?}/bob:/fixtures:ro
+    networks:
+      isolated:
+        aliases: [bob.federation.test, wrong.federation.test]
+  verifier:
+    <<: *probe
+    command: ["python", "scripts/federation/docker_node.py", "check"]
+    healthcheck:
+      disable: true
+    volumes:
+      - ${FEDERATION_TEST_FIXTURES:?}:/fixtures:ro
+      - ${FEDERATION_TEST_STATE:?}:/state
+    networks: [isolated]
+
+networks:
+  isolated:
+    internal: true

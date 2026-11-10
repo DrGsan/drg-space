@@ -1,0 +1,6 @@
+# Optional direct mTLS port. Include only when enabling server federation.
+# The ordinary app remains usable without this file or any FEDERATION_* values.
+services:
+  app:
+    ports:
+      - "${FEDERATION_BIND_ADDRESS:-127.0.0.1}:${FEDERATION_PORT:-8444}:8444"

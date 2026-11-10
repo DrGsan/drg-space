@@ -1,0 +1,11 @@
+.chat-popup{position:fixed;z-index:1100;box-sizing:border-box;width:204px;max-width:calc(100vw - 16px);padding:5px;border:1px solid color-mix(in srgb,var(--line) 65%,transparent);border-radius:14px;background:color-mix(in srgb,var(--white) 88%,transparent);color:var(--text);box-shadow:0 10px 30px #0003,inset 0 1px 0 #fff4;backdrop-filter:blur(24px) saturate(150%);-webkit-backdrop-filter:blur(24px) saturate(150%);overflow-y:auto;overscroll-behavior:contain;animation:chat-popup-in .14s ease-out;transform-origin:bottom left}
+.chat-popup>button{display:flex;align-items:center;gap:10px;width:100%;min-height:30px;margin:0;padding:5px 9px;border:0;border-radius:8px;background:transparent;color:inherit;text-align:left;font-family:inherit;font-size:13px;font-weight:500;line-height:20px;cursor:pointer;white-space:nowrap}
+.chat-popup>button>svg{flex:none;width:17px;height:17px;stroke-width:1.6}
+.chat-popup>button:hover{background:color-mix(in srgb,var(--text) 9%,transparent)}
+.chat-popup>button:focus-visible{outline:2px solid var(--blue);outline-offset:-2px;background:color-mix(in srgb,var(--text) 9%,transparent)}
+.chat-popup>button.danger{color:#e5484d}
+.chat-message-menu-date{display:flex;align-items:center;gap:10px;margin:4px 5px 0;padding:7px 4px 3px;border-top:1px solid var(--line);color:var(--muted);font-size:11px}
+.chat-message-menu-date svg{width:16px;height:16px}
+@keyframes chat-popup-in{from{opacity:0;transform:translateY(3px) scale(.97)}to{opacity:1;transform:none}}
+@media(max-width:760px),(pointer:coarse){.chat-popup{width:232px;padding:6px;border-radius:18px}.chat-popup>button{min-height:44px;gap:12px;padding:9px 11px;font-size:15px;line-height:22px}.chat-popup>button>svg{width:20px;height:20px}}
+@media(prefers-reduced-motion:reduce){.chat-popup{animation:none}}

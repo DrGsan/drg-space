@@ -1,0 +1,2 @@
+# Preserve upstream licence texts exactly, including original line endings.
+web/public/assets/licenses/** -text -whitespace

@@ -1,0 +1,25 @@
+import {tText} from "../../core/i18n.js";
+const messages={
+  federation_disabled:tText("federation:communicationWithOtherServersHasBeenDisabledBy"),
+  transport_not_configured:tText("federation:theWebsiteOwnerHasNotYetConfiguredA"),
+  configure_https_and_encryption_first:tText("federation:firstConfigureHttpsAndDataEncryptionOnThe"),
+  untrusted_server:tText("federation:thisServerHasNotBeenVerifiedByYour"),
+  contact_not_confirmed:tText("federation:theContactSCardHasNotBeenVerified"),
+  contact_device_changed:tText("federation:yourFriendHasADifferentDeviceVerifyAnd"),
+  device_revoked:tText("federation:theDeviceSKeyHasBeenRevokedA"),
+  device_actor_mismatch:tText("federation:theServerKeyDoesNotBelongToThe"),
+  peer_pin_changed:tText("federation:theServerKeyOrCertificateHasChangedVerify"),
+  friendship_required:tText("federation:firstAcceptTheInvitationToBeFriends"),
+  invitation_state:tText("federation:theInvitationHasAlreadyChangedUpdateTheList"),
+  resource_access_denied:tText("federation:accessToTheSharedPageHasBeenRevoked"),
+  peer_rejected_403:tText("federation:theFriendSServerHasClosedAccessOr"),
+  peer_rejected_404:tText("federation:theSharedPageOrCallIsNoLonger"),
+  peer_rejected_422:tText("federation:theFriendSServerWasUnableToAccept"),
+  grant_revision_changed:tText("federation:thePagePermissionsHaveChangedOpenItAgain"),
+  note_not_found:tText("federation:theSharedPageIsNoLongerAvailable"),
+  call_busy:tText("federation:theContactIsAlreadyInACallTry"),
+  call_unavailable:tText("federation:interServerCallsAreCurrentlyUnavailableCheckTurn"),
+  call_not_found:tText("federation:theCallHasAlreadyEndedOrIsUnavailable"),
+  call_device_mismatch:tText("federation:thisCallIsActiveOnAnotherDevice"),
+};
+export function federationErrorMessage(data,fallback){return messages[data?.error]||(typeof data?.error==='string'&&data.error.includes('unavailable')?tText("federation:theFriendSServerIsTemporarilyUnavailableTry"):fallback);}

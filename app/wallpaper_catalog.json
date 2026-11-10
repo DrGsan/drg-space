@@ -1,0 +1,122 @@
+[
+  {
+    "id": "nature",
+    "name_key": "wallpaperNatureCategory",
+    "items": [
+      {
+        "id": "forest",
+        "name_key": "wallpaperForest"
+      },
+      {
+        "id": "coast",
+        "name_key": "wallpaperCoast"
+      },
+      {
+        "id": "lavender",
+        "name_key": "wallpaperLavender"
+      },
+      {
+        "id": "mountains",
+        "name_key": "wallpaperMountains"
+      },
+      {
+        "id": "dunes",
+        "name_key": "wallpaperDunes"
+      },
+      {
+        "id": "nature-waterfall",
+        "name_key": "wallpaperNatureWaterfall"
+      }
+    ]
+  },
+  {
+    "id": "space",
+    "name_key": "wallpaperSpaceCategory",
+    "items": [
+      {
+        "id": "space-rings",
+        "name_key": "wallpaperSpaceRings"
+      },
+      {
+        "id": "space-nebula",
+        "name_key": "wallpaperSpaceNebula"
+      },
+      {
+        "id": "space-moon",
+        "name_key": "wallpaperSpaceMoon"
+      },
+      {
+        "id": "space-galaxy",
+        "name_key": "wallpaperSpaceGalaxy"
+      },
+      {
+        "id": "space-earth",
+        "name_key": "wallpaperSpaceEarth"
+      },
+      {
+        "id": "space-stars",
+        "name_key": "wallpaperSpaceStars"
+      }
+    ]
+  },
+  {
+    "id": "abstract",
+    "name_key": "wallpaperAbstractCategory",
+    "items": [
+      {
+        "id": "abstract-glass",
+        "name_key": "wallpaperAbstractGlass"
+      },
+      {
+        "id": "abstract-paper",
+        "name_key": "wallpaperAbstractPaper"
+      },
+      {
+        "id": "abstract-silk",
+        "name_key": "wallpaperAbstractSilk"
+      },
+      {
+        "id": "abstract-mist",
+        "name_key": "wallpaperAbstractMist"
+      },
+      {
+        "id": "abstract-ribbons",
+        "name_key": "wallpaperAbstractRibbons"
+      },
+      {
+        "id": "abstract-pearl",
+        "name_key": "wallpaperAbstractPearl"
+      }
+    ]
+  },
+  {
+    "id": "cozy",
+    "name_key": "wallpaperCozyCategory",
+    "items": [
+      {
+        "id": "warm",
+        "name_key": "wallpaperWarm"
+      },
+      {
+        "id": "cozy-rain",
+        "name_key": "wallpaperCozyRain"
+      },
+      {
+        "id": "cozy-terrace",
+        "name_key": "wallpaperCozyTerrace"
+      },
+      {
+        "id": "cozy-library",
+        "name_key": "wallpaperCozyLibrary"
+      },
+      {
+        "id": "cozy-winter",
+        "name_key": "wallpaperCozyWinter"
+      },
+      {
+        "id": "cozy-evening",
+        "name_key": "wallpaperCozyEvening"
+      }
+    ]
+  }
+]

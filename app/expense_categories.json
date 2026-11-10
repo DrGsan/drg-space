@@ -1,0 +1,182 @@
+[
+  {
+    "id": "restaurant",
+    "ru": "Ресторан",
+    "en": "Restaurant",
+    "group": "food"
+  },
+  {
+    "id": "bar",
+    "ru": "Бар",
+    "en": "Bar",
+    "group": "food"
+  },
+  {
+    "id": "cafe",
+    "ru": "Кафе",
+    "en": "Café",
+    "group": "food"
+  },
+  {
+    "id": "delivery",
+    "ru": "Доставка еды",
+    "en": "Food delivery",
+    "group": "food"
+  },
+  {
+    "id": "groceries",
+    "ru": "Продукты",
+    "en": "Groceries",
+    "group": "food"
+  },
+  {
+    "id": "alcohol",
+    "ru": "Алкоголь",
+    "en": "Alcohol",
+    "group": "food"
+  },
+  {
+    "id": "taxi",
+    "ru": "Такси",
+    "en": "Taxi",
+    "group": "transport"
+  },
+  {
+    "id": "fuel",
+    "ru": "Топливо",
+    "en": "Fuel",
+    "group": "transport"
+  },
+  {
+    "id": "parking",
+    "ru": "Парковка",
+    "en": "Parking",
+    "group": "transport"
+  },
+  {
+    "id": "public_transport",
+    "ru": "Общ. транспорт",
+    "en": "Public transport",
+    "group": "transport"
+  },
+  {
+    "id": "tickets",
+    "ru": "Билеты в дорогу",
+    "en": "Travel tickets",
+    "group": "transport"
+  },
+  {
+    "id": "car_rental",
+    "ru": "Аренда авто",
+    "en": "Car rental",
+    "group": "transport"
+  },
+  {
+    "id": "shop",
+    "ru": "Магазин",
+    "en": "Shopping",
+    "group": "home"
+  },
+  {
+    "id": "stay",
+    "ru": "Проживание",
+    "en": "Accommodation",
+    "group": "home"
+  },
+  {
+    "id": "utilities",
+    "ru": "ЖКХ",
+    "en": "Utilities",
+    "group": "home"
+  },
+  {
+    "id": "home",
+    "ru": "Дом и ремонт",
+    "en": "Home and repairs",
+    "group": "home"
+  },
+  {
+    "id": "subscriptions",
+    "ru": "Связь и подписки",
+    "en": "Phone and subscriptions",
+    "group": "home"
+  },
+  {
+    "id": "other",
+    "ru": "Прочее",
+    "en": "Other",
+    "group": "other"
+  },
+  {
+    "id": "cinema",
+    "ru": "Кино и концерты",
+    "en": "Cinema and concerts",
+    "group": "life"
+  },
+  {
+    "id": "activities",
+    "ru": "Развлечения",
+    "en": "Activities",
+    "group": "life"
+  },
+  {
+    "id": "sport",
+    "ru": "Спорт",
+    "en": "Sport",
+    "group": "life"
+  },
+  {
+    "id": "gifts",
+    "ru": "Подарки",
+    "en": "Gifts",
+    "group": "life"
+  },
+  {
+    "id": "health",
+    "ru": "Здоровье",
+    "en": "Health",
+    "group": "life"
+  },
+  {
+    "id": "beauty",
+    "ru": "Красота",
+    "en": "Beauty",
+    "group": "life"
+  },
+  {
+    "id": "education",
+    "ru": "Обучение",
+    "en": "Education",
+    "group": "life"
+  },
+  {
+    "id": "children",
+    "ru": "Дети",
+    "en": "Children",
+    "group": "life"
+  },
+  {
+    "id": "pets",
+    "ru": "Питомцы",
+    "en": "Pets",
+    "group": "life"
+  },
+  {
+    "id": "lend",
+    "ru": "Дал в долг",
+    "en": "Lent money",
+    "group": "transfers"
+  },
+  {
+    "id": "borrow",
+    "ru": "Взял в долг",
+    "en": "Borrowed money",
+    "group": "transfers"
+  },
+  {
+    "id": "repayment",
+    "ru": "Возврат долга",
+    "en": "Debt repayment",
+    "group": "transfers"
+  }
+]

@@ -1,0 +1,105 @@
+{
+  "configured": true,
+  "city": "Москва",
+  "forecast_range": "next_24h",
+  "forecast_time": 1793433600,
+  "checked_at": 1793433600,
+  "current": {
+    "temperature_2m": 6,
+    "apparent_temperature": 3,
+    "weather_code": 3,
+    "wind_speed_10m": 8,
+    "wind_direction": 180,
+    "relative_humidity": 64,
+    "pressure_hpa": 1028,
+    "precipitation": 0
+  },
+  "daily": {
+    "temperature_2m_min": [
+      2
+    ],
+    "temperature_2m_max": [
+      11
+    ]
+  },
+  "hourly": [
+    {
+      "time": 1793433600,
+      "temperature_2m": 6,
+      "weather_code": 3,
+      "wind_speed_10m": 8
+    },
+    {
+      "time": 1793444400,
+      "temperature_2m": 7,
+      "weather_code": 0,
+      "wind_speed_10m": 8
+    },
+    {
+      "time": 1793455200,
+      "temperature_2m": 8,
+      "weather_code": 3,
+      "wind_speed_10m": 8
+    },
+    {
+      "time": 1793466000,
+      "temperature_2m": 9,
+      "weather_code": 0,
+      "wind_speed_10m": 8
+    },
+    {
+      "time": 1793476800,
+      "temperature_2m": 10,
+      "weather_code": 3,
+      "wind_speed_10m": 8
+    },
+    {
+      "time": 1793487600,
+      "temperature_2m": 11,
+      "weather_code": 0,
+      "wind_speed_10m": 8
+    }
+  ],
+  "forecast_periods": [
+    {
+      "start": 1793433600,
+      "end": 1793520000,
+      "temperature_2m_min": 2,
+      "temperature_2m_max": 10,
+      "weather_code": 3,
+      "wind_speed_10m_max": 9
+    },
+    {
+      "start": 1793520000,
+      "end": 1793606400,
+      "temperature_2m_min": 2,
+      "temperature_2m_max": 10,
+      "weather_code": 0,
+      "wind_speed_10m_max": 9
+    },
+    {
+      "start": 1793606400,
+      "end": 1793692800,
+      "temperature_2m_min": 2,
+      "temperature_2m_max": 10,
+      "weather_code": 3,
+      "wind_speed_10m_max": 9
+    },
+    {
+      "start": 1793692800,
+      "end": 1793779200,
+      "temperature_2m_min": 2,
+      "temperature_2m_max": 10,
+      "weather_code": 0,
+      "wind_speed_10m_max": 9
+    },
+    {
+      "start": 1793779200,
+      "end": 1793865600,
+      "temperature_2m_min": 2,
+      "temperature_2m_max": 10,
+      "weather_code": 3,
+      "wind_speed_10m_max": 9
+    }
+  ]
+}

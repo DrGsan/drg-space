@@ -1,0 +1,10 @@
+.registration-invitations{display:grid;gap:12px;margin-top:14px;min-width:0}
+.registration-invitation{min-width:0;padding:14px;border:1px solid var(--line);border-radius:14px;background:color-mix(in srgb,var(--white) 45%,transparent)}
+.registration-invitation p{margin:8px 0;overflow-wrap:anywhere}
+.registration-invitation input{width:100%;min-width:0;font-size:13px;margin:3px 0 10px}
+.invitation-heading,.invitation-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.invitation-heading strong{overflow-wrap:anywhere}
+.invitation-status{font-size:12px;border-radius:20px;padding:4px 9px;background:var(--bg);color:var(--muted)}
+.invitation-status[data-status=active]{color:var(--blue);background:var(--blue-light)}
+.invitation-actions:empty{display:none}
+@media(max-width:420px){.registration-invitation{padding:11px}.invitation-actions{justify-content:flex-start;gap:16px}.registration-invitation input{font-size:12px}}

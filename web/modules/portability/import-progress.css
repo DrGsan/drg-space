@@ -1,0 +1,9 @@
+[data-import-progress]{display:block;width:100%;height:7px;margin-top:18px;accent-color:var(--blue)}
+[data-import-progress][hidden]{display:none}
+[data-notion-status]{min-height:1.5em;overflow-wrap:anywhere}
+[data-notion-status][data-busy=true]::before{content:'';display:inline-block;width:12px;height:12px;margin-right:8px;border:2px solid color-mix(in srgb,var(--blue) 25%,transparent);border-top-color:var(--blue);border-radius:50%;animation:import-progress-spin .8s linear infinite;vertical-align:-2px}
+.import-file-names{overflow-wrap:anywhere;margin:6px 0}
+@keyframes import-progress-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){[data-notion-status][data-busy=true]::before{animation:none}}
+
+.import-issues li{margin:12px 0;overflow-wrap:anywhere}.import-issues small{color:var(--muted)}

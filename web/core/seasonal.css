@@ -1,0 +1,130 @@
+.seasonal-positioned{position:relative}
+.seasonal-decoration{position:absolute;inset:0;display:block;overflow:hidden;border-radius:inherit;pointer-events:none!important;user-select:none;contain:paint;z-index:0}
+.seasonal-host>.seasonal-decoration{display:block!important}
+.seasonal-decoration *{pointer-events:none!important;box-sizing:border-box}
+.seasonal-host>.seasonal-decoration svg{display:block;width:100%;height:100%;overflow:visible}
+.seasonal-edge{position:absolute;inset:0 0 auto;height:3px;background:linear-gradient(90deg,transparent,#c6945a99,transparent)}
+.seasonal-motif{position:absolute;display:none;opacity:1;filter:saturate(1.2) drop-shadow(0 2px 2px #0002);transform-origin:50% 15%;animation:seasonal-sway 12s ease-in-out infinite}
+.seasonal-frieze{position:absolute;display:none;filter:saturate(1.25) drop-shadow(0 1px 1px #0002);white-space:nowrap}.seasonal-frieze>i{display:inline-block;width:25%;height:100%}.seasonal-frieze>i:nth-child(even){transform:rotate(-8deg)}
+.seasonal-particle{position:absolute;display:none;opacity:.8;filter:saturate(1.25);animation:seasonal-float 16s ease-in-out infinite;animation-delay:calc(var(--particle)*-3.7s)}
+[data-seasonal-theme=halloween] .seasonal-edge{background:linear-gradient(90deg,transparent,#e59638c0,transparent)}
+[data-seasonal-theme=valentine] .seasonal-edge{background:linear-gradient(90deg,transparent,#d96a8cc0,transparent)}
+[data-seasonal-theme=spring] .seasonal-edge{background:linear-gradient(90deg,transparent,#86a75fc0,transparent)}
+[data-seasonal-theme=space] .seasonal-edge{background:linear-gradient(90deg,transparent,#8a9edac0,transparent)}
+[data-seasonal-theme=newyear] .seasonal-particle{animation-duration:21s}
+.seasonal-lights{position:absolute;inset:1px 4% auto;display:flex;justify-content:space-between;height:10px;border-top:2px solid #68897999}
+.seasonal-lights>i{width:6px;height:8px;border-radius:2px 2px 50% 50%;background:#ebbb43;box-shadow:0 0 7px #ebbb4388;transform:translateY(calc(var(--bulb)*.13px));animation:seasonal-light 5s ease-in-out infinite alternate;animation-delay:calc(var(--bulb)*-.6s)}
+.seasonal-lights>i:nth-child(3n){background:#cd566b;box-shadow:0 0 7px #cd566b88}
+.seasonal-lights>i:nth-child(3n+1){background:#389c82;box-shadow:0 0 7px #389c8288}
+.seasonal-preview-header{position:relative;display:flex;align-items:center;justify-content:space-between;min-height:56px;padding:15px 12px 10px;border-radius:12px;background:var(--white);border:1px solid var(--line);font-size:13px;gap:12px}
+.seasonal-preview-header>strong,.seasonal-preview-header>span:not(.seasonal-decoration){position:relative}
+.appearance-seasonal{display:grid;gap:10px;margin:0;padding:0;border:0}
+.appearance-seasonal legend{font-weight:600;margin-bottom:8px}
+.appearance-seasonal .hint{margin:0}
+.seasonal-preview-control{position:fixed;right:calc(12px + var(--app-safe-right));bottom:calc(8px + var(--app-safe-bottom));z-index:90;display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:calc(100% - 24px);height:36px;padding:0 6px 0 12px;border:1px solid var(--line);border-radius:12px;background:var(--white);color:var(--text);box-shadow:0 3px 14px #0002;font-size:12px;line-height:1.2}
+.seasonal-preview-control>span{min-width:0;max-width:240px;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.seasonal-preview-control>button{flex:none;min-height:32px;margin:0;padding:6px 10px;border:0;border-radius:8px;background:var(--blue-light);color:var(--blue);box-shadow:none;font:inherit;font-weight:600;white-space:nowrap}
+.seasonal-preview-control>button:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+@media(min-width:761px){
+ .workspace.seasonal-preview-active{--app-height:calc(100dvh - var(--app-safe-top) - var(--app-safe-bottom) - 52px);height:var(--app-height);min-height:0;overflow:hidden}
+ .workspace.seasonal-preview-active>.content{height:100%;min-height:0;overflow:auto}
+ .workspace.seasonal-preview-active>.sidebar{bottom:calc(var(--app-safe-bottom) + 52px)}
+}
+@keyframes seasonal-float{0%,100%{transform:translate3d(-2px,-1px,0) rotate(-6deg);opacity:.55}50%{transform:translate3d(2px,1px,0) rotate(5deg);opacity:.95}}
+@keyframes seasonal-sway{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+@keyframes seasonal-light{from{opacity:.7}to{opacity:1}}
+.seasonal-paused *{animation-play-state:paused!important}
+@media(prefers-reduced-motion:reduce){.seasonal-decoration *{animation:none!important;will-change:auto}.seasonal-particle{opacity:.8;transform:none}}
+@media(max-width:760px){html.app-standalone .notes-shell .page-top>.seasonal-decoration{display:none!important}html.app-standalone .notes-shell.mobile-notes-list:has(.notes-navigation.seasonal-host) .pages-sidebar-head{gap:40px}html.app-standalone .notes-shell.mobile-notes-list:has(.notes-navigation.seasonal-host) .pages-sidebar-head select{min-width:0;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}}
+@media(max-width:760px){
+ .seasonal-preview-control{left:12px;right:12px;gap:8px;height:44px;padding:0 6px 0 10px;font-size:11px}
+ .seasonal-preview-control>button{min-height:44px;padding:6px 8px}
+ html.app-standalone .workspace.seasonal-preview-active>.content{flex:1;height:auto;min-height:0;margin-bottom:calc(var(--mobile-tabs-space,0px) + 52px);padding-bottom:0}
+ html.app-standalone .workspace>.seasonal-preview-control{position:absolute;bottom:var(--mobile-tabs-space,0px)}
+ html:not(.app-standalone) .workspace.seasonal-preview-active{--app-height:calc(100dvh - var(--app-safe-top) - var(--app-safe-bottom) - 60px);height:var(--app-height);min-height:0;overflow:auto}
+}
+
+/* Holiday frame: the saved wallpaper remains untouched. Theme colours belong
+   only to the temporary/calendar decoration and the navigation chrome. */
+[data-seasonal-theme=newyear]{--seasonal-dark:#123f35;--seasonal-mid:#357e62;--seasonal-ink:#fff0c3;--seasonal-accent:#e6c778}
+[data-seasonal-theme=halloween]{--seasonal-dark:#32243d;--seasonal-mid:#79505d;--seasonal-ink:#ffe6bf;--seasonal-accent:#f0ae68}
+[data-seasonal-theme=valentine]{--seasonal-dark:#5b2c42;--seasonal-mid:#a65770;--seasonal-ink:#ffe5ed;--seasonal-accent:#efb1bf}
+[data-seasonal-theme=spring]{--seasonal-dark:#295448;--seasonal-mid:#729e76;--seasonal-ink:#f5eed0;--seasonal-accent:#e5c98b}
+[data-seasonal-theme=space]{--seasonal-dark:#1b2946;--seasonal-mid:#555a87;--seasonal-ink:#e5e6ff;--seasonal-accent:#bbc2ec}
+.workspace.seasonal-framed{isolation:isolate}
+.workspace.seasonal-framed>.content{position:relative;z-index:1}
+/* Paint above the backdrop-filter sampling plane, with exact surface cutouts.
+   Otherwise blur pulls ornaments into glass cards even outside their bounds. */
+.workspace.seasonal-framed>.seasonal-shell-decoration{z-index:2}
+.workspace.seasonal-framed>.sidebar{z-index:3;background:linear-gradient(160deg,var(--seasonal-dark),color-mix(in srgb,var(--seasonal-dark) 86%,var(--seasonal-mid)))!important;border-right-color:color-mix(in srgb,var(--seasonal-accent) 45%,transparent);color:var(--seasonal-ink)}
+.workspace.seasonal-framed>.sidebar .brand,.workspace.seasonal-framed>.sidebar .nav-btn,.workspace.seasonal-framed>.sidebar .user .icon-btn{color:var(--seasonal-ink)}
+.workspace.seasonal-framed>.sidebar .nav-label,.workspace.seasonal-framed>.sidebar .user small,.workspace.seasonal-framed>.sidebar .sidebar-version{color:color-mix(in srgb,var(--seasonal-ink) 74%,var(--seasonal-dark))}
+:root .workspace.seasonal-framed>.sidebar .nav-btn.active{background:var(--seasonal-ink);color:var(--seasonal-dark)}
+.workspace.seasonal-framed>.sidebar .nav-btn:hover{background:color-mix(in srgb,var(--seasonal-ink) 17%,var(--seasonal-dark))}
+:root .workspace.seasonal-framed>.sidebar .nav-btn.active:hover{background:var(--seasonal-ink);color:var(--seasonal-dark)}
+.workspace.seasonal-framed>.sidebar .brand-mark{filter:drop-shadow(0 0 9px color-mix(in srgb,var(--seasonal-accent) 60%,transparent))}
+.workspace.seasonal-framed>.sidebar .user{border-top-color:color-mix(in srgb,var(--seasonal-ink) 24%,transparent)}
+.seasonal-shell-decoration{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none!important;user-select:none;contain:strict;width:100%;height:100%}
+.seasonal-shell-decoration *,.seasonal-sidebar-scene *{pointer-events:none!important;box-sizing:border-box}
+.auth-layout.seasonal-framed>.auth-header,.auth-layout.seasonal-framed>.auth-main,.auth-layout.seasonal-framed>.auth-footer{position:relative;z-index:1}
+.auth-layout.seasonal-framed{background:radial-gradient(ellipse at 50% 10%,color-mix(in srgb,var(--seasonal-accent) 18%,var(--auth-bg)),var(--auth-bg) 70%)}
+.seasonal-ground-scene>svg,.seasonal-sidebar-scene>svg{display:block;width:100%;height:100%;overflow:visible}
+.seasonal-ambient{opacity:.75;animation:seasonal-fall var(--duration) linear infinite;animation-delay:calc(var(--particle)*-1.37s);transform-box:fill-box;transform-origin:center}
+.seasonal-ambient[data-particle-kind=stars]{animation:seasonal-star-drift 4s ease-in-out infinite alternate;animation-delay:calc(var(--particle)*-.61s)}
+.seasonal-ambient:is([data-particle-kind=hearts],[data-particle-kind=notes]){animation-name:seasonal-rise}
+.seasonal-ground-scene{opacity:.96}
+.seasonal-sidebar-scene{position:absolute;left:6px;right:6px;overflow:hidden;pointer-events:none!important;user-select:none;contain:paint}
+.seasonal-sidebar-scene[hidden]{display:none}
+.seasonal-scene-light{animation:seasonal-light 3s ease-in-out infinite alternate;animation-delay:calc(var(--particle)*-.6s)}
+.seasonal-scene-fly{animation:seasonal-scene-rise 4.2s ease-in-out infinite alternate}
+.seasonal-scene-stem{animation:seasonal-stem 4.8s ease-in-out infinite alternate;animation-delay:calc(var(--particle)*-.6s)}
+.seasonal-edge{height:4px;background:linear-gradient(90deg,var(--seasonal-mid),var(--seasonal-accent),var(--seasonal-mid));overflow:hidden}
+.seasonal-edge>i{position:absolute;left:calc(var(--leaf)*5%);top:-8px;width:38px;height:14px;border-radius:100% 0 90% 0;background:linear-gradient(140deg,var(--seasonal-mid),var(--seasonal-dark));transform:rotate(-18deg)}
+[data-seasonal-theme=space] .seasonal-edge>i{background:var(--seasonal-accent);width:7px;height:7px;top:-3px;clip-path:polygon(50% 0,61% 38%,100% 50%,61% 62%,50% 100%,39% 62%,0 50%,39% 38%)}
+.seasonal-motif,.seasonal-particle{animation:none;opacity:1;filter:drop-shadow(0 2px 2px #0002)}
+.seasonal-motif>svg,.seasonal-particle>svg{animation:seasonal-ornament 4s ease-in-out infinite alternate;transform-origin:50% 15%;animation-delay:calc(var(--particle,0)*-.7s)}
+.seasonal-lights{height:9px;border-top-color:var(--seasonal-mid)}
+.seasonal-lights>i{animation-duration:3s}
+[data-seasonal-theme=halloween] .seasonal-lights>i{background:#f2b66e;box-shadow:0 0 7px #e7a05699}
+[data-seasonal-theme=valentine] .seasonal-lights>i{background:#f3b7cb;box-shadow:0 0 7px #f0a8be99}
+@keyframes seasonal-ornament{from{transform:scale(.88) rotate(-9deg)}to{transform:scale(.88) rotate(9deg)}}
+@keyframes seasonal-edge-drift{from{transform:translateY(-7px) rotate(-7deg)}to{transform:translateY(7px) rotate(7deg)}}
+@keyframes seasonal-fall{from{transform:translate3d(-12px,-20px,0) rotate(0)}to{transform:translate3d(15px,105vh,0) rotate(100deg)}}
+@keyframes seasonal-rise{from{transform:translate3d(-8px,0,0) rotate(-8deg)}to{transform:translate3d(14px,-110vh,0) rotate(12deg)}}
+@keyframes seasonal-star-drift{from{transform:translate3d(-8px,-8px,0) scale(.7);opacity:.4}to{transform:translate3d(8px,12px,0) scale(1.15);opacity:1}}
+@keyframes seasonal-scene-rise{from{translate:0 -4px}to{translate:0 5px}}
+@keyframes seasonal-stem{from{rotate:-4deg}to{rotate:4deg}}
+@media(max-width:760px){
+ .auth-layout>.seasonal-shell-decoration .seasonal-ground-scene{display:none}
+ html.app-standalone .workspace.seasonal-framed>.mobile-app-tabs{--mobile-tab-selection:var(--seasonal-ink);background:color-mix(in srgb,var(--seasonal-dark) 92%,transparent);border-color:color-mix(in srgb,var(--seasonal-accent) 40%,transparent)}
+ html.app-standalone .workspace.seasonal-framed>.mobile-app-tabs>button{color:var(--seasonal-ink)}
+ html.app-standalone .workspace.seasonal-framed>.mobile-app-tabs>button[aria-current=page]{background:var(--seasonal-ink);color:var(--seasonal-dark)}
+ html.app-standalone .workspace.seasonal-framed>.mobile-app-tabs.has-tab-indicator>button[aria-current=page]{background:transparent}
+}
+@media(prefers-reduced-motion:reduce){.seasonal-decoration *,.seasonal-shell-decoration *,.seasonal-sidebar-scene *{animation:none!important;will-change:auto}.seasonal-ambient{display:none}.seasonal-motif>svg,.seasonal-particle>svg{transform:scale(.88)}}
+/* Focused document/message navigation keeps its reading colours and size. */
+.workspace.seasonal-framed :is(.pages-sidebar,.tasks-sidebar,.chat-sidebar,.drive-sidebar){box-shadow:inset 1px 0 color-mix(in srgb,var(--seasonal-accent) 65%,transparent),inset -1px 0 color-mix(in srgb,var(--seasonal-accent) 65%,transparent)}
+.workspace.seasonal-framed :is(.notes-navigation,.tasks-nav-head,.chat-sidebar-heading,.chat-header,.drive-workspace-header){border-top-color:var(--seasonal-accent)}
+
+
+/* Native SVG graphics keep WebKit animations inside the stable mask. */
+.seasonal-edge-motion{animation:seasonal-edge-drift 4.8s ease-in-out infinite alternate;animation-delay:calc(var(--particle)*-1.5s);transform-box:fill-box;transform-origin:center}
+/* Keep the existing public form geometry; decoration occupies the header gaps. */
+.auth-layout.seasonal-framed>.auth-header{width:100%}
+.auth-layout.seasonal-framed>.auth-header .public-language{width:max-content;margin-inline:auto}
+
+[data-seasonal-theme=hugs]{--seasonal-dark:#573247;--seasonal-mid:#916477;--seasonal-ink:#ffe4cc;--seasonal-accent:#f5c2a1}
+[data-seasonal-theme=pizza]{--seasonal-dark:#55362c;--seasonal-mid:#95654b;--seasonal-ink:#fff0c9;--seasonal-accent:#f1b66c}
+[data-seasonal-theme=pi]{--seasonal-dark:#263e50;--seasonal-mid:#536e91;--seasonal-ink:#e4efff;--seasonal-accent:#b2d3fb}
+[data-seasonal-theme=laughter]{--seasonal-dark:#503156;--seasonal-mid:#986b94;--seasonal-ink:#ffebd8;--seasonal-accent:#eac788}
+[data-seasonal-theme=starwars]{--seasonal-dark:#1c263e;--seasonal-mid:#435b84;--seasonal-ink:#e9efff;--seasonal-accent:#b8dbff}
+[data-seasonal-theme=towel]{--seasonal-dark:#244955;--seasonal-mid:#4b8193;--seasonal-ink:#e4f8ff;--seasonal-accent:#a9dbdf}
+[data-seasonal-theme=music]{--seasonal-dark:#3c2957;--seasonal-mid:#6c4f94;--seasonal-ink:#f4e9ff;--seasonal-accent:#d6b6ff}
+[data-seasonal-theme=chocolate]{--seasonal-dark:#44302c;--seasonal-mid:#816354;--seasonal-ink:#fff1db;--seasonal-accent:#dcb889}
+[data-seasonal-theme=beer]{--seasonal-dark:#4c3e23;--seasonal-mid:#947a42;--seasonal-ink:#fff1c9;--seasonal-accent:#e5c76f}
+[data-seasonal-theme=cats]{--seasonal-dark:#493b4d;--seasonal-mid:#87778a;--seasonal-ink:#f8e6ed;--seasonal-accent:#e9bfcd}
+[data-seasonal-theme=programmers]{--seasonal-dark:#223e3a;--seasonal-mid:#486c59;--seasonal-ink:#e2ffe9;--seasonal-accent:#a2dbb6}
+[data-seasonal-theme=pirate]{--seasonal-dark:#263f46;--seasonal-mid:#4d777c;--seasonal-ink:#fbeccc;--seasonal-accent:#e1c17e}
+[data-seasonal-theme=coffee]{--seasonal-dark:#46372f;--seasonal-mid:#7e6557;--seasonal-ink:#fff0db;--seasonal-accent:#dbb98d}
+[data-seasonal-theme=kindness]{--seasonal-dark:#4f4331;--seasonal-mid:#99825d;--seasonal-ink:#fff4dc;--seasonal-accent:#f0d88f}
+[data-seasonal-theme=birthday]{--seasonal-dark:#49325d;--seasonal-mid:#806297;--seasonal-ink:#fff1dc;--seasonal-accent:#f4d089}

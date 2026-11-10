@@ -1,0 +1,16 @@
+.secret-vault{position:relative;min-width:0;padding:24px;min-height:350px}
+.vault-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0}
+.vault-locked{text-align:center;max-width:560px;margin:60px auto}
+.vault-locked>span{font-size:36px}
+.vault-warning{padding:12px 16px;border-radius:10px;background:color-mix(in srgb,#ee9b25 12%,transparent);line-height:1.6}
+.vault-preview{display:block;max-width:100%;max-height:65vh;margin:auto}
+.vault-text-preview{max-height:60vh;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+.vault-obscured{visibility:hidden!important}
+.vault-obscured::after{content:attr(data-vault-obscured-label);visibility:visible;position:absolute;inset:0;display:grid;place-items:center;background:var(--panel,#fff);color:var(--muted,#718096)}
+.secret-section-title{border:0;background:none;padding:0;text-align:left;cursor:pointer;font:inherit;color:inherit}
+.secret-section-title:hover{color:var(--text)}
+.drive-main.secret-vault{padding:0 24px}
+.notion-page.secret-vault.vault-note-page{padding:0}
+@media(max-width:1100px){.drive-main.secret-vault{padding:0 15px}}
+@media(max-width:800px){.secret-vault{padding:16px}}
+@media(max-width:700px){.drive-main.secret-vault{padding:0 12px}}

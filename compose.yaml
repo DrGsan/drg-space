@@ -1,0 +1,73 @@
+services:
+  app:
+    image: drg-site-image
+    container_name: drg-site-app
+    build: .
+    restart: unless-stopped
+    stop_grace_period: 70s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      APP_SECRET: ${APP_SECRET:?Generate .env with scripts/init-env.py}
+      SETUP_TOKEN: ${SETUP_TOKEN:-}
+      DATA_ENCRYPTION_ENABLED: ${DATA_ENCRYPTION_ENABLED:-true}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:-}
+      DATABASE_URL: ${DATABASE_URL:-}
+      # Retain the legacy fallback for existing .env files without this key.
+      # New installations explicitly receive drg_site from .env.example.
+      DATABASE_SCHEMA: ${DATABASE_SCHEMA:-drg}
+      REDIS_URL: ${REDIS_URL:-}
+      FILE_STORAGE: ${FILE_STORAGE:-local}
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-10240}
+      ARCHIVE_MAX_GB: ${ARCHIVE_MAX_GB:-50}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_PREFIX: ${S3_PREFIX:-drg-site}
+      S3_ADDRESSING_STYLE: ${S3_ADDRESSING_STYLE:-path}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+      WEATHER_USER_AGENT: ${WEATHER_USER_AGENT:-}
+      UNSPLASH_ACCESS_KEY: ${UNSPLASH_ACCESS_KEY:-}
+      FAMILY_PHOTO_URL: ${FAMILY_PHOTO_URL:-}
+      FAMILY_PHOTO_TOKEN: ${FAMILY_PHOTO_TOKEN:-}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8000}
+      NOTION_SYNC_ENABLED: ${NOTION_SYNC_ENABLED:-false}
+      NOTION_OAUTH_CLIENT_ID: ${NOTION_OAUTH_CLIENT_ID:-}
+      NOTION_OAUTH_CLIENT_SECRET: ${NOTION_OAUTH_CLIENT_SECRET:-}
+      NOTION_OAUTH_REDIRECT_URI: ${NOTION_OAUTH_REDIRECT_URI:-}
+      NOTION_WEBHOOK_READ_SECRET: ${NOTION_WEBHOOK_READ_SECRET:-}
+      FEDERATION_PUBLIC_URL: ${FEDERATION_PUBLIC_URL:-}
+      FEDERATION_BIND_PORT: "8444"
+      CALL_STUN_URLS: ${CALL_STUN_URLS:-stun:stun.cloudflare.com:3478}
+      CALL_TURN_URLS: ${CALL_TURN_URLS:-}
+      CALL_TURN_SECRET: ${CALL_TURN_SECRET:-}
+      CALL_LIVEKIT_ENABLED: ${CALL_LIVEKIT_ENABLED:-false}
+      CALL_LIVEKIT_URL: ${CALL_LIVEKIT_URL:-}
+      CALL_LIVEKIT_API_KEY: ${CALL_LIVEKIT_API_KEY:-}
+      CALL_LIVEKIT_API_SECRET: ${CALL_LIVEKIT_API_SECRET:-}
+      CALL_LIVEKIT_API_URL: ${CALL_LIVEKIT_API_URL:-}
+      WEB_PUSH_ENABLED: ${WEB_PUSH_ENABLED:-true}
+      DATA_DIR: /data
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-1}
+      GUNICORN_THREADS: ${GUNICORN_THREADS:-64}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      AUTH_FAILURE_LIMIT: ${AUTH_FAILURE_LIMIT:-8}
+      AUTH_IP_FAILURE_LIMIT: ${AUTH_IP_FAILURE_LIMIT:-30}
+      AUTH_FAILURE_WINDOW: ${AUTH_FAILURE_WINDOW:-900}
+      AUTH_BAN_SECONDS: ${AUTH_BAN_SECONDS:-900}
+      AUTH_MAX_BAN_SECONDS: ${AUTH_MAX_BAN_SECONDS:-86400}
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - drg-data:/data
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+volumes:
+  drg-data:
