@@ -1,5 +1,9 @@
 # Updating DrG Space
 
+## 5.0.1 reminder refresh
+
+Unchanged background polls preserve reminder controls when the list response includes recoverable deleted lists. Real changes continue to update the workspace. Database schema, storage formats, keys, dependencies and `.env` are unchanged; no migration or new settings are required. Use the existing update procedure below.
+
 ## 5.0.0 self-hosted baseline
 
 This release retains the existing application schema and storage formats. No migration, new clean database, or replacement of working keys is required for this baseline.

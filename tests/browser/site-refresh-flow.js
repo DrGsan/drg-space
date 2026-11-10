@@ -114,6 +114,8 @@ export async function siteRefreshFlow(ownerPage,browser){
     await snapshot(page,['.notes-shell','#pages-sidebar','#notion-page','#page-title','#block-editor .bn-editor','#notes-main-menu svg']);
     await tick(page,61000);await stable(page);
 
+    const recoveryList=await api(ownerPage,'/task-lists','POST',{name:'Recovery snapshot '+suffix});
+    await api(ownerPage,'/task-lists/'+recoveryList.id,'DELETE');
     await appSection(page,'Напоминания');await page.locator(`[data-task-list="${list.id}"]`).click();
     await page.locator(`.tasks-row-title[data-select-task="${task.id}"]`).click();
     await page.evaluate(()=>document.activeElement?.blur());
