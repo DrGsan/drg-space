@@ -42,7 +42,7 @@ See the [documentation index](docs/README.md), [installation](INSTALL.md), [upda
 | S3-compatible storage | File object storage | Local file storage is used |
 | coturn | TURN relay for private calls across restrictive networks | Private calls are unavailable in this version |
 | LiveKit | Group call transport | Group room creation is hidden and new group joins are rejected |
-| Family Photo | External Telegram archive integration | DrG chat and other sections remain available |
+| DrG Media | External Telegram archive integration | DrG chat and other sections remain available |
 | Notion OAuth integration | Optional synchronization | Local notes and archive import remain available |
 
 coturn and LiveKit serve different purposes. They are not required to run the workspace. See [calls](docs/voice-calls.md).

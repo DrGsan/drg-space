@@ -1,6 +1,6 @@
 # Optional Family Photo integration
 
-Family Photo is a separately operated Telegram archive service. Configure `FAMILY_PHOTO_URL` and `FAMILY_PHOTO_TOKEN` to connect it. Empty values leave this integration unavailable while local chat and other workspace features remain usable.
+DrG Media is a separately operated Telegram archive service, previously named Family Photo. Its existing integration identifiers remain compatible. Configure `FAMILY_PHOTO_URL` and `FAMILY_PHOTO_TOKEN` to connect it. Empty values leave this integration unavailable while local chat and other workspace features remain usable.
 
 The site owner grants eligible accounts access and selects permitted groups. The server checks both the site's grant and the external archive's capabilities before exposing metadata, media or supported conversation actions. The installation token stays on the server.
 

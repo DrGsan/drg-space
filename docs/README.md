@@ -31,6 +31,7 @@
 ## Development and attribution
 
 - [Contributing](../CONTRIBUTING.md)
+- [Isolated federation verification](federation-prototype.md)
 - [Modules and widgets](modularity.md)
 - [Localization](localization.md)
 - [City reference data](../app/geodata/README.md)

@@ -54,6 +54,10 @@
       "purpose": "Optional Telegram archive integration"
     },
     {
+      "path": "docs/federation-prototype.md",
+      "purpose": "Isolated end-to-end federation verification"
+    },
+    {
       "path": "docs/federation.md",
       "purpose": "Server federation configuration and access"
     },

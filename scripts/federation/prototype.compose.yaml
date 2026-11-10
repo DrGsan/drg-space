@@ -1,0 +1,129 @@
+x-node: &node
+  image: ${FEDERATION_TEST_IMAGE:?}
+  user: "${FEDERATION_TEST_UID:?}:${FEDERATION_TEST_GID:?}"
+  read_only: true
+  init: true
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  pids_limit: 160
+  mem_limit: 768m
+  tmpfs: ["/tmp:rw,noexec,nosuid,size=128m"]
+  healthcheck:
+    test: [CMD, python, scripts/federation/prototype_node.py, health]
+    interval: 3s
+    timeout: 5s
+    start_period: 10s
+    retries: 25
+
+services:
+  coturn:
+    image: coturn/coturn:4.18.0-r0
+    user: "${FEDERATION_TEST_UID:?}:${FEDERATION_TEST_GID:?}"
+    command: ["-c", "/fixtures/coturn.conf"]
+    read_only: true
+    init: true
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    pids_limit: 64
+    mem_limit: 256m
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=16m"]
+    volumes:
+      - ${FEDERATION_TEST_FIXTURES:?}/coturn.conf:/fixtures/coturn.conf:ro
+    networks: [isolated]
+  gateway:
+    <<: *node
+    command: [python, scripts/federation/prototype_gateway.py]
+    healthcheck:
+      disable: true
+    depends_on: [alice, bob, coturn]
+    ports:
+      - target: 8443
+        published: "0"
+        host_ip: 127.0.0.1
+        protocol: tcp
+      - target: 8444
+        published: "0"
+        host_ip: 127.0.0.1
+        protocol: tcp
+      - target: 3478
+        published: "0"
+        host_ip: 127.0.0.1
+        protocol: udp
+    networks: [isolated, browser]
+  init-data:
+    <<: *node
+    user: "0:0"
+    cap_add: [CHOWN, FOWNER]
+    command: [python, -c, "import os; [(os.chmod(p,0o700),os.chown(p,int(os.environ['TEST_UID']),int(os.environ['TEST_GID']))) for p in ('/init/alice','/init/bob')]"]
+    environment:
+      TEST_UID: ${FEDERATION_TEST_UID:?}
+      TEST_GID: ${FEDERATION_TEST_GID:?}
+    healthcheck:
+      disable: true
+    volumes:
+      - alice-data:/init/alice
+      - bob-data:/init/bob
+    networks: [isolated]
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: federation_test
+      POSTGRES_DB: federation_test
+      POSTGRES_PASSWORD_FILE: /fixtures/postgres-password
+    volumes:
+      - ${FEDERATION_TEST_FIXTURES:?}/postgres-password:/fixtures/postgres-password:ro
+    tmpfs: ["/var/lib/postgresql:rw,nosuid,size=256m"]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U federation_test -d federation_test]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    networks: [isolated]
+  alice:
+    <<: *node
+    depends_on:
+      coturn:
+        condition: service_started
+      init-data:
+        condition: service_completed_successfully
+    volumes:
+      - ${FEDERATION_TEST_FIXTURES:?}/alice:/fixtures:ro
+      - alice-data:/data
+    networks:
+      isolated:
+        aliases: [alice.federation.test]
+  bob:
+    <<: *node
+    depends_on:
+      coturn:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      init-data:
+        condition: service_completed_successfully
+    volumes:
+      - ${FEDERATION_TEST_FIXTURES:?}/bob:/fixtures:ro
+      - bob-data:/data
+      - ${FEDERATION_TEST_STATE:?}/attack:/attack
+    networks:
+      isolated:
+        aliases: [bob.federation.test]
+  verifier:
+    <<: *node
+    command: [python, scripts/federation/prototype_client.py, scenario]
+    healthcheck:
+      disable: true
+    volumes:
+      - ${FEDERATION_TEST_FIXTURES:?}:/fixtures:ro
+      - ${FEDERATION_TEST_STATE:?}:/state
+    networks: [isolated]
+
+networks:
+  isolated:
+    internal: true
+  browser: {}
+
+volumes:
+  alice-data:
+  bob-data:
