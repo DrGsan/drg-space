@@ -644,6 +644,6 @@
   "calloutIcon": "Значок блока",
   "calloutIconSave": "Сохранить",
   "downloadFile": "Скачать",
-  "downloadNamedFile": "Скачать {{name}}",
-  "fileAttachment": "вложение"
+  "fileAttachment": "вложением",
+  "fileActions": "Действия с {{name}}"
 }

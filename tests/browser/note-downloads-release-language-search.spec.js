@@ -3,6 +3,7 @@ import {createHmac} from 'node:crypto';
 import {mkdirSync} from 'node:fs';
 import {readFile} from 'node:fs/promises';
 import {appSection} from './notes-ui.js';
+import {notesMenusFlow} from './notes-menus-flow.js';
 function totp(secret){let bits='';for(const c of secret)bits+='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'.indexOf(c).toString(2).padStart(5,'0');const bytes=[];for(let i=0;i+8<=bits.length;i+=8)bytes.push(parseInt(bits.slice(i,i+8),2));const counter=Buffer.alloc(8);counter.writeBigUInt64BE(BigInt(Math.floor(Date.now()/30000)));const hash=createHmac('sha1',Buffer.from(bytes)).update(counter).digest(),offset=hash[19]&15;return String((hash.readUInt32BE(offset)&0x7fffffff)%1000000).padStart(6,'0');}
 
 
@@ -23,15 +24,15 @@ test('read-only file downloads, localized releases and independent search cleari
  const blocks=files.map((file,i)=>({id:'file-'+i,type:'file',props:{name:file.name,url:origin+file.url},children:[]}));
  await api('/notes/'+note.id,'PUT',{title:note.title,body:'',blocks});const original=await api('/notes/'+note.id);
  await page.route('**/api/notes/'+note.id,async route=>{const r=await route.fetch(),data=await r.json();await route.fulfill({json:{...data,role:'viewer'}});});
- await page.goto('/page/'+note.id);await expect(page.locator('[data-note-file-download]')).toHaveCount(3);
+ await page.goto('/page/'+note.id);await expect(page.locator('[data-note-file-menu]')).toHaveCount(3);
  await page.screenshot({path:directory+'/file-after-desktop.png'});
  for(const [i,file]of files.entries()){
-  const event=page.waitForEvent('download'),action=page.locator('[data-note-file-download="file-'+i+'"]');if(i===0){await action.focus();await expect(action).toBeFocused();await action.press('Enter');}else await action.click();const download=await event;expect(download.suggestedFilename().normalize('NFC')).toBe(file.name.normalize('NFC'));expect(await readFile(await download.path())).toEqual(file.bytes);
+  const action=page.locator('[data-note-file-menu="file-'+i+'"]');if(i===0){await action.focus();await expect(action).toBeFocused();await action.press('Enter');}else await action.click();const menu=page.locator('#note-file-menu');await expect(menu.getByRole('menuitem')).toHaveCount(1);await expect(menu.locator('input,[data-page-font],[data-page-small]')).toHaveCount(0);await expect(menu.getByRole('menuitem')).toBeFocused();if(i===0)await page.screenshot({path:directory+'/file-menu-after-desktop.png'});const event=page.waitForEvent('download');await menu.getByRole('menuitem',{name:'Скачать',exact:true}).press('Enter');const download=await event;expect(download.suggestedFilename().normalize('NFC')).toBe(file.name.normalize('NFC'));expect(await readFile(await download.path())).toEqual(file.bytes);
  }
  expect((await api('/notes/'+note.id)).blocks).toEqual(original.blocks);expect((await api('/notes/'+note.id)).version).toBe(original.version);
  await page.route('**'+files[0].url,r=>r.request().method()==='HEAD'?r.fulfill({status:404,json:{detail:'unavailable'}}):r.continue());
- await page.locator('[data-note-file-download="file-0"]').click();await expect(page.locator('.note-file-error').first()).toBeVisible();
- await page.setViewportSize({width:390,height:844});await page.addInitScript(()=>Object.defineProperty(navigator,'standalone',{value:true,configurable:true}));await page.reload();await expect(page.locator('[data-note-file-download]')).toHaveCount(3);await page.screenshot({path:directory+'/file-after-webapp.png'});const tapped=page.waitForEvent('download');await page.locator('[data-note-file-download="file-2"]').tap();const mobileDownload=await tapped;expect(await readFile(await mobileDownload.path())).toEqual(files[2].bytes);
+ await page.locator('[data-note-file-menu="file-0"]').click();await page.locator('#note-file-menu').getByRole('menuitem',{name:'Скачать',exact:true}).click();await expect(page.locator('.note-file-error').first()).toBeVisible();
+ await page.setViewportSize({width:390,height:844});await page.addInitScript(()=>Object.defineProperty(navigator,'standalone',{value:true,configurable:true}));await page.reload();await expect(page.locator('[data-note-file-menu]')).toHaveCount(3);await page.screenshot({path:directory+'/file-after-webapp.png'});await page.locator('[data-note-file-menu="file-2"]').tap();await expect(page.locator('#note-file-menu')).toBeVisible();const popup=await page.locator('#note-file-menu').boundingBox();expect(popup.x).toBeGreaterThanOrEqual(0);expect(popup.x+popup.width).toBeLessThanOrEqual(390);await page.screenshot({path:directory+'/file-menu-after-webapp.png'});const tapped=page.waitForEvent('download');await page.locator('#note-file-menu').getByRole('menuitem',{name:'Скачать',exact:true}).tap();const mobileDownload=await tapped;expect(await readFile(await mobileDownload.path())).toEqual(files[2].bytes);
  await page.setViewportSize({width:1280,height:900});await page.reload();await appSection(page,'Настройки');
  const about=page.locator('[data-preference-key=about]');await about.scrollIntoViewIfNeeded();await page.screenshot({path:directory+'/release-'+phase+'-ru.png'});
  if(!before){await expect(page.locator('[data-app-release]')).toBeVisible();expect(await page.locator('[data-release-changes]').innerText()).toMatch(/[А-Яа-я]/);}
@@ -60,8 +61,11 @@ test('read-only file downloads, localized releases and independent search cleari
   await page.setViewportSize({width:1280,height:900});await appSection(page,'Settings');
   const enAbout=page.locator('[data-preference-key=about]');if(await enAbout.getAttribute('open')===null)await enAbout.locator(':scope > summary').click();
   await enAbout.scrollIntoViewIfNeeded();expect(await page.locator('[data-app-release]').innerText()).not.toMatch(/[А-Яа-я]/);await page.screenshot({path:directory+'/release-after-dark-en.png'});
-  await page.goto('/page/'+note.id);await expect(page.locator('[data-note-file-download]').first()).toHaveText('Download');
-  await page.setViewportSize({width:390,height:844});await page.screenshot({path:directory+'/file-after-dark-en-webapp.png'});
+  await page.setViewportSize({width:390,height:844});await page.goto('/page/'+note.id);await expect(page.locator('[data-note-file-menu]').first()).toHaveAttribute('aria-label','Actions for TEST.conf');await page.locator('[data-note-file-menu]').first().click();await expect(page.locator('#note-file-menu').getByRole('menuitem',{name:'Download',exact:true})).toBeVisible();
+  await page.screenshot({path:directory+'/file-after-dark-en-webapp.png'});
+  await page.keyboard.press('Escape');await expect(page.locator('#note-file-menu')).toHaveCount(0);
+  await api('/language','PUT',{language:'ru'});await api('/appearance','PUT',{mode:'light'});await page.setViewportSize({width:1280,height:900});await page.reload();await expect(page.locator('html')).toHaveAttribute('lang','ru');await expect(page.locator('.workspace')).toBeVisible();
+  await test.step('Existing full page and block menus remain available',()=>notesMenusFlow(page));
  }
 
 });

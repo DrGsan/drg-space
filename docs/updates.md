@@ -2,7 +2,7 @@
 
 ## 5.1.1 preview: note downloads and release language
 
-File blocks expose a download action in read-only and synchronized notes. It uses the existing authorized file route, session refresh and native browser download; filenames and stored bytes are preserved. Missing stored objects are rejected by the access preflight. Existing Notion files do not need to be reimported.
+File blocks expose a compact action menu beside the filename, with Download available in read-only and synchronized notes. It uses the existing authorized file route, session refresh and native browser download; filenames and stored bytes are preserved. Missing stored objects are rejected by the access preflight. Existing Notion files do not need to be reimported.
 
 Release notes use the account language, or the requested language for a system-language account. The English CHANGELOG remains the source document; both supported UI catalogs are required for the current release. Web builds and server startup reject a release with missing translations or English text that differs from the changelog. New releases must add matching entries in locales/ru/release_notes.json and locales/en/release_notes.json.
 

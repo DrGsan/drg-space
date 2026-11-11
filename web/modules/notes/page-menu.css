@@ -189,3 +189,6 @@
   font-size: clamp(25px, 2.5vw, 32px);
 }
 .note-page-menu [hidden] { display: none !important; }
+
+.note-page-menu.note-file-menu{width:196px}
+.note-file-menu .note-menu-section{padding:0}

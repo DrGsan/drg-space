@@ -642,6 +642,6 @@
   "calloutIcon": "Callout icon",
   "calloutIconSave": "Save",
   "downloadFile": "Download",
-  "downloadNamedFile": "Download {{name}}",
-  "fileAttachment": "attachment"
+  "fileAttachment": "attachment",
+  "fileActions": "Actions for {{name}}"
 }
