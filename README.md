@@ -1,5 +1,7 @@
 # DrG Space
 
+[Changelog](CHANGELOG.md) · [Installation](INSTALL.md) · [Documentation](docs/README.md)
+
 A self-hosted workspace for notes, projects, reminders, files and conversations. The web interface and installable Web App support Russian and English, desktop and mobile layouts.
 
 This repository contains the server, web client and installable Web App.
