@@ -1,10 +1,12 @@
 # Updating DrG Space
 
-## 5.1.0 preview: cancellation and release availability
+## 5.1.0: cancellation and release availability
 
-This preview expands only the tracker status CHECK constraint to include `cancelled`. Task columns, encryption, object paths, keys, `.env`, dependencies and volumes are unchanged. No clean database is required. Do not start this code against an unmodified previous schema: startup deliberately refuses the previous storage fingerprint.
+This release expands only the tracker status CHECK constraint to include `cancelled`. Task columns, encryption, object paths, keys, `.env`, dependencies and volumes are unchanged. No clean database is required. Do not start this code against an unmodified previous schema: startup deliberately refuses the previous storage fingerprint.
 
 Before upgrading an existing installation, stop all application writers. Apply a reviewed, one-off offline migration to a disposable copy first, test rollback, and verify every table's rows and foreign keys. Expand `tracker_issues.status` from `('todo','work','review','done')` to `('todo','work','review','done','cancelled')`; preserve every column, index and referencing table. PostgreSQL can replace its status CHECK in a transaction. SQLite/SQLCipher requires rebuilding only this table in a transaction with foreign keys disabled for the rebuild, followed by integrity and foreign-key checks. Update only the `schema` storage metadata value to `app.database.SCHEMA_HASH` after successful verification. Use the existing encryption key and mode throughout. Apply the verified procedure to the stopped installation before using the existing Compose update commands below.
+
+Installations already migrated for 5.1.0-rc.1 or 5.1.0-rc.2 use the same schema; promoting that preview to 5.1.0 requires no further migration.
 
 Rollback of the constraint is safe only before cancelled rows are created; the reviewed migration must refuse a downgrade while any cancelled task exists. Four-state full backups are accepted only when their entire schema matches the known previous fingerprint; unrelated schema changes remain rejected. New backups containing cancelled work require this version or newer.
 
