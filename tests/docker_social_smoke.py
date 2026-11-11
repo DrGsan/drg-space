@@ -109,6 +109,7 @@ def main():
             healthy()
             with httpx.Client(base_url=url,trust_env=False,headers={'Origin':url},timeout=30) as owner,httpx.Client(base_url=url,trust_env=False,headers={'Origin':url},timeout=30) as friend:
                 call(owner,'/setup','POST',{'login':'owner','password':password,'token':setup});codes=enroll(owner,password)
+                call(owner,'/admin/access/unlock','POST',{'password':password})
                 invite=call(owner,'/invites','POST',{'login':'friend'}).json()['url'].rsplit('/',1)[1]
                 call(friend,'/register','POST',{'login':'friend','password':password,'invite':invite});enroll(friend,password)
                 sid=call(owner,'/social/families','POST',{'name':'Контейнерная семья'}).json()['id']
