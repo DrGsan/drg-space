@@ -2656,3 +2656,5 @@ details.note-status-chip .note-status-popover .notion-sync-actions{display:flex;
 }
 
 [data-app-update] a{display:inline-block;margin-inline-start:6px;font-size:.85em;color:var(--blue);overflow-wrap:anywhere}
+
+.sidebar-update{display:block;text-align:right;font-size:10px;line-height:1.4;margin-top:3px}.sidebar-update[hidden]{display:none}.sidebar-update a{color:var(--blue);overflow-wrap:anywhere}

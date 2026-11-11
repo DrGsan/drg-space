@@ -26,6 +26,7 @@ test('cancellation, independent children, projections and privileged update hint
  csrf=(await api('/setup','POST',{login:'reviewowner',password,token:'browser-test-setup-key'})).csrf;
  const enrollment=await api('/2fa/enroll','POST',{password});await api('/2fa/confirm','POST',{code:totp(enrollment.secret)});
  csrf=(await api('/2fa/activate','POST',{saved_recovery_codes:true})).csrf;
+ await api('/appearance','PUT',{theme:'ocean',mode:'light',style:'glass',wallpaper:'dunes',seasonal:'off'});
  await api('/modules','PUT',{enabled:{tracker:true}});
  const project=await api('/tracker/projects','POST',{name:'DrG Space',key:'SPACE'});
  const create=data=>api('/tracker/projects/'+project.id+'/issues','POST',data);
@@ -68,14 +69,24 @@ test('cancellation, independent children, projections and privileged update hint
  if(!before){await page.locator('[data-tracker-column=work]').click();await expect(page.locator('[data-status-column=work]')).toContainText(child.title);}
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  await page.screenshot({path:'artifacts/task-cancellation-update/'+phase+'-mobile.png'});
- await appSection(page,'Настройки');await page.locator('[data-preference-key=about] > summary').click();
+ await appSection(page,'Настройки');
+ for(const row of await page.locator('.preference-row').all())if(await row.getAttribute('data-preference-key')!=='about'&&await row.getAttribute('open')!==null)await row.locator(':scope > summary').click();
+ const aboutRow=page.locator('[data-preference-key=about]');if(await aboutRow.getAttribute('open')===null)await aboutRow.locator(':scope > summary').click();
+ await page.locator('[data-app-version]').scrollIntoViewIfNeeded();await expect(page.locator('[data-app-version]')).toBeVisible();
  if(!before)await expect(page.locator('[data-app-update]')).toContainText('Доступно обновление 9.0.0');
  await page.screenshot({path:'artifacts/task-cancellation-update/'+phase+'-about-mobile.png'});
  if(!before){
   await page.setViewportSize({width:1440,height:1000});
   await page.screenshot({path:'artifacts/task-cancellation-update/after-about.png'});
+  await api('/language','PUT',{language:'en'});
+  await page.reload();await appSection(page,'Settings');
+  const about=page.locator('[data-preference-key=about]');if(await about.getAttribute('open')===null)await about.locator(':scope > summary').click();
+  await expect(page.locator('[data-app-update]')).toContainText('Update 9.0.0 available');
+  await api('/appearance','PUT',{mode:'dark'});await page.reload();await appSection(page,'Settings');
+  await page.locator('[data-app-version]').scrollIntoViewIfNeeded();await expect(page.locator('[data-app-update]')).toBeVisible();
+  await page.screenshot({path:'artifacts/task-cancellation-update/after-about-dark-en.png'});
   await page.route('**/api/app-update',r=>r.fulfill({json:{available:false}}));
-  await page.reload();await appSection(page,'Настройки');
+  await page.reload();await appSection(page,'Settings');
   await expect(page.locator('[data-app-update]')).toBeHidden();
  }
  expect(errors).toEqual([]);
