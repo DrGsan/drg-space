@@ -70,7 +70,7 @@
   "reminders": "Напоминания",
   "messages": "Сообщения",
   "files": "Файлы",
-  "familyPhotos": "Семейные фото",
+  "familyPhotos": "Медиа",
   "splitBills": "Раздельный счёт",
   "administration": "Управление",
   "accountIsNotProtectedBy2Fa": "⚠ Аккаунт не защищён 2FA",
@@ -192,5 +192,6 @@
   "projectTrackerDescription": "Проекты, доски, задачи и совместная работа. Выполненные задачи сохраняются.",
   "invitationFriendshipDisclosure": "После завершения регистрации {{name}} станет вашим другом.",
   "invitationFriendshipCreatorUnavailable": "Приглашение предусматривает дружбу с его создателем, но его аккаунт больше недоступен. Вы можете завершить регистрацию без добавления в друзья.",
-  "checkingInvitation": "Проверяем приглашение…"
+  "checkingInvitation": "Проверяем приглашение…",
+  "updateAvailable": "Доступно обновление {{version}}"
 }

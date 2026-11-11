@@ -25,3 +25,10 @@ test('complete projection reaches later pages and retries changing project versi
  const page=await transport.allIssues({id:'project'});
  assert.deepEqual(page.items.map(i=>i.number),[1,2,3]);assert.equal(calls,5);assert.equal(page.more,false);
 });
+
+test('cancelled is independently filterable and excluded from unfinished work',()=>{
+ const cancelled={id:'cancelled',title:'Cancelled',status:'cancelled',priority:0};
+ assert.equal(matchesIssue(cancelled,normalizeFilters({unfinished:true}),'owner'),false);
+ assert.equal(matchesIssue(cancelled,normalizeFilters({statuses:['cancelled']}),'owner'),true);
+ assert.equal(matchesIssue({...cancelled,status:'done'},normalizeFilters({statuses:['cancelled']}),'owner'),false);
+});

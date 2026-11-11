@@ -106,6 +106,8 @@ def portable_connection():
 with portable_connection() as _schema:
     SCHEMA_ROWS = [tuple(r) for r in _schema.execute("SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type,name")]
     SCHEMA_HASH = hashlib.sha256(json.dumps(SCHEMA_ROWS).encode()).hexdigest()
+    # The only legacy archive difference is the expanded tracker status CHECK.
+    TRACKER_LEGACY_SCHEMA_HASH = hashlib.sha256(json.dumps([tuple(value.replace("status IN ('todo','work','review','done','cancelled')","status IN ('todo','work','review','done')") if isinstance(value,str) else value for value in row) for row in SCHEMA_ROWS]).encode()).hexdigest()
     COLUMNS = {r[0]: [dict(c) for c in _schema.execute('PRAGMA table_info(' + r[0] + ')')]
                for r in _schema.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")}
 _schema.close()

@@ -294,11 +294,11 @@ class WebPush:
                 sender=[localize('DrG Space · Безопасность')]
                 message_text=localize('Обнаружено событие безопасности. Откройте администрирование для проверки.')
             elif export_notice:
-                sender=[localize('Архив семейных фото готов')]
-                message_text=localized_text('groupExportBody',language=selected_language,title=notice.get('group_title') or localize('Семейные фото'))
+                sender=[localized_text('familyPhotoArchiveIsReady',language=selected_language)]
+                message_text=localized_text('groupExportBody',language=selected_language,title=notice.get('group_title') or localized_text('familyPhotos',language=selected_language))
             elif row['kind']=='family_message':
                 from app.modules.family_photo_events import preview
-                sender=[(notice.get('space_name') or localize('Семейные фото'))+' · '+(family_message.get('sender') or notice.get('actor',''))] if family_message else None
+                sender=[(notice.get('space_name') or localized_text('familyPhotos',language=selected_language))+' · '+(family_message.get('sender') or notice.get('actor',''))] if family_message else None
                 message_text=(preview(family_message) if family_message.get('text','').strip() else localize(preview(family_message))) if family_message else ''
             elif row['kind']=='call':
                 from app.notifications import actor

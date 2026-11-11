@@ -23,7 +23,7 @@ def test_ready_archive_notifies_once_and_pushes_without_chat_or_gallery(exports,
     assert len(push_service)==1
     payload=push_service[0][1]
     assert payload['type']=='family-export' and payload['url']=='/#admin/family-photos/-1001'
-    assert payload['title']=='Архив семейных фото готов'
+    assert payload['title']=='Архив медиафайлов готов'
     assert c.get('/api/notifications').json()['items'][0]['kind']=='family_export_ready'
     c.delete('/api/notifications/'+str(notices()[0]['id']))
     # A fresh event handler still reads the durable deduplication record.

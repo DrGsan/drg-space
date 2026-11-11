@@ -209,5 +209,12 @@
   "unfinished": "Невыполненные",
   "clearFilters": "Сбросить всё",
   "removeFilter": "Убрать фильтр «{{name}}»",
-  "close": "Закрыть"
+  "close": "Закрыть",
+  "cancelled": "Отменено",
+  "cancellationReason": "Причина отмены (необязательно)",
+  "field_cancellation_reason": "Причина отмены",
+  "cancelledCount_one": "Отменена {{count}} задача",
+  "cancelledCount_few": "Отменены {{count}} задачи",
+  "cancelledCount_many": "Отменено {{count}} задач",
+  "cancelledCount_other": "Отменено {{count}} задачи"
 }

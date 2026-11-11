@@ -415,7 +415,7 @@
   "allowCameraAndMicrophone": "Allow camera and microphone access in your browser settings.",
   "switchToVideoNote": "Switch to video note",
   "switchToVoice": "Switch to voice",
-  "recordingServerUpdateRequired": "The Telegram server does not support this recording type yet. Update Family Photo.",
+  "recordingServerUpdateRequired": "The Telegram server does not support this recording type yet. Update the Media service.",
   "applyingAudioOutput": "Switching audio output…",
   "couldNotApplyAudioOutput": "Could not apply the audio output to every participant. Try again or choose the system output.",
   "audioOutputNotApplied": "The browser did not confirm the selected audio output.",

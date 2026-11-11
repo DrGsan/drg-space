@@ -15,8 +15,8 @@ from .family_photo_events import FamilyPhotoEvents,read_map
 from .family_photo_messaging import FamilyMessaging
 from .family_photo_reactions import FamilyReactionSync
 
-SPEC = {'title':'Семейные фото','kind':'module','default_enabled':False,
-        'description':'Семейный фотоархив и беседы из подключённых групп Telegram.'}
+SPEC = {'title':localized_message('familyPhotos'),'kind':'module','default_enabled':False,
+        'description':localized_message('familyPhotoArchiveAndConversationsFromConnectedTelegram')}
 
 
 class Grant(BaseModel):

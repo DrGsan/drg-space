@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "DrG Site",
-  "short_name": "DrG Site",
+  "name": "DrG Space",
+  "short_name": "DrG Space",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

@@ -2,7 +2,7 @@ import {esc} from '../../core/ui.js';
 import {tText,locale} from '../../core/i18n.js';
 import {trackerIcon as icon} from './icons.js';
 import {hierarchyRows,issueLanes,sortIssues,boardOrder} from './view-model.js';
-const t=(key,values)=>tText('tracker:'+key,values),states=['todo','work','review','done'];
+const t=(key,values)=>tText('tracker:'+key,values),allStates=['todo','work','review','done','cancelled'];
 export const viewIcons={board:'kanban',list:'list',hierarchy:'git-branch',table:'table-2'};
 export function hierarchy(host,items){
  const rows=hierarchyRows(host.items,items),filtered=!!(host.hasFilters()),groups=(host.project.groups||[]).filter(g=>host.group===null||host.group===g.id).map(g=>({id:g.id,name:g.name}));
@@ -13,13 +13,15 @@ export function hierarchy(host,items){
  }).join('')||`<div class="tracker-empty">${t(host.hasFilters()?'noMatches':'noIssues')}</div>`}</div>`;
 }
 export function lanes(host,items){
+ const states=host.statuses||allStates;
  const groups=(host.project.groups||[]).filter(g=>host.group===null||host.group===g.id),lanes=issueLanes(host.items,items,groups,host.lanes,{empty:!host.hasFilters()});host.laneByIssue=new Map();
- return `<nav class="tracker-mobile-columns" aria-label="${t('status')}">${states.map(s=>`<button type="button" data-tracker-column="${s}" aria-pressed="${host.column===s}">${t(s)} <small>${items.filter(i=>i.status===s).length}</small></button>`).join('')}</nav><div class="tracker-lanes"><div class="tracker-lanes-head"><span></span>${states.map(s=>`<span>${t(s)}</span>`).join('')}</div>${lanes.map(lane=>{
+ return `<nav class="tracker-mobile-columns" aria-label="${t('status')}">${states.map(s=>`<button type="button" data-tracker-column="${s}" aria-pressed="${host.column===s}">${t(s)} <small>${items.filter(i=>i.status===s).length}</small></button>`).join('')}</nav><div class="tracker-lanes" style="--tracker-states:${states.length}"><div class="tracker-lanes-head"><span></span>${states.map(s=>`<span>${t(s)}</span>`).join('')}</div>${lanes.map(lane=>{
  lane.items.forEach(item=>host.laneByIssue.set(item.id,lane.id));const name=lane.name||t(lane.missing?'parentNotLoaded':host.lanes==='epic'?'noEpic':'noGroup');
  return `<section class="tracker-lane" data-tracker-lane="${esc(lane.id)}"><h2>${lane.epic?host.kind(lane.epic):icon('folder')}<span>${esc(name)}</span><small>${lane.items.length}</small></h2>${states.map(s=>`<div class="tracker-lane-cell ${host.column===s?'is-mobile-lane-state':''}" data-status-column="${s}" data-lane="${esc(lane.id)}"><div class="tracker-lane-state">${t(s)} <small>${lane.items.filter(i=>i.status===s).length}</small></div>${lane.items.filter(i=>i.status===s).sort(boardOrder).map(i=>host.card(i)).join('')||`<p class="tracker-lane-empty">${t('noIssuesInStatus')}</p>`}</div>`).join('')}</section>`;
  }).join('')||`<div class="tracker-empty">${t('noMatches')}</div>`}</div>`;
 }
 export function table(host,items){
+ const states=host.statuses||allStates;
  const name=item=>{const member=host.project.members?.find(m=>m.actor_id===item.assignee_id&&m.peer_id===item.assignee_peer);return member?host.name(member.person):t(item.assignee_id?'formerAssignee':'unassigned');};
  const group=item=>(host.project.groups||[]).find(g=>g.id===item.group_id)?.name||t('noGroup');
  const sorted=sortIssues(items,host.sortField,host.sortDirection,locale(),name,group),columns=['number','title','group','status','priority','assignee','due'];

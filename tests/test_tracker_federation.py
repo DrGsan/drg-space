@@ -200,3 +200,15 @@ def test_group_avatar_and_merge_request_follow_current_canonical_grant(pair):
     with p.backend.connection() as c:c.execute("UPDATE tracker_members SET state='revoked',revision=revision+1 WHERE project_id=?",(p.project['id'],))
     with pytest.raises(FederationError):remote(p,'tracker_avatar_read')
     with pytest.raises(FederationError):remote(p,'tracker_group_read',group_id=group['id'])
+
+
+def test_federated_cancellation_is_explicit_preserved_and_reopenable(pair):
+    p=pair;accept(p)
+    changed=remote(p,'tracker_issue_update',include_cancelled=True,issue_id=p.task['id'],data={'version':1,'status':'cancelled','cancellation_reason':'Remote cancellation'})
+    assert changed['status']=='cancelled' and changed['completed_at'] is None
+    assert remote(p,'tracker_page')['view_counts']['todo']==0
+    assert remote(p,'tracker_page',include_cancelled=True)['view_counts']['cancelled']==1
+    with pytest.raises(FederationError):remote(p,'tracker_issue_read',issue_id=p.task['id'])
+    assert remote(p,'tracker_issue_read',include_cancelled=True,issue_id=p.task['id'])['cancellation_reason']=='Remote cancellation'
+    reopened=remote(p,'tracker_issue_update',include_cancelled=True,issue_id=p.task['id'],data={'version':2,'status':'work'})
+    assert reopened['status']=='work' and not reopened.get('cancellation_reason')
