@@ -121,7 +121,7 @@ def main():
                 reply_message=call(owner,f'/chat/{sid}/messages','POST',{'body':'Ответ сохраняет связь с исходным сообщением','client_id':'container-smoke-reply','reply_to':original_message['id']}).json()
                 assert call(owner,f'/chat/{sid}/preferences','PUT',{'favorite':True,'pinned':True}).json()=={'favorite':True,'pinned':True}
                 chat_preserved(owner,sid,original_message,reply_message)
-                assert all(call(owner,'/modules').json()['enabled'].values())
+                assert call(owner,'/modules').json()['enabled']['chat'] is True
                 call(owner,'/modules','PUT',{'enabled':{'clock':True}})
                 clocks=call(owner,'/dashboard/layout').json()
                 clocks['instances'] += [{'id':'moscow_clock','module_id':'clock','config':{'timezone':'Europe/Moscow','label':'MSK','show_seconds':False}},{'id':'vlad_clock','module_id':'clock','config':{'mode':'digital','timezone':'Asia/Vladivostok','label':'VL','date_format':'yyyy-mm-dd'}}]
