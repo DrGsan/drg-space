@@ -1,8 +1,10 @@
 # DrG Space
 
-[Changelog](CHANGELOG.md) · [Installation](INSTALL.md) · [Documentation](docs/README.md)
-
 A self-hosted workspace for notes, projects, reminders, files and conversations. The web interface and installable Web App support Russian and English, desktop and mobile layouts.
+
+[Changelog](CHANGELOG.md) · [Quick start](#quick-start) · [Documentation](#documentation) · [Development](#development-and-checks) · [License](LICENSE)
+
+## Overview
 
 This repository contains the server, web client and installable Web App.
 
@@ -33,9 +35,23 @@ Open http://localhost:8000. Read `SETUP_TOKEN` from your local `.env`, create th
 
 Weather requests identify the deployment using PUBLIC_URL or the optional WEATHER_USER_AGENT setting. Configure your own reachable contact identity and follow the provider terms linked in .env.example.
 
-See the [documentation index](docs/README.md), [installation](INSTALL.md), [updates](docs/updates.md), [release history](CHANGELOG.md), and [security](docs/security.md).
+## Documentation
 
-## Optional services
+| Guide | Contents |
+| --- | --- |
+| [Documentation index](docs/README.md) | Product guides and supported integrations |
+| [Installation](INSTALL.md) | Configuration, first startup and deployment |
+| [Updates](docs/updates.md) | Upgrade steps and storage compatibility |
+| [Security](docs/security.md) | Access, encryption and operational safeguards |
+| [Calls](docs/voice-calls.md) | Private calls, TURN and LiveKit |
+| [Contributing](CONTRIBUTING.md) | Development conventions and checks |
+| [Third-party notices](THIRD_PARTY_NOTICES.md) | Component attribution and licenses |
+
+## Compatibility and dependencies
+
+Use Python 3.14 and Docker Compose v2 for installation; frontend development also requires Node.js 26. Existing deployments retain their Compose project name, overlay files, working `.env`, database schema, encryption keys and volumes. Follow [updates](docs/updates.md) when changing versions.
+
+### Optional services
 
 | Service | Purpose | Without it |
 | --- | --- | --- |
@@ -49,7 +65,7 @@ See the [documentation index](docs/README.md), [installation](INSTALL.md), [upda
 
 coturn and LiveKit serve different purposes. They are not required to run the workspace. See [calls](docs/voice-calls.md).
 
-## Development
+## Development and checks
 
 Use Node.js 26 and Python 3.14. Install dependencies into this project's own environment:
 
@@ -65,7 +81,11 @@ python3 scripts/check-public-content.py
 
 The tests use disposable data. PostgreSQL tests require an explicitly supplied disposable database; never point test variables at production. Browser checks additionally require Playwright browsers. Run `npx playwright test tests/browser/workspace.spec.js` for the workspace and `node tests/browser/expense-entry.mjs` for billing entry, shares and photo galleries. The full build/test CI is opt-in until repository administrators enable automatic runs. Documentation changes have a separate lightweight content check.
 
-## Licensing
+## Release history
+
+Read the [changelog](CHANGELOG.md) for release notes and the [update guide](docs/updates.md) for installation actions. The application version is maintained in `VERSION`.
+
+## License
 
 The project's own code is available under [Elastic License 2.0](LICENSE). You may self-host and modify it under those terms. You may not provide a substantial set of its functionality to third parties as a hosted or managed service without separate permission. This restriction also applies to free managed services; the project is source-available, not OSI open source.
 
