@@ -1,6 +1,6 @@
 # Updating DrG Space
 
-## 5.1.1 preview: note downloads and release language
+## 5.1.1: note downloads and release language
 
 File blocks expose a compact action menu beside the filename, with Download available in read-only and synchronized notes. It uses the existing authorized file route, session refresh and native browser download; filenames and stored bytes are preserved. Missing stored objects are rejected by the access preflight. Existing Notion files do not need to be reimported.
 

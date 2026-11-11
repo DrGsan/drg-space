@@ -1,8 +1,8 @@
 {
-  "release5_1_1_rc_1Title": "Note downloads and localized release notes",
-  "release5_1_1_rc_1Change1": "Download file attachments from read-only and synchronized notes.",
-  "release5_1_1_rc_1Change2": "Release titles and change lists follow the interface language.",
-  "release5_1_1_rc_1Change3": "The project search clear button stays aligned and preserves other filters.",
+  "release5_1_1Title": "Note downloads and localized release notes",
+  "release5_1_1Change1": "Download file attachments from read-only and synchronized notes.",
+  "release5_1_1Change2": "Release titles and change lists follow the interface language.",
+  "release5_1_1Change3": "The project search clear button stays aligned and preserves other filters.",
   "release5_1_0Title": "Cancelled work and release availability",
   "release5_1_0Change1": "Cancel tasks with an optional reason, preserve their content and reopen them later.",
   "release5_1_0Change2": "Cancelled tasks have their own status and counter, leave unfinished views, and do not count towards epic completion.",
