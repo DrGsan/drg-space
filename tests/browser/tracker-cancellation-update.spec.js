@@ -73,10 +73,17 @@ test('cancellation, independent children, projections and privileged update hint
  for(const row of await page.locator('.preference-row').all())if(await row.getAttribute('data-preference-key')!=='about'&&await row.getAttribute('open')!==null)await row.locator(':scope > summary').click();
  const aboutRow=page.locator('[data-preference-key=about]');if(await aboutRow.getAttribute('open')===null)await aboutRow.locator(':scope > summary').click();
  await page.locator('[data-app-version]').scrollIntoViewIfNeeded();await expect(page.locator('[data-app-version]')).toBeVisible();
- if(!before)await expect(page.locator('[data-app-update]')).toContainText('Доступно обновление 9.0.0');
+ if(!before){
+  await expect(page.locator('[data-app-update]')).toContainText('Доступно обновление 9.0.0');
+  await expect(page.locator('[data-app-update] a')).toHaveAttribute('href','https://github.com/DrGsan/drg-space/releases/tag/v9.0.0');
+  const version=await page.locator('[data-app-version]').boundingBox(),update=await page.locator('[data-app-update]').boundingBox();
+  expect(update.y).toBeGreaterThanOrEqual(version.y+version.height);
+ }
  await page.screenshot({path:'artifacts/task-cancellation-update/'+phase+'-about-mobile.png'});
  if(!before){
   await page.setViewportSize({width:1440,height:1000});
+  const sidebarVersion=await page.locator('[data-sidebar-version]').boundingBox(),sidebarUpdate=await page.locator('[data-sidebar-update]').boundingBox();
+  expect(sidebarUpdate.y).toBeGreaterThanOrEqual(sidebarVersion.y+sidebarVersion.height);
   await page.screenshot({path:'artifacts/task-cancellation-update/after-about.png'});
   await api('/language','PUT',{language:'en'});
   await page.reload();await appSection(page,'Settings');
