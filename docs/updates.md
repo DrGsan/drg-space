@@ -1,5 +1,13 @@
 # Updating DrG Space
 
+## 5.1.1 preview: note downloads and release language
+
+File blocks expose a download action in read-only and synchronized notes. It uses the existing authorized file route, session refresh and native browser download; filenames and stored bytes are preserved. Missing stored objects are rejected by the access preflight. Existing Notion files do not need to be reimported.
+
+Release notes use the account language, or the requested language for a system-language account. The English CHANGELOG remains the source document; both supported UI catalogs are required for the current release. Web builds and server startup reject a release with missing translations or English text that differs from the changelog. New releases must add matching entries in locales/ru/release_notes.json and locales/en/release_notes.json.
+
+No schema, storage-format, key, dependency or environment changes are required when upgrading from 5.1.0. Preserve the existing Compose files and volumes and use the update commands below; no migration is needed.
+
 ## 5.1.0: cancellation and release availability
 
 This release expands only the tracker status CHECK constraint to include `cancelled`. Task columns, encryption, object paths, keys, `.env`, dependencies and volumes are unchanged. No clean database is required. Do not start this code against an unmodified previous schema: startup deliberately refuses the previous storage fingerprint.

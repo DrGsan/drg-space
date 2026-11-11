@@ -47,6 +47,7 @@ import {pageIconUrl} from '../../core/page-assets.js';
 import {column,columnList} from './columns.js';
 import {wrapColumns} from './column-actions.js';
 import {bindColumnDrop} from './column-drop.js';
+import {downloadableFile} from './file-block.js';
 const h = React.createElement;
 const contexts = new WeakMap();
 const PageLink = createReactBlockSpec(
@@ -105,7 +106,7 @@ const Callout = createReactBlockSpec(
   },
 )();
 export const schema = BlockNoteSchema.create({
-  blockSpecs: { ...defaultBlockSpecs, paragraph:linkParagraphSpec(defaultBlockSpecs.paragraph), codeBlock, pageLink: PageLink, callout: Callout, column, columnList },
+  blockSpecs: { ...defaultBlockSpecs, file:downloadableFile(defaultBlockSpecs.file), paragraph:linkParagraphSpec(defaultBlockSpecs.paragraph), codeBlock, pageLink: PageLink, callout: Callout, column, columnList },
   inlineContentSpecs:{...defaultInlineContentSpecs,equation:equationInline},
   styleSpecs:{...defaultStyleSpecs,code:createStyleSpecFromTipTapMark(defaultStyleSpecs.code.implementation.mark.extend({excludes:''}),'boolean'),spoiler:spoilerStyle},
 });

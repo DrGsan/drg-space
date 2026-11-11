@@ -8,6 +8,7 @@ COPY scripts/i18n-check.mjs scripts/dependency-notices.mjs ./scripts/
 COPY web ./web
 COPY locales ./locales
 COPY app ./app
+COPY VERSION CHANGELOG.md ./
 RUN npm run build
 FROM python:3.14.8-slim
 WORKDIR /app

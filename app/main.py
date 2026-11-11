@@ -1,4 +1,4 @@
-from app.i18n import message as localized_message
+from app.i18n import message as localized_message, current_language, recipient_language
 import asyncio, logging
 from contextlib import asynccontextmanager,suppress
 import base64, calendar, hashlib, hmac, json, os, re, secrets, time
@@ -17,7 +17,7 @@ from app.protection import Protection
 from app.avatar_presets import default_profile
 from app.modules.appearance import new_account_appearance
 from app.passwords import NewPassword
-from app.version import APP_VERSION, APP_RELEASE
+from app.version import APP_VERSION, APP_RELEASE, release_for_language
 from pydantic import BaseModel, Field
 from pydantic import ConfigDict, StrictBool
 from typing import Literal
@@ -441,7 +441,7 @@ def me(request: Request):
     with db() as c:
         flag=c.execute("SELECT value FROM federation_metadata WHERE key='enabled'").fetchone()
         federation_enabled=bool(flag and flag[0]=='true' and federation_service.identity)
-    return {'federation_enabled':federation_enabled,'id':s['user_id'],'login':s['login'],'role':s['role'],'role_label':ROLE_LABELS[s['role']],'csrf':s['csrf'],'verified':bool(s['verified']),'two_factor':bool(s['totp']),'needs_enrollment':s['stage']=='enrollment','access_expires':s['access_expires'],'app_version':APP_VERSION,'app_release':APP_RELEASE,'account_deletion':s.get('account_deletion') if s['verified'] and s['stage']=='full' else None,'people_names':names(json.loads(s['settings'])) if s['verified'] and s['stage']=='full' else {},'settings':settings}
+    return {'federation_enabled':federation_enabled,'id':s['user_id'],'login':s['login'],'role':s['role'],'role_label':ROLE_LABELS[s['role']],'csrf':s['csrf'],'verified':bool(s['verified']),'two_factor':bool(s['totp']),'needs_enrollment':s['stage']=='enrollment','access_expires':s['access_expires'],'app_version':APP_VERSION,'app_release':release_for_language(APP_RELEASE,recipient_language(settings,current_language.get())),'account_deletion':s.get('account_deletion') if s['verified'] and s['stage']=='full' else None,'people_names':names(json.loads(s['settings'])) if s['verified'] and s['stage']=='full' else {},'settings':settings}
 
 @app.get('/api/app-update')
 def app_update(request: Request):

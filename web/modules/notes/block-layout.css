@@ -26,3 +26,9 @@
 
 /* Quote content follows the saved block color instead of a hard-coded gray. */
 .bn-root .bn-editor [data-content-type="quote"] blockquote {color:inherit;border-left-color:currentColor}
+
+.note-file-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:4px 0 2px 30px}
+.note-file-download{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--white);color:var(--blue);font:inherit;font-size:13px;cursor:pointer}
+.note-file-download>span:first-child{display:flex}.note-file-download svg{width:16px;height:16px}
+.note-file-download:focus-visible{outline:2px solid var(--blue);outline-offset:2px}.note-file-download:disabled{opacity:.6;cursor:wait}
+.note-file-error{flex-basis:100%;margin:0!important;color:var(--text);font-size:12px}

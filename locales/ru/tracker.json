@@ -216,5 +216,6 @@
   "cancelledCount_one": "Отменена {{count}} задача",
   "cancelledCount_few": "Отменены {{count}} задачи",
   "cancelledCount_many": "Отменено {{count}} задач",
-  "cancelledCount_other": "Отменено {{count}} задачи"
+  "cancelledCount_other": "Отменено {{count}} задачи",
+  "clearSearch": "Очистить поиск"
 }

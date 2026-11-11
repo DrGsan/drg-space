@@ -642,5 +642,8 @@
   "mergeColumn": "Объединить с соседней",
   "unwrapColumns": "Убрать колонки, сохранить содержимое",
   "calloutIcon": "Значок блока",
-  "calloutIconSave": "Сохранить"
+  "calloutIconSave": "Сохранить",
+  "downloadFile": "Скачать",
+  "downloadNamedFile": "Скачать {{name}}",
+  "fileAttachment": "вложение"
 }

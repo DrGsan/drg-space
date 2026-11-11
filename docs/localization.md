@@ -14,3 +14,7 @@ node --test tests/i18n.test.mjs
 ```
 
 The checks compare namespaces, keys, interpolation and source coverage. Regenerate resources after catalog changes and inspect the resulting diff. Test formatting, fallback behavior, translated menus, empty states and validation errors in both languages. English documentation should describe controls by their English labels or stable API identifiers.
+
+## Release notes
+
+The release_notes namespace contains versioned titles and change items in both languages. English entries must match the current CHANGELOG release exactly. Add entries for every supported language when changing VERSION; build and startup checks prevent an untranslated release from replacing a working installation. /api/me selects the account preference, falling back to request negotiation for system language, without a shared mutable localized cache.

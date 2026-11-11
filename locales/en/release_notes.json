@@ -1,0 +1,16 @@
+{
+  "release5_1_1_rc_1Title": "Note downloads and localized release notes",
+  "release5_1_1_rc_1Change1": "Download file attachments from read-only and synchronized notes.",
+  "release5_1_1_rc_1Change2": "Release titles and change lists follow the interface language.",
+  "release5_1_1_rc_1Change3": "The project search clear button stays aligned and preserves other filters.",
+  "release5_1_0Title": "Cancelled work and release availability",
+  "release5_1_0Change1": "Cancel tasks with an optional reason, preserve their content and reopen them later.",
+  "release5_1_0Change2": "Cancelled tasks have their own status and counter, leave unfinished views, and do not count towards epic completion.",
+  "release5_1_0Change3": "Owners and administrators can see an available stable GitHub release below the installed server version.",
+  "release5_1_0Change4": "Installed Web App names use DrG Space.",
+  "release5_1_0Change5": "The media gallery uses Media naming and a photo icon in navigation.",
+  "release5_0_2Title": "Consistent runtime names",
+  "release5_0_2Change1": "Docker containers, images, Compose project and diagnostic labels use DrG Space names.",
+  "release5_0_2Change2": "Existing data volumes can be pinned as external volumes when changing the Compose project.",
+  "release5_0_2Change3": "Downloaded backups use the DrG Space filename; existing backup formats and tokens stay compatible."
+}

@@ -95,13 +95,13 @@ def test_csrf_origin_and_cookie_flags():
     assert 'HttpOnly' in r.headers['set-cookie'];assert 'samesite=lax' in r.headers['set-cookie'].lower()
 
 def test_application_version_is_server_metadata_for_both_roles():
-    from app.version import APP_VERSION, APP_RELEASE
+    from app.version import APP_VERSION, APP_RELEASE, release_for_language
     c,_,_=owner();guest,_=member(c)
     for account in (c,guest):
         me=account.get('/api/me').json()
         assert me['app_version']==APP_VERSION
         assert 'app_version' not in me['settings']
-        assert me['app_release']==APP_RELEASE
+        assert me['app_release']==release_for_language(APP_RELEASE,'ru')
         assert me['app_release']['version']==APP_VERSION
         assert me['app_release']['changes']
         assert 'app_release' not in me['settings']
