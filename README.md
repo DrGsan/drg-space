@@ -10,6 +10,26 @@ A self-hosted workspace for notes, projects, reminders, files and conversations.
 
 This repository contains the server, web client and installable Web App.
 
+## Screenshots
+
+### Personal dashboard
+
+![Personal dashboard with a clock, reminders, calendar, favourite notes and files](docs/assets/screenshots/space-5.1.1-dashboard.jpg)
+
+*Screenshot from DrG Space 5.1.1, using fictional demo data. The current interface may differ.*
+
+### Notes and checklists
+
+![A fictional weekend plan with a page cover, nested navigation and a checklist](docs/assets/screenshots/space-5.1.1-notes.jpg)
+
+*Screenshot from DrG Space 5.1.1, using fictional demo data. The current interface may differ.*
+
+### Project board
+
+![A fictional project board with task statuses, priorities and tags](docs/assets/screenshots/space-5.1.1-projects.jpg)
+
+*Screenshot from DrG Space 5.1.1, using fictional demo data. The current interface may differ.*
+
 ## Features
 
 - Block notes with nested pages, tables, databases, code, attachments, sharing and collaborative editing.
