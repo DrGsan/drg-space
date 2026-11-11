@@ -1,5 +1,7 @@
 # DrG Space
 
+<p><img src="docs/assets/repository-avatar.png" width="112" height="112" alt="DrG Space logo"></p>
+
 A self-hosted workspace for notes, projects, reminders, files and conversations. The web interface and installable Web App support Russian and English, desktop and mobile layouts.
 
 [Changelog](CHANGELOG.md) · [Quick start](#quick-start) · [Documentation](#documentation) · [Development](#development-and-checks) · [License](LICENSE)
