@@ -1,6 +1,7 @@
 // Small additions to the application's ISC-licensed Lucide icon vocabulary.
 import {sidebarIcon} from '../../core/sidebar-icons.js';
 const shapes={
+ 'circle-x':'<circle cx="12" cy="12" r="9"/><path d="m9 9 6 6m0-6-6 6"/>',
  'list':'<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
  'git-branch':'<path d="M6 3v12m0-6c7 0 12 0 12-6"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="3" r="2"/>',
  'table-2':'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/>',

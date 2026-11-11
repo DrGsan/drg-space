@@ -59,15 +59,20 @@ export function pageMenuIcon(name, filled = false) {
 }
 
 /** A contained popover: search stays visible while its actions scroll. */
-export function showPageMenu({ anchor, page, view, mode, editable, actions, words, onAction, onView, onMode, onClose, temporary=false }) {
+export function showPageMenu({ anchor, page={}, view=defaults(), mode, editable, actions=[], words=0, onAction, onView, onMode, onClose, temporary=false, compact=false, label=tText("notes:pageActions") }) {
   const menu = document.createElement('div');
-  menu.className = 'note-page-menu';
-  menu.id = 'note-page-menu';
-  menu.setAttribute('role', 'dialog');
-  menu.setAttribute('aria-label', tText("notes:pageActions"));
+  menu.className = 'note-page-menu' + (compact ? ' note-file-menu' : '');
+  menu.id = compact ? 'note-file-menu' : 'note-page-menu';
+  menu.setAttribute('role', compact ? 'menu' : 'dialog');
+  menu.setAttribute('aria-label', label);
   const groups = [...new Set(actions.map(action => action.group))];
-  const row = action => `<button type="button" ${action.disabled?'disabled':''} ${action.id ? `id="${esc(action.id)}"` : ''} ${typeof action.checked === 'boolean' ? `role="switch" aria-checked="${action.checked}"` : ''} data-page-action="${esc(action.name)}" data-search="${esc(action.label + ' ' + (action.aliases || ''))}" class="note-menu-row ${action.danger ? 'danger' : ''}">${pageMenuIcon(action.icon)}<span>${esc(action.label)}</span>${typeof action.checked === 'boolean' ? '<span class="note-menu-switch" aria-hidden="true"></span>' : ''}</button>`;
-  menu.innerHTML = `<div class="note-menu-search"><input type="search" maxlength="100" placeholder="${tHtml("notes:searchingForActions")}" aria-label="${tHtml("notes:searchPageActions")}"></div><div class="note-menu-scroll"><div class="note-menu-section note-font-options" data-search="${tHtml('notes:fontSearchTerms')}"><div class="note-menu-fonts" role="group" aria-label="${tHtml("notes:pageFont")}">${[['default', tText("notes:normal")], ['serif', tText("notes:serif")], ['mono', tText("notes:mono")]].map(([font, label]) => `<button type="button" data-page-font="${font}" aria-pressed="${view.font === font}"><span class="note-font-sample note-font-${font}" aria-hidden="true">Ag</span><span>${label}</span></button>`).join('')}</div></div>${groups.map(group => `<div class="note-menu-section" data-menu-group>${actions.filter(action => action.group === group).map(row).join('')}</div>`).join('')}<div class="note-menu-section" data-menu-group><button type="button" class="note-menu-row" role="switch" aria-checked="${view.small_text}" data-page-small data-search="${tHtml('notes:smallTextSearchTerms')}">${pageMenuIcon('small')}<span>${tHtml("notes:smallText")}</span><span class="note-menu-switch" aria-hidden="true"></span></button></div>${editable && page.kind !== 'database' ? `<div class="note-menu-section note-editor-options" data-search="${tHtml('notes:editorSearchTerms')}"><span class="note-menu-label">${tHtml("notes:editor")}</span><div class="note-editor-modes" role="group" aria-label="${tHtml("notes:editorMode")}"><button type="button" id="mode-blocks" data-editor-mode="blocks" aria-pressed="${mode === 'blocks'}">${tHtml("notes:blocks")}</button><button type="button" id="mode-markdown" data-editor-mode="markdown" aria-pressed="${mode === 'markdown'}">Markdown</button></div></div>` : ''}<p class="note-menu-empty muted" hidden>${tHtml("notes:nothingFound")}</p><div class="note-menu-footer"><span>${tHtml("notes:words", {value0:(esc(words))})}</span>${page.updated ? `<span>${tHtml("notes:modified", {value0:(esc(date(page.updated)))})}</span>` : ''}<span>${temporary?tText("notes:fontAndTextSizeBeforeSectionLock"):tText("notes:fontAndTextSizeOnThisDevice")}</span></div></div>`;
+  const row = action => `<button type="button" ${action.disabled?'disabled':''} ${action.id ? `id="${esc(action.id)}"` : ''} ${compact?'role="menuitem"':typeof action.checked === 'boolean' ? `role="switch" aria-checked="${action.checked}"` : ''} data-page-action="${esc(action.name)}" data-search="${esc(action.label + ' ' + (action.aliases || ''))}" class="note-menu-row ${action.danger ? 'danger' : ''}">${pageMenuIcon(action.icon)}<span>${esc(action.label)}</span>${typeof action.checked === 'boolean' ? '<span class="note-menu-switch" aria-hidden="true"></span>' : ''}</button>`;
+  const searchMarkup = compact ? '' : `<div class="note-menu-search"><input type="search" maxlength="100" placeholder="${tHtml("notes:searchingForActions")}" aria-label="${tHtml("notes:searchPageActions")}"></div>`;
+  const fontsMarkup = compact ? '' : `<div class="note-menu-section note-font-options" data-search="${tHtml('notes:fontSearchTerms')}"><div class="note-menu-fonts" role="group" aria-label="${tHtml("notes:pageFont")}">${[['default', tText("notes:normal")], ['serif', tText("notes:serif")], ['mono', tText("notes:mono")]].map(([font, label]) => `<button type="button" data-page-font="${font}" aria-pressed="${view.font === font}"><span class="note-font-sample note-font-${font}" aria-hidden="true">Ag</span><span>${label}</span></button>`).join('')}</div></div>`;
+  const smallMarkup = compact ? '' : `<div class="note-menu-section" data-menu-group><button type="button" class="note-menu-row" role="switch" aria-checked="${view.small_text}" data-page-small data-search="${tHtml('notes:smallTextSearchTerms')}">${pageMenuIcon('small')}<span>${tHtml("notes:smallText")}</span><span class="note-menu-switch" aria-hidden="true"></span></button></div>`;
+  const editorMarkup = !compact && editable && page.kind !== 'database' ? `<div class="note-menu-section note-editor-options" data-search="${tHtml('notes:editorSearchTerms')}"><span class="note-menu-label">${tHtml("notes:editor")}</span><div class="note-editor-modes" role="group" aria-label="${tHtml("notes:editorMode")}"><button type="button" id="mode-blocks" data-editor-mode="blocks" aria-pressed="${mode === 'blocks'}">${tHtml("notes:blocks")}</button><button type="button" id="mode-markdown" data-editor-mode="markdown" aria-pressed="${mode === 'markdown'}">Markdown</button></div></div>` : '';
+  const footerMarkup = compact ? '' : `<p class="note-menu-empty muted" hidden>${tHtml("notes:nothingFound")}</p><div class="note-menu-footer"><span>${tHtml("notes:words", {value0:(esc(words))})}</span>${page.updated ? `<span>${tHtml("notes:modified", {value0:(esc(date(page.updated)))})}</span>` : ''}<span>${temporary?tText("notes:fontAndTextSizeBeforeSectionLock"):tText("notes:fontAndTextSizeOnThisDevice")}</span></div>`;
+  menu.innerHTML = `${searchMarkup}<div class="note-menu-scroll">${fontsMarkup}${groups.map(group => `<div class="note-menu-section" data-menu-group>${actions.filter(action => action.group === group).map(row).join('')}</div>`).join('')}${smallMarkup}${editorMarkup}${footerMarkup}</div>`;
   document.body.append(menu);
   anchor.setAttribute('aria-expanded', 'true');
   anchor.setAttribute('aria-controls', menu.id);
@@ -90,11 +95,14 @@ export function showPageMenu({ anchor, page, view, mode, editable, actions, word
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
     if (event.target.matches('input') && event.key !== 'ArrowDown') return;
     event.preventDefault();
-    const buttons = [...menu.querySelectorAll('button')].filter(button => !button.hidden && !button.closest('[hidden]'));
+    const buttons = [...menu.querySelectorAll('button')].filter(button => !button.disabled && !button.hidden && !button.closest('[hidden]'));
     const current = buttons.indexOf(document.activeElement);
     const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 : (current + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
     buttons[next]?.focus();
   };
+  // WebKit may leave focus on the page after clicking a menu preference.
+  // Escape must still dismiss the open popover and restore its trigger.
+  const escape = event => { if(event.key === 'Escape')keys(event); };
   let closed = false;
   const close = (focus = true) => {
     if (closed) return;
@@ -103,6 +111,7 @@ export function showPageMenu({ anchor, page, view, mode, editable, actions, word
     anchor.setAttribute('aria-expanded', 'false');
     anchor.removeAttribute('aria-controls');
     document.removeEventListener('pointerdown', outside);
+    document.removeEventListener('keydown', escape, true);
     menu.removeEventListener('keydown', keys);
     window.removeEventListener('resize', position);
     window.removeEventListener('scroll', position, true);
@@ -112,7 +121,7 @@ export function showPageMenu({ anchor, page, view, mode, editable, actions, word
     onClose?.();
   };
   const search = menu.querySelector('input');
-  search.oninput = () => {
+  if(search)search.oninput = () => {
     const query = search.value.trim().toLocaleLowerCase(locale());
     menu.querySelectorAll('[data-search]').forEach(item => { item.hidden = !item.dataset.search.toLocaleLowerCase(locale()).includes(query); });
     menu.querySelectorAll('[data-menu-group]').forEach(group => { group.hidden = ![...group.children].some(child => !child.hidden); });
@@ -127,16 +136,17 @@ export function showPageMenu({ anchor, page, view, mode, editable, actions, word
     menu.querySelectorAll('[data-page-font]').forEach(item => item.setAttribute('aria-pressed', String(item === button)));
   });
   const small = menu.querySelector('[data-page-small]');
-  small.onclick = () => { view.small_text = !view.small_text; small.setAttribute('aria-checked', String(view.small_text)); onView(view); };
+  if(small)small.onclick = () => { view.small_text = !view.small_text; small.setAttribute('aria-checked', String(view.small_text)); onView(view); };
   menu.querySelectorAll('[data-editor-mode]').forEach(button => button.onclick = () => { close(); onMode(button.dataset.editorMode); });
   document.addEventListener('pointerdown', outside);
+  document.addEventListener('keydown', escape, true);
   menu.addEventListener('keydown', keys);
   window.addEventListener('resize', position);
   window.addEventListener('scroll', position, true);
   window.visualViewport?.addEventListener('resize', position);
   window.visualViewport?.addEventListener('scroll', position);
   position();
-  search.focus();
+  (search || menu.querySelector('button:not(:disabled)'))?.focus();
   return close;
 }
 

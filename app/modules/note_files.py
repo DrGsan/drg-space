@@ -7,7 +7,7 @@ import mimetypes
 import secrets
 from contextlib import suppress
 from urllib.parse import quote
-from app.http import Router, Request, Query, StreamingResponse
+from app.http import Router, Request, Query, StreamingResponse, HTTPError
 from app.storage import blocking
 from app.file_store import file_store
 from app.modules.files import filename
@@ -37,6 +37,8 @@ def page_file(c, page, fid, fail, referenced=False, uid=None):
     return dict(row)
 
 def file_response(store,row,request,authorize=None):
+    if request.method=='HEAD' and not store.exists(row['object_id']):
+        raise HTTPError(404,localized_message('attachmentIsUnavailable'))
     inline=row['mime'] in ('image/png','image/jpeg','image/webp','image/gif','video/mp4','video/webm','audio/mpeg','audio/ogg','audio/wav')
     total=row['size'];start=0;end=total-1;status=200
     headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Accept-Ranges':'bytes','Content-Security-Policy':"sandbox; default-src 'none'"}

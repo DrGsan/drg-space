@@ -640,5 +640,8 @@
   "mergeColumn": "Merge with adjacent column",
   "unwrapColumns": "Remove columns, keep content",
   "calloutIcon": "Callout icon",
-  "calloutIconSave": "Save"
+  "calloutIconSave": "Save",
+  "downloadFile": "Download",
+  "fileAttachment": "attachment",
+  "fileActions": "Actions for {{name}}"
 }

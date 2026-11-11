@@ -214,5 +214,6 @@
   "cancellationReason": "Cancellation reason (optional)",
   "field_cancellation_reason": "Cancellation reason",
   "cancelledCount_one": "{{count}} cancelled issue",
-  "cancelledCount_other": "{{count}} cancelled issues"
+  "cancelledCount_other": "{{count}} cancelled issues",
+  "clearSearch": "Clear search"
 }

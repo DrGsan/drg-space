@@ -23,6 +23,7 @@ export function downloadFile(path,ctx){
     let response=await check();
     if(response.status===401&&csrfCookie()&&await abortable(()=>refreshSession(),{signal}))response=await check();
     if(!response.ok)throw Object.assign(new Error(messages[response.status]||tText("files:failedToDownloadTheFileRetry")),{status:response.status});
+    if(ctx.canDownload?.()===false)return false;
     const grant=response.headers.get('X-DrG-Download-Grant'),target=new URL(path,location.origin);
     if(grant)target.searchParams.set('download_grant',grant);
     location.assign(target.href);
@@ -30,7 +31,7 @@ export function downloadFile(path,ctx){
     return true;
   },{timeoutMs:30000,message:tText("files:failedToVerifyAccessInTimeRetryThe")}).catch(error=>{
     ctx.onDownloadError?.(error);
-    if(error.status===401){
+    if(error.status===401&&ctx.modal){
       const dialog=ctx.modal(`<h2>${tHtml("files:signIn")}</h2><p>${tHtml("files:sessionEndedAfterLoggingInRetryTheDownload")}</p><button class="primary" data-download-login>${tHtml("files:signIn2")}</button>`);
       dialog.querySelector('[data-download-login]').onclick=()=>{
         if(ctx.login){dialog.querySelector('.modal-close').click();ctx.login();}

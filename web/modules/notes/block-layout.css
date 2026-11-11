@@ -26,3 +26,11 @@
 
 /* Quote content follows the saved block color instead of a hard-coded gray. */
 .bn-root .bn-editor [data-content-type="quote"] blockquote {color:inherit;border-left-color:currentColor}
+
+.bn-root .note-file-row{align-items:center}
+.bn-root .note-file-row .bn-file-name{flex:1;min-width:0;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.note-file-menu-trigger{display:grid;place-items:center;flex:none;width:28px;height:28px;min-height:0;margin:0 0 0 auto;padding:4px;border:0;border-radius:5px;background:transparent;color:var(--muted);box-shadow:none;cursor:pointer}
+.note-file-menu-trigger svg{display:block;width:18px;height:18px}
+.note-file-menu-trigger:hover,.note-file-menu-trigger[aria-expanded=true]{background:color-mix(in srgb,var(--text) 6%,transparent);color:var(--text)}
+.note-file-menu-trigger:focus-visible{outline:2px solid var(--blue);outline-offset:2px}.note-file-menu-trigger:disabled{opacity:.6;cursor:wait}
+.note-file-error{margin:4px 0 2px 32px!important;color:var(--text);font-size:12px}
