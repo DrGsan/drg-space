@@ -35,7 +35,7 @@ export function issueLanes(items,matches,groups,mode,{empty=true}={}){
  return [...lanes.values()].filter(lane=>lane.items.length||(empty&&mode==='group'));
 }
 export function sortIssues(items,field,direction,locale,assignee,group){
- const collator=new Intl.Collator(locale,{numeric:true,sensitivity:'base'}),rank={todo:0,work:1,review:2,done:3};
+ const collator=new Intl.Collator(locale,{numeric:true,sensitivity:'base'}),rank={todo:0,work:1,review:2,done:3,cancelled:4};
  const value=item=>field==='status'?rank[item.status]:field==='priority'?item.priority:field==='assignee'?assignee(item):field==='group'?group(item):field==='title'?item.title:field==='due'?item.due||null:item.number;
  return [...items].sort((a,b)=>{const av=value(a),bv=value(b);if(av==null||bv==null)return av==null?(bv==null?a.number-b.number:1):-1;const diff=typeof av==='number'?av-bv:collator.compare(av,bv);return (direction==='desc'?-diff:diff)||a.number-b.number;});
 }

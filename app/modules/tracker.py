@@ -205,30 +205,35 @@ def create_tracker_router(db, ready, now, fail, rate, data_dir):
             c.execute('BEGIN IMMEDIATE');return domain.update_group(c,gid,data,uid,now())
 
     @router.get('/api/tracker/projects/{pid}/issues')
-    def issues(pid: str, request: Request, after: int = Query(default=0, ge=0), limit: int = Query(default=200, ge=1, le=500),group_id: str|None=Query(default=None,max_length=16)):
+    def issues(pid: str, request: Request, after: int = Query(default=0, ge=0), limit: int = Query(default=200, ge=1, le=500),group_id: str|None=Query(default=None,max_length=16),include_cancelled: bool = Query(default=False)):
         uid = session(request)['user_id']
-        with db() as c: return domain.issue_page(c, pid, uid, now(), after=after, limit=limit,group_id=group_id)
+        with db() as c: return domain.issue_page(c, pid, uid, now(), after=after, limit=limit,group_id=group_id,include_cancelled=include_cancelled)
 
     @router.post('/api/tracker/projects/{pid}/issues')
-    def create_issue(pid: str, data: domain.Issue, request: Request):
+    def create_issue(pid: str, data: domain.Issue, request: Request, include_cancelled: bool = Query(default=False)):
         uid = session(request, True)['user_id']
         with db() as c:
             c.execute('BEGIN IMMEDIATE')
+            domain.access(c,pid,uid,required='editor')
+            if data.status=='cancelled' and not include_cancelled:domain.fail(409,'trackerUpdateRequired')
             return domain.create_issue(c, pid, data, uid, now())
 
     @router.get('/api/tracker/issues/{iid}')
-    def issue(iid: str, request: Request):
+    def issue(iid: str, request: Request, include_cancelled: bool = Query(default=False)):
         uid = session(request)['user_id']
         with db() as c:
             row = domain.issue_row(c, iid); project = domain.access(c, row['project_id'], uid)
+            if row['status']=='cancelled' and not include_cancelled:domain.fail(409,'trackerUpdateRequired')
             return domain.serialize_issue(c, row, project, now(), detail=True)
 
     @router.patch('/api/tracker/issues/{iid}')
-    def update(iid: str, data: domain.IssueUpdate, request: Request):
+    def update(iid: str, data: domain.IssueUpdate, request: Request, include_cancelled: bool = Query(default=False)):
         uid = session(request, True)['user_id']
         try:
             with db() as c:
                 c.execute('BEGIN IMMEDIATE')
+                row=domain.issue_row(c,iid);domain.access(c,row['project_id'],uid,required='editor')
+                if not include_cancelled and (row['status']=='cancelled' or data.status=='cancelled'):domain.fail(409,'trackerUpdateRequired')
                 return domain.update_issue(c, iid, data, uid, now())
         except ValidationError: domain.fail(422, 'trackerInvalidIssue')
 

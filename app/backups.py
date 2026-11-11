@@ -46,7 +46,10 @@ class BackupError(ValueError):pass
 def schema(c):
     if hasattr(c,'backend'):return SCHEMA_HASH
     rows=c.execute("SELECT type,name,tbl_name,sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND name!='storage_metadata' ORDER BY type,name").fetchall()
-    return hashlib.sha256(json.dumps([tuple(r) for r in rows]).encode()).hexdigest()
+    # A four-state archive is a strict subset of the current tracker schema.
+    # All other schema text still participates in the exact fingerprint.
+    rows=[tuple(value.replace("status IN ('todo','work','review','done')","status IN ('todo','work','review','done','cancelled')") if isinstance(value,str) and row[1]=='tracker_issues' else value for value in row) for row in rows]
+    return hashlib.sha256(json.dumps(rows).encode()).hexdigest()
 
 def key(password,salt):
     return Scrypt(salt=salt,length=32,n=32768,r=8,p=1).derive(password.encode())
@@ -215,7 +218,8 @@ class Backups:
 
     def validate_database(self,directory,metadata):
         with self.db() as c:fingerprint=schema(c)
-        if metadata.get('schema')!=fingerprint:raise BackupError('Схема копии не совпадает с этой версией проекта. Миграции не поддерживаются.')
+        from app.database import TRACKER_LEGACY_SCHEMA_HASH
+        if metadata.get('schema') not in (fingerprint,TRACKER_LEGACY_SCHEMA_HASH):raise BackupError('Схема копии не совпадает с этой версией проекта. Миграции не поддерживаются.')
         snapshot=self.snapshot_database(directory);source=snapshot.__enter__()
         try:
             source.row_factory=sqlite3.Row

@@ -18,16 +18,17 @@ export class TrackerTransport{
   const result=await operate(this.ctx,contact.peer_id,contact.actor_id,'tracker_catalog',{});
   return result.projects.map(project=>({...project,remote:{peer_id:contact.peer_id,actor_id:contact.actor_id,revision:project.grant_revision}}));
  }
+ suffix(project){return project.cancellation_supported?'?include_cancelled=true':'';}
  async call(project,operation,payload={}){
   const remote=project.remote;
-  return operate(this.ctx,remote.peer_id,remote.actor_id,operation,{...payload,project_id:project.id,revision:remote.revision});
+  return operate(this.ctx,remote.peer_id,remote.actor_id,operation,{...payload,project_id:project.id,revision:remote.revision,...(project.cancellation_supported?{include_cancelled:true}:{})});
  }
  async project(project){
   if(!project.remote)return this.ctx.api('/tracker/projects/'+part(project.id));
   const result=await this.call(project,'tracker_project');return {...result,remote:{...project.remote,revision:result.grant_revision}};
  }
  async issues(project,after=0,group=null){
-  if(!project.remote)return this.ctx.api('/tracker/projects/'+part(project.id)+'/issues?after='+after+'&limit=500'+(group!==null?'&group_id='+part(group):''));
+  if(!project.remote)return this.ctx.api('/tracker/projects/'+part(project.id)+'/issues?after='+after+'&limit=500'+(project.cancellation_supported?'&include_cancelled=true':'')+(group!==null?'&group_id='+part(group):''));
   const result=await this.call(project,'tracker_page',{after,limit:200,...(group!==null?{group_id:group}:{})});
   result.project={...result.project,remote:project.remote};return result;
  }
@@ -49,9 +50,9 @@ export class TrackerTransport{
  }
  async group(project,id){return project.remote?this.call(project,'tracker_group_read',{group_id:id}):this.ctx.api('/tracker/groups/'+part(id));}
  async avatar(project){const result=await this.call(project,'tracker_avatar_read');if(result.mime!=='image/webp'||typeof result.body!=='string'||result.body.length>350000)throw Error(tText('tracker:invalidAvatar'));const bytes=unbase64(result.body);return URL.createObjectURL(new Blob([bytes],{type:'image/webp'}));}
- async issue(project,id){return project.remote?this.call(project,'tracker_issue_read',{issue_id:id}):this.ctx.api('/tracker/issues/'+part(id));}
- async create(project,data){return project.remote?this.call(project,'tracker_issue_create',{data}):this.ctx.api('/tracker/projects/'+part(project.id)+'/issues','POST',data);}
- async update(project,id,data){return project.remote?this.call(project,'tracker_issue_update',{issue_id:id,data}):this.ctx.api('/tracker/issues/'+part(id),'PATCH',data);}
+ async issue(project,id){return project.remote?this.call(project,'tracker_issue_read',{issue_id:id}):this.ctx.api('/tracker/issues/'+part(id)+this.suffix(project));}
+ async create(project,data){return project.remote?this.call(project,'tracker_issue_create',{data}):this.ctx.api('/tracker/projects/'+part(project.id)+'/issues'+this.suffix(project),'POST',data);}
+ async update(project,id,data){return project.remote?this.call(project,'tracker_issue_update',{issue_id:id,data}):this.ctx.api('/tracker/issues/'+part(id)+this.suffix(project),'PATCH',data);}
  async comment(project,id,body){return project.remote?this.call(project,'tracker_comment',{issue_id:id,body}):this.ctx.api('/tracker/issues/'+part(id)+'/comments','POST',{body});}
  async accept(project){
   if(!project.remote)return this.ctx.api('/tracker/projects/'+part(project.id)+'/accept','POST');

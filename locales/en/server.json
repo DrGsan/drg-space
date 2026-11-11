@@ -1309,5 +1309,6 @@
   "livekitUnavailable": "The LiveKit media server is unavailable. Please reconnect later.",
   "livekitSignalingNotAccepted": "This room uses LiveKit; peer WebRTC signaling is not accepted.",
   "groupCallsRequireLivekit": "Group calls require a configured and available LiveKit server. Personal calls use coturn.",
-  "legacyGuestInvitationClosed": "This invitation uses the previous format and no longer accepts participants. Create a new invitation using LiveKit."
+  "legacyGuestInvitationClosed": "This invitation uses the previous format and no longer accepts participants. Create a new invitation using LiveKit.",
+  "trackerUpdateRequired": "Update the client to open cancelled issues."
 }

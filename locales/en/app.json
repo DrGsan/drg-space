@@ -192,5 +192,6 @@
   "projectTrackerDescription": "Projects, boards, work items and collaboration. Completed work is retained.",
   "invitationFriendshipDisclosure": "After registration, {{name}} will be added as your friend.",
   "invitationFriendshipCreatorUnavailable": "This invitation includes friendship with its creator, but their account is no longer available. You can complete registration without adding them as a friend.",
-  "checkingInvitation": "Checking invitation…"
+  "checkingInvitation": "Checking invitation…",
+  "updateAvailable": "Update {{version}} available"
 }

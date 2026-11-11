@@ -443,6 +443,12 @@ def me(request: Request):
         federation_enabled=bool(flag and flag[0]=='true' and federation_service.identity)
     return {'federation_enabled':federation_enabled,'id':s['user_id'],'login':s['login'],'role':s['role'],'role_label':ROLE_LABELS[s['role']],'csrf':s['csrf'],'verified':bool(s['verified']),'two_factor':bool(s['totp']),'needs_enrollment':s['stage']=='enrollment','access_expires':s['access_expires'],'app_version':APP_VERSION,'app_release':APP_RELEASE,'account_deletion':s.get('account_deletion') if s['verified'] and s['stage']=='full' else None,'people_names':names(json.loads(s['settings'])) if s['verified'] and s['stage']=='full' else {},'settings':settings}
 
+@app.get('/api/app-update')
+def app_update(request: Request):
+    administrator(request)
+    from app.app_update import check
+    return check(DATA,APP_VERSION)
+
 @app.post('/api/logout')
 def logout(request: Request,response: Response):
     s=session(request,verified=False)

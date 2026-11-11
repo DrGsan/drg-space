@@ -209,5 +209,10 @@
   "unfinished": "Unfinished",
   "clearFilters": "Clear all",
   "removeFilter": "Remove filter “{{name}}”",
-  "close": "Close"
+  "close": "Close",
+  "cancelled": "Cancelled",
+  "cancellationReason": "Cancellation reason (optional)",
+  "field_cancellation_reason": "Cancellation reason",
+  "cancelledCount_one": "{{count}} cancelled issue",
+  "cancelledCount_other": "{{count}} cancelled issues"
 }

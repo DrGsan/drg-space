@@ -18,6 +18,7 @@ READS = {'tracker_catalog','tracker_project','tracker_page','tracker_issue_read'
 class Address(domain.Strict):
     project_id: str = Field(pattern=domain.IDENTITY)
     revision: int = Field(ge=1)
+    include_cancelled: bool = False
 
 
 class Page(Address):
@@ -101,6 +102,8 @@ def authorize(service, connection, peer, intent):
             row = domain.issue_row(c, payload.issue_id)
             if row['project_id'] != project['id']: raise FederationError('resource_access_denied')
         if intent.operation=='tracker_group_read':domain.group_row(c,payload.group_id,project['id'])
+        if not payload.include_cancelled and (hasattr(payload,'issue_id') and row['status']=='cancelled' or hasattr(payload,'data') and getattr(payload.data,'status',None)=='cancelled'):
+            raise FederationError('tracker_update_required')
         return project
     except HTTPError as error:
         raise FederationError('resource_access_denied') from error
@@ -140,7 +143,7 @@ def execute(service, connection, peer, intent):
             domain.history(c, project['id'], None, uid, peer_id, 'member_accepted', {}, stamp)
             return annotated(c, project, uid, peer_id, stamp), None
         if intent.operation == 'tracker_page':
-            result = domain.issue_page(c, project['id'], uid, stamp, peer_id, after=payload.after, limit=payload.limit,group_id=payload.group_id)
+            result = domain.issue_page(c, project['id'], uid, stamp, peer_id, after=payload.after, limit=payload.limit,group_id=payload.group_id,include_cancelled=payload.include_cancelled)
             result['project'] = annotated(c, project, uid, peer_id, stamp)
             return result, None
         if intent.operation == 'tracker_issue_read':

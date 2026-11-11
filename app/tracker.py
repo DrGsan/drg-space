@@ -9,14 +9,14 @@ import re
 import secrets
 from datetime import date
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing import Literal
 from app.http import HTTPError
 from app.i18n import message as localized_message
 
 IDENTITY = r'^[A-Za-z0-9_-]{16}$'
 USER = r'^[a-f0-9]{32}$'
-STATES = ('todo', 'work', 'review', 'done')
+STATES = ('todo', 'work', 'review', 'done', 'cancelled')
 ROLES = {'viewer': 1, 'editor': 2, 'manager': 3, 'owner': 4}
 
 
@@ -51,7 +51,7 @@ class Project(Strict):
 class Issue(Strict):
     title: str = Field(min_length=1, max_length=300)
     description: str = Field(default='', max_length=100000)
-    status: Literal['todo', 'work', 'review', 'done'] = 'todo'
+    status: Literal['todo', 'work', 'review', 'done', 'cancelled'] = 'todo'
     kind: Literal['task', 'bug', 'improvement', 'epic'] = 'task'
     parent_id: str | None = Field(default=None, pattern=IDENTITY)
     group_id: str | None = Field(default=None,pattern=IDENTITY)
@@ -64,6 +64,12 @@ class Issue(Strict):
     merge_request_url: str = Field(default='',max_length=2000)
     time: str = Field(default='', max_length=5)
     flagged: bool = False
+    cancellation_reason: str = Field(default='', max_length=2000)
+
+    @model_validator(mode='after')
+    def valid_cancellation(self):
+        if self.status!='cancelled' and self.cancellation_reason:raise ValueError(localized_message('trackerInvalidIssue'))
+        return self
 
     @field_validator('title')
     @classmethod
@@ -114,7 +120,7 @@ class IssueUpdate(Strict):
     version: int = Field(ge=1)
     title: str | None = None
     description: str | None = None
-    status: Literal['todo', 'work', 'review', 'done'] | None = None
+    status: Literal['todo', 'work', 'review', 'done', 'cancelled'] | None = None
     kind: Literal['task', 'bug', 'improvement', 'epic'] | None = None
     parent_id: str | None = None
     group_id: str | None = None
@@ -127,6 +133,7 @@ class IssueUpdate(Strict):
     merge_request_url: str | None = None
     time: str | None = None
     flagged: bool | None = None
+    cancellation_reason: str | None = Field(default=None, max_length=2000)
     position: int | None = Field(default=None, ge=0, le=2**53-1)
 
 
@@ -314,7 +321,7 @@ def serialize_project(c, row, uid, stamp, peer_id='', invitation=False, include_
     result = {key: row[key] for key in ('id', 'owner_id', 'space_id', 'created', 'updated', 'version')}
     result['viewer']={'actor_id':uid,'peer_id':peer_id}
     result.update(payload, role=actual, manage=ROLES[actual] >= ROLES['manager'], editable=ROLES[actual] >= ROLES['editor'],
-                  shared=shared, retain_completed=True, pending=invitation, can_delete=actual == 'owner' and not peer_id)
+                  shared=shared, retain_completed=True, cancellation_supported=True, pending=invitation, can_delete=actual == 'owner' and not peer_id)
     result['avatar_url']='/api/tracker/projects/'+row['id']+'/avatar?v='+payload['avatar_version'] if payload['has_avatar'] and not invitation else None
     if not invitation:
         result['counts'] = {state: 0 for state in STATES}
@@ -382,7 +389,7 @@ def status_entry_times(c, rows):
     """
     rows={row['id']:row for row in rows}
     result={iid:(row['completed_at'] or row['created']) if row['status']=='done' else row['created'] for iid,row in rows.items()}
-    identities=[iid for iid,row in rows.items() if row['status'] in ('work','review')]
+    identities=[iid for iid,row in rows.items() if row['status'] in ('work','review','cancelled')]
     for start in range(0,len(identities),200):
         batch=identities[start:start+200]
         for item in c.execute("SELECT issue_id,payload,created FROM tracker_history WHERE event='updated' AND issue_id IN ("+','.join('?' for _ in batch)+')',tuple(batch)):
@@ -401,8 +408,8 @@ def serialize_issue(c, row, project, stamp, *, detail=False, entry_times=None):
     if not detail: payload = {key: value for key, value in payload.items() if key != 'description'}
     result.update(payload, key=json.loads(project['payload'])['key'] + '-' + str(row['number']))
     if row['kind']=='epic':
-        total,done=c.execute("SELECT COUNT(*),COALESCE(SUM(CASE WHEN status='done' THEN 1 ELSE 0 END),0) FROM tracker_issues WHERE parent_id=?",(row['id'],)).fetchone()
-        result['progress']={'total':total,'done':done}
+        total,done,cancelled=c.execute("SELECT COALESCE(SUM(CASE WHEN status!='cancelled' THEN 1 ELSE 0 END),0),COALESCE(SUM(CASE WHEN status='done' THEN 1 ELSE 0 END),0),COALESCE(SUM(CASE WHEN status='cancelled' THEN 1 ELSE 0 END),0) FROM tracker_issues WHERE parent_id=?",(row['id'],)).fetchone()
+        result['progress']={'total':total,'done':done,'cancelled':cancelled}
     if detail:
         result['comments'] = [dict(item) | {'person': person(c, item['actor_id'], item['peer_id'], project['owner_id'], stamp)}
                               for item in reversed(c.execute('SELECT * FROM tracker_comments WHERE issue_id=? ORDER BY created DESC,id DESC LIMIT 50', (row['id'],)).fetchall())]
@@ -418,16 +425,16 @@ def serialize_issue(c, row, project, stamp, *, detail=False, entry_times=None):
     return result
 
 
-def issue_page(c, pid, uid, stamp, peer_id='', *, after=0, limit=200, group_id=None):
+def issue_page(c, pid, uid, stamp, peer_id='', *, after=0, limit=200, group_id=None, include_cancelled=True):
     project = access(c, pid, uid, peer_id)
-    clause='';params=[pid,after]
+    clause='' if include_cancelled else " AND status!='cancelled'";params=[pid,after]
     if group_id is not None:
-        if group_id:group_row(c,group_id,pid);clause=' AND group_id=?';params.append(group_id)
-        else:clause=' AND group_id IS NULL'
+        if group_id:group_row(c,group_id,pid);clause+=' AND group_id=?';params.append(group_id)
+        else:clause+=' AND group_id IS NULL'
     rows = c.execute('SELECT * FROM tracker_issues WHERE project_id=? AND number>?'+clause+' ORDER BY number LIMIT ?', (*params,limit+1)).fetchall()
     entries=status_entry_times(c,rows[:limit])
     page = [serialize_issue(c, dict(row), project, stamp,entry_times=entries) for row in rows[:limit]]
-    counts={s:0 for s in STATES}
+    counts={s:0 for s in STATES if include_cancelled or s!='cancelled'}
     for r in c.execute('SELECT status,COUNT(*) n FROM tracker_issues WHERE project_id=?'+clause+' GROUP BY status',(pid,*params[2:])):counts[r['status']]=r['n']
     return {'items': page, 'more': len(rows) > limit, 'cursor': page[-1]['number'] if page else after,
             'view_counts':counts,'project': serialize_project(c, project, uid, stamp, peer_id)}
@@ -450,7 +457,9 @@ def validate_relations(c, project, value, iid=None):
 
 
 def issue_payload(value):
-    return value.model_dump(exclude={'status', 'kind', 'parent_id', 'assignee_id', 'assignee_peer','group_id'})
+    payload=value.model_dump(exclude={'status', 'kind', 'parent_id', 'assignee_id', 'assignee_peer','group_id'})
+    if not payload['cancellation_reason']:payload.pop('cancellation_reason')
+    return payload
 
 
 def notify_issue(c, project, issue, uid, peer_id, event, stamp):
@@ -475,6 +484,7 @@ def create_issue(c, pid, data, uid, stamp, peer_id='', *, original_id=None, crea
         parent=issue_row(c,data.parent_id)
         if data.group_id not in (None,parent['group_id']):fail(422,'trackerInvalidGroup')
         data=data.model_copy(update={'group_id':parent['group_id']})
+    if data.status!='cancelled' and data.cancellation_reason:fail(422,'trackerInvalidIssue')
     validate_relations(c, project, data)
     number = project['next_number']
     changed = c.execute('UPDATE tracker_projects SET next_number=next_number+1,version=version+1,updated=? WHERE id=? AND next_number=?', (stamp, pid, number))
@@ -500,7 +510,10 @@ def update_issue(c, iid, data, uid, stamp, peer_id=''):
     if row['version'] != data.version: fail(409, 'trackerConflict')
     old = Issue.model_validate(json.loads(row['payload']) | {key: row[key] for key in ('status','kind','parent_id','group_id','assignee_id','assignee_peer')}).model_dump()
     changes = data.model_dump(exclude_unset=True, exclude={'version', 'position'})
+    if changes.get('status',old['status'])!='cancelled' and old['status']=='cancelled' and 'cancellation_reason' not in changes:
+        changes['cancellation_reason']=''
     updated = Issue.model_validate(old | changes)
+    if updated.status!='cancelled' and updated.cancellation_reason:fail(422,'trackerInvalidIssue')
     if updated.parent_id:
         parent=issue_row(c,updated.parent_id)
         if 'group_id' in changes and updated.group_id!=parent['group_id']:fail(422,'trackerInvalidGroup')

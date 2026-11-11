@@ -14,7 +14,7 @@ This repository contains the server, web client and installable Web App.
 
 - Block notes with nested pages, tables, databases, code, attachments, sharing and collaborative editing.
 - Notion HTML/Markdown/CSV and Outline imports. Optional Notion synchronization; two-way writing is experimental and off by default.
-- Projects, boards, task filters, reminder lists and subtasks.
+- Projects, boards, task filters, reminder lists and subtasks; cancellable work with optional reasons and preserved history.
 - Private files and folders, expiring download links, quotas and scheduled cleanup.
 - Contacts, shared spaces, chat, voice messages and video notes.
 - Private WebRTC calls; group calls require an optional LiveKit server.

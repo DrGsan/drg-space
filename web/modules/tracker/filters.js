@@ -1,4 +1,4 @@
-const statuses=['todo','work','review','done'];
+const statuses=['todo','work','review','done','cancelled'];
 export function normalizeFilters(value){
  const saved=value&&typeof value==='object'?value:{};
  return {query:typeof saved.query==='string'?saved.query.slice(0,300):'',mine:saved.mine===true,unfinished:saved.unfinished===true,
@@ -8,7 +8,7 @@ export function normalizeFilters(value){
 }
 export function matchesIssue(item,filters,uid,peer=''){
  return (!filters.mine||item.assignee_id===uid&&(item.assignee_peer||'')===peer)&&
-  (!filters.unfinished||item.status!=='done')&&(!filters.statuses.length||filters.statuses.includes(item.status))&&
+  (!filters.unfinished||!['done','cancelled'].includes(item.status))&&(!filters.statuses.length||filters.statuses.includes(item.status))&&
   (!filters.priorities.length||filters.priorities.includes(item.priority))&&
   (filters.group===null||(item.group_id||'')===filters.group)&&
   (!filters.query||[item.title,item.key,...item.tags||[]].join(' ').toLocaleLowerCase().includes(filters.query.toLocaleLowerCase()));

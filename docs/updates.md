@@ -1,5 +1,17 @@
 # Updating DrG Space
 
+## 5.1.0 preview: cancellation and release availability
+
+This preview expands only the tracker status CHECK constraint to include `cancelled`. Task columns, encryption, object paths, keys, `.env`, dependencies and volumes are unchanged. No clean database is required. Do not start this code against an unmodified previous schema: startup deliberately refuses the previous storage fingerprint.
+
+Before upgrading an existing installation, stop all application writers. Apply a reviewed, one-off offline migration to a disposable copy first, test rollback, and verify every table's rows and foreign keys. Expand `tracker_issues.status` from `('todo','work','review','done')` to `('todo','work','review','done','cancelled')`; preserve every column, index and referencing table. PostgreSQL can replace its status CHECK in a transaction. SQLite/SQLCipher requires rebuilding only this table in a transaction with foreign keys disabled for the rebuild, followed by integrity and foreign-key checks. Update only the `schema` storage metadata value to `app.database.SCHEMA_HASH` after successful verification. Use the existing encryption key and mode throughout. Apply the verified procedure to the stopped installation before using the existing Compose update commands below.
+
+Rollback of the constraint is safe only before cancelled rows are created; the reviewed migration must refuse a downgrade while any cancelled task exists. Four-state full backups are accepted only when their entire schema matches the known previous fingerprint; unrelated schema changes remain rejected. New backups containing cancelled work require this version or newer.
+
+Cancellation does not change child statuses, remove content or mark work completed. Editors can cancel and reopen tasks; optional reasons remain in history after reopening. Cancelled children are counted separately and excluded from an epic's completion denominator.
+
+Updated web and native clients request `include_cancelled=true` for task reads/writes only when the project advertises `cancellation_supported`. Older HTTP and federation clients receive a consistent four-state page without cancelled rows. Direct reads/edits of a cached cancelled task require an updated client. Active children of cancelled parents remain available. No personal token is needed for the public GitHub release hint: the server caches a confirmed stable release for six hours, retries failed checks after fifteen minutes, and hides expired or unavailable results. Only owners and administrators can use this endpoint; it never installs an update.
+
 ## 5.0.1 reminder refresh
 
 Unchanged background polls preserve reminder controls when the list response includes recoverable deleted lists. Real changes continue to update the workspace. Database schema, storage formats, keys, dependencies and `.env` are unchanged; no migration or new settings are required. Use the existing update procedure below.

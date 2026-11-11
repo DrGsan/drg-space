@@ -2654,3 +2654,5 @@ details.note-status-chip .note-status-popover .notion-sync-actions{display:flex;
  .holiday-calendar[data-calendar-size="2x1"] .calendar-overview,.holiday-calendar[data-calendar-size="2x2"] .calendar-overview{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
  .holiday-calendar[data-calendar-size="2x1"] .calendar-agenda,.holiday-calendar[data-calendar-size="2x2"] .calendar-agenda{border-left:1px solid var(--line);padding-left:14px}
 }
+
+[data-app-update] a{display:inline-block;margin-inline-start:6px;font-size:.85em;color:var(--blue);overflow-wrap:anywhere}
