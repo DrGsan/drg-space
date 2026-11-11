@@ -204,7 +204,7 @@ export async function mountFamilyPhotos(host,ctx){
       galleryVersions=data.status?.gallery_versions===true;
       indexAvailable=data.status?.gallery_index===true;
       const versionLabel=$('[data-fp-version]',host);
-      versionLabel.textContent=data.status?.service_version?`Family Photo ${data.status.service_version}`:'';
+      versionLabel.textContent=data.status?.service_version?`${tText("family_photos:familyPhotos2")} ${data.status.service_version}`:'';
       versionLabel.hidden=!versionLabel.textContent;
       groups=data.items;
       if(!groups.some(g=>g.id===gid)){files=[];scope.viewer?.destroy();await select(groups.find(group=>group.id===ctx.state.familyPhotoGroup)?.id||groups[0]?.id);}

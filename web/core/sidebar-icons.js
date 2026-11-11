@@ -20,6 +20,8 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 const paths = {
+  // Reuse the image glyph already used by the chat attachment controls.
+  image: '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 16 5-5 4 4 3-3 6 6"/>',
   "kanban": '<path d="M6 5v12M12 5v7M18 5v14"/>',
   "building-2": '<rect x="4" y="3" width="12" height="18" rx="1"/><path d="M16 8h4v13M8 7h4M8 11h4M8 15h4M9 21v-3"/>',
   "layers": '<path d="m12 3 10 5-10 5L2 8l10-5Zm-9 10 9 5 9-5M3 18l9 5 9-5"/>',

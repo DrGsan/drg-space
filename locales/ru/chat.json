@@ -415,7 +415,7 @@
   "allowCameraAndMicrophone": "Разрешите доступ к камере и микрофону в настройках браузера.",
   "switchToVideoNote": "Переключить на видеокружок",
   "switchToVoice": "Переключить на голосовое",
-  "recordingServerUpdateRequired": "Сервер Telegram-бесед ещё не поддерживает этот тип записи. Обновите Family Photo.",
+  "recordingServerUpdateRequired": "Сервер Telegram-бесед ещё не поддерживает этот тип записи. Обновите сервис «Медиа».",
   "applyingAudioOutput": "Переключаем аудиовыход…",
   "couldNotApplyAudioOutput": "Не удалось применить аудиовыход ко всем участникам. Попробуйте снова или выберите системный выход.",
   "audioOutputNotApplied": "Браузер не подтвердил выбранный аудиовыход.",

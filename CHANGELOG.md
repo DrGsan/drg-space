@@ -2,12 +2,13 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.1.0-rc.1] — 2026-11-11 — Cancelled work and release availability
+## [5.1.0-rc.2] — 2026-11-11 — Cancelled work and release availability
 
 - Cancel tasks with an optional reason, preserve their content and reopen them later.
 - Cancelled tasks have their own status and counter, leave unfinished views, and do not count towards epic completion.
 - Owners and administrators can see an available stable GitHub release next to the installed server version.
 - Installed Web App names use DrG Space.
+- The media gallery uses Media naming and a photo icon in navigation.
 
 - **Installation:** Existing databases require the one-off tracker constraint expansion described in docs/updates.md before startup.
 - **Compatibility:** Preserve keys, volumes, settings and task identities. Older clients retain a four-state projection; update the client to view cancelled work. Existing four-state full backups remain restorable.

@@ -12,6 +12,8 @@ Cancellation does not change child statuses, remove content or mark work complet
 
 Updated web and native clients request `include_cancelled=true` for task reads/writes only when the project advertises `cancellation_supported`. Older HTTP and federation clients receive a consistent four-state page without cancelled rows. Direct reads/edits of a cached cancelled task require an updated client. Active children of cancelled parents remain available. No personal token is needed for the public GitHub release hint: the server caches a confirmed stable release for six hours, retries failed checks after fifteen minutes, and hides expired or unavailable results. Only owners and administrators can use this endpoint; it never installs an update.
 
+The gallery and its access settings use Media naming in Russian and English. Only display text and the navigation icon change; `family_photos`, service URLs, API paths and existing settings remain compatible.
+
 ## 5.0.1 reminder refresh
 
 Unchanged background polls preserve reminder controls when the list response includes recoverable deleted lists. Real changes continue to update the workspace. Database schema, storage formats, keys, dependencies and `.env` are unchanged; no migration or new settings are required. Use the existing update procedure below.
