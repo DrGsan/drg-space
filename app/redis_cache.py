@@ -61,7 +61,7 @@ class RedisCache:
         self.client=Redis.from_url(self.url,protocol=2,max_connections=8,
             socket_connect_timeout=.15,socket_timeout=.15,
             retry=Retry(NoBackoff(),0),health_check_interval=30,
-            decode_responses=False,client_name='drg-site-cache')
+            decode_responses=False,client_name='drg-space-cache')
         try:
             with sync_file_lock(self.backend.root,'redis-cache.lock',shared=True):
                 self._rotate()

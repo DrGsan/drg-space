@@ -1,7 +1,9 @@
+name: drg-space
+
 services:
   app:
-    image: drg-site-image
-    container_name: drg-site-app
+    image: drg-space:local
+    container_name: drg-space-app
     build: .
     restart: unless-stopped
     stop_grace_period: 70s
@@ -71,3 +73,5 @@ services:
       - ALL
 volumes:
   drg-data:
+    name: ${DRG_SPACE_DATA_VOLUME:-${COMPOSE_PROJECT_NAME:-drg-space}_drg-data}
+    external: ${DRG_SPACE_EXTERNAL_VOLUMES:-false}

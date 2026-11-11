@@ -26,7 +26,11 @@ services:
         condition: service_healthy
 volumes:
   caddy-data:
+    name: ${DRG_SPACE_CADDY_DATA_VOLUME:-${COMPOSE_PROJECT_NAME:-drg-space}_caddy-data}
+    external: ${DRG_SPACE_EXTERNAL_VOLUMES:-false}
   caddy-config:
+    name: ${DRG_SPACE_CADDY_CONFIG_VOLUME:-${COMPOSE_PROJECT_NAME:-drg-space}_caddy-config}
+    external: ${DRG_SPACE_EXTERNAL_VOLUMES:-false}
 
 networks:
   default:

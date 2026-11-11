@@ -23,7 +23,7 @@ _connect = psycopg.AsyncConnection.connect
 
 @classmethod
 async def _isolated_connect(cls, *args, **kwargs):
-    if kwargs.get('application_name', '').startswith('drg-site-invalidations'):
+    if kwargs.get('application_name', '').startswith('drg-space-invalidations'):
         kwargs['application_name'] = (
             'drg-gunicorn-test-' + os.environ['DATABASE_SCHEMA'].removeprefix('drg_gunicorn_test_')
             + ':' + str(os.getpid()))

@@ -150,7 +150,7 @@ jobs:
     timeout-minutes: 25
     env:
       DRG_DOCKER_TEST_POSTGRES: 'true'
-      DRG_DOCKER_TEST_IMAGE: drg-site-ci-image
+      DRG_DOCKER_TEST_IMAGE: drg-space-ci:local
       DRG_TEST_ARTIFACT_DIR: artifacts/docker
       GUNICORN_WORKERS: '3'
       GUNICORN_THREADS: '32'

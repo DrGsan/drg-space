@@ -50,6 +50,6 @@ New installations explicitly use schema `drg_site`. Existing `.env` values and s
 
 ## Persistence and updates
 
-Keep `.env`, encryption keys, volumes, Compose project name, and all overlay files. Existing technical names such as `drg-data`, `drg-site-app`, schema fallback `drg`, and the default S3 prefix are intentionally retained for compatibility. The repository name alone does not identify an existing Compose project.
+The default Compose project is `drg-space`, with container `drg-space-app` and image `drg-space:local`. Keep `.env`, encryption keys, database/schema, storage prefixes and all overlay files. When upgrading an older `drg-site` project, follow the explicit rename procedure in the update guide before starting this version. Pin every existing data volume by its inspected name and enable external-volume mode; do not infer data identity from the checkout directory.
 
 Do not run `docker compose down -v` during an update. Never regenerate working keys. Read [updates](docs/updates.md) before changing a running deployment. Backups are described in [admin backups](docs/admin-backups.md).

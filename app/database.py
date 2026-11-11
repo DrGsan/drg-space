@@ -339,7 +339,7 @@ class Database:
                 raw.execute('RESET ALL')
                 configure(raw)
             pool=ConnectionPool(self.url,min_size=1,max_size=4,open=False,
-                kwargs={'connect_timeout':10,'application_name':'drg-site'},
+                kwargs={'connect_timeout':10,'application_name':'drg-space'},
                 configure=configure,reset=reset,check=ConnectionPool.check_connection,
                 timeout=10,max_waiting=128,max_idle=60,num_workers=1)
             pool.open()
@@ -441,7 +441,7 @@ class Database:
             return connection
         import psycopg
         try:
-            connection = psycopg.connect(self.url, connect_timeout=10, application_name='drg-site')
+            connection = psycopg.connect(self.url, connect_timeout=10, application_name='drg-space')
             connection.execute('SET search_path TO ' + self.schema + ', pg_catalog')
             return connection
         except psycopg.Error:

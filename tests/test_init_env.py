@@ -278,3 +278,27 @@ def test_bundled_postgres_initializes_owned_schema_and_preserves_data(fresh_env,
             assert c.execute('SELECT value FROM app_settings WHERE key=?', ('env-audit',)).fetchone()[0] == 'preserved-value'
     finally:
         subprocess.run(['docker', 'rm', '--force', '--volumes', name], capture_output=True, timeout=15)
+
+
+def test_project_rename_resolves_same_external_storage_in_every_overlay(fresh_env, tmp_path):
+    pins = {'DRG_SPACE_EXTERNAL_VOLUMES': 'true',
+            'DRG_SPACE_DATA_VOLUME': 'previous_drg-data',
+            'DRG_SPACE_POSTGRES_VOLUME': 'previous_drg-postgres',
+            'DRG_SPACE_CADDY_DATA_VOLUME': 'previous_caddy-data',
+            'DRG_SPACE_CADDY_CONFIG_VOLUME': 'previous_caddy-config',
+            'SITE_DOMAIN': 'workspace.example'}
+    config = compose_configuration(fresh_env, tmp_path, pins,
+                                   ('compose.postgres.yaml', 'compose.production.yaml'))
+    assert config['services']['app']['container_name'] == 'drg-space-app'
+    assert config['services']['app']['image'] == 'drg-space:local'
+    for key, setting in [('drg-data', 'DRG_SPACE_DATA_VOLUME'),
+                         ('drg-postgres', 'DRG_SPACE_POSTGRES_VOLUME'),
+                         ('caddy-data', 'DRG_SPACE_CADDY_DATA_VOLUME'),
+                         ('caddy-config', 'DRG_SPACE_CADDY_CONFIG_VOLUME')]:
+        assert config['volumes'][key] == {'name': pins[setting], 'external': True}
+    assert config['services']['app']['volumes'][0]['target'] == '/data'
+
+
+def test_fresh_volume_names_follow_explicit_project_without_using_old_storage(fresh_env, tmp_path):
+    config = compose_configuration(fresh_env, tmp_path)
+    assert config['volumes']['drg-data'] == {'name': config['name'] + '_drg-data'}
