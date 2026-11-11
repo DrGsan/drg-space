@@ -79,7 +79,8 @@ def main():
         assert len(items)==2 and [item['id'] for item in items]==[original['id'],reply['id']]
         assert items[0]['body']==original['body'] and items[0]['reply'] is None
         assert items[1]['body']==reply['body']
-        assert items[1]['reply']=={'id':original['id'],'sender':'friend','body':original['body'][:240],'unavailable':False}
+        assert {k:items[1]['reply'][k] for k in ('id','sender','body','unavailable')}=={'id':original['id'],'sender':'friend','body':original['body'][:240],'unavailable':False}
+        assert items[1]['reply']['sender_id']==original['sender_id'] and items[1]['reply']['sender_profile']['login']=='friend'
         room=next(item for item in call(c,'/chat/rooms').json()['items'] if item['id']==sid)
         assert room['favorite'] is True and room['pinned'] is True
         assert room['last_message']['id']==reply['id'] and room['last_message']['reply']==items[1]['reply']
@@ -158,7 +159,9 @@ def main():
                 published=call(owner,f'/notes/{private}/shares','POST',{'mode':'public','permission':'edit','duration':13,'unit':'minutes'}).json()['token']
                 public=call(owner,'/shared/'+published).json()
                 call(owner,'/shared/'+published,'PUT',{'title':public['title'],'body':'Разрешённая правка через ссылку','blocks':[{'id':'link-smoke-block','type':'paragraph','content':'Разрешённая правка через ссылку','children':[]}],'version':public['version']},headers={'x-share-edit-token':public['edit_token']})
-                backup=call(owner,'/admin/backups/export','POST',{'admin_password':password,'backup_password':backup_password}).content
+                backup_response=call(owner,'/admin/backups/export','POST',{'admin_password':password,'backup_password':backup_password})
+                assert 'drg-space-' in backup_response.headers['content-disposition']
+                backup=backup_response.content
                 call(owner,f'/chat/{sid}/messages','POST',{'body':'После снимка','client_id':'later-container-message'})
                 assert call(owner,f'/chat/{sid}/preferences','PUT',{'favorite':False,'pinned':False}).json()=={'favorite':False,'pinned':False}
                 headers={'x-admin-password-b64':base64.b64encode(password.encode()).decode(),'x-backup-password-b64':base64.b64encode(backup_password.encode()).decode(),'x-restore-confirmation':'RESTORE'}
