@@ -100,7 +100,7 @@ function mountAdminContent(host,ctx){
       try{
         const response=await ctx.adminTransfer(()=>transfer('export',{backup_password:form.get('backup_password')}));
         const blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');
-        link.href=url;link.download='drg-site-'+new Date().toISOString().replaceAll(':','-')+'.drgbackup';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
+        link.href=url;link.download='drg-space-'+new Date().toISOString().replaceAll(':','-')+'.drgbackup';link.click();setTimeout(()=>URL.revokeObjectURL(url),10000);
         $('.modal-close',el).click();ctx.toast(tText("admin:backupDownloaded"));
       }finally{if(el.isConnected)$('[data-export-status]',el).textContent='';}
     });

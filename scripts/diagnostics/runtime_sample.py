@@ -63,7 +63,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--samples', type=int, default=60)
     parser.add_argument('--interval', type=float, default=2)
-    parser.add_argument('containers', nargs='*', default=['drg-site-app', 'family-photo-api', 'family-photo-worker'])
+    parser.add_argument('containers', nargs='*', default=['drg-space-app', 'drg-media-api', 'drg-media-worker'])
     args = parser.parse_args()
     if not 2 <= args.samples <= 1800 or not .5 <= args.interval <= 60:
         parser.error('Use 2..1800 samples and an interval of .5..60 seconds.')

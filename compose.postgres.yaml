@@ -25,3 +25,5 @@ services:
       retries: 12
 volumes:
   drg-postgres:
+    name: ${DRG_SPACE_POSTGRES_VOLUME:-${COMPOSE_PROJECT_NAME:-drg-space}_drg-postgres}
+    external: ${DRG_SPACE_EXTERNAL_VOLUMES:-false}

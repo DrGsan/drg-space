@@ -16,7 +16,7 @@ def main():
     env={k:v for k,v in os.environ.items() if k in inherited}
     docker=['docker','--host=unix:///var/run/docker.sock'];suffix=secrets.token_hex(5)
     name='drg-social-smoke-'+suffix;volume=name+'-data';url='http://127.0.0.1:8010';password='Container-owner-password-123';backup_password='Container-backup-password-123'
-    image=os.getenv('DRG_DOCKER_TEST_IMAGE','drg-site-image')
+    image=os.getenv('DRG_DOCKER_TEST_IMAGE','drg-space:local')
     postgres=os.getenv('DRG_DOCKER_TEST_POSTGRES')=='true';compose=None
     redactions=[]
     def command(*args):

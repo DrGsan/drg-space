@@ -381,7 +381,7 @@ def create_admin_router(db,owner,fail,check_password,hash_password,protection,no
                     proof(request,data.admin_password)
                     metadata=await blocking(backups.snapshot,temporary.name)
                 file=await blocking(backups.encrypt,temporary.name,metadata,data.backup_password)
-                return FileResponse(file,media_type='application/octet-stream',filename='drg-site-'+str(now())+'.drgbackup',background=BackgroundTask(temporary.cleanup))
+                return FileResponse(file,media_type='application/octet-stream',filename='drg-space-'+str(now())+'.drgbackup',background=BackgroundTask(temporary.cleanup))
             except BackupError as error:temporary.cleanup();fail(422,str(error))
             except BaseException:temporary.cleanup();raise
 

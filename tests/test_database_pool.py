@@ -34,7 +34,7 @@ def test_reuse_resets_session_and_rolls_back_failed_transaction(backend):
     with pytest.raises(RuntimeError):
         with backend.connection() as c:
             assert c.raw.info.backend_pid==first
-            assert c.raw.execute('SHOW application_name').fetchone()[0]=='drg-site'
+            assert c.raw.execute('SHOW application_name').fetchone()[0]=='drg-space'
             assert c.raw.execute('SHOW search_path').fetchone()[0]==backend.schema+', pg_catalog'
             c.execute('INSERT INTO app_settings(key,value) VALUES(?,?)',('pool-rollback','private'))
             raise RuntimeError('abort')

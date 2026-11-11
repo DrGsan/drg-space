@@ -132,7 +132,7 @@ class ProcessCoordinator:
                 # while the notification generator owns its connection lock.
                 async with await psycopg.AsyncConnection.connect(
                         self.database.url, autocommit=True, connect_timeout=10,
-                        application_name='drg-site-invalidations-' + self.channel[-24:]) as connection:
+                        application_name='drg-space-invalidations-' + self.channel[-24:]) as connection:
                     await connection.execute('LISTEN ' + self.channel)
                     delay=1
                     self.listening=True
