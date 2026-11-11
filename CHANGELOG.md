@@ -2,7 +2,7 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.0.2-rc.1] — 2026-11-11 — Consistent runtime names
+## [5.0.2] — 2026-11-11 — Consistent runtime names
 
 - Docker containers, images, Compose project and diagnostic labels use DrG Space names.
 - Existing data volumes can be pinned as external volumes when changing the Compose project.

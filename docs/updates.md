@@ -12,7 +12,7 @@ The working `.env` must not be replaced. New installations generate it from `.en
 
 ## 5.0.2 runtime-name transition
 
-The preview uses Compose project `drg-space`, container `drg-space-app` and image `drg-space:local`. PostgreSQL application/client labels and exported backup filenames also use the product name. Backup format identifiers, JWT signatures/issuers, Redis key namespaces, database/schema names and S3 prefixes remain compatible. No database migration, clean database or secret regeneration is needed.
+This release uses Compose project `drg-space`, container `drg-space-app` and image `drg-space:local`. PostgreSQL application/client labels and exported backup filenames also use the product name. Backup format identifiers, JWT signatures/issuers, Redis key namespaces, database/schema names and S3 prefixes remain compatible. No database migration, clean database or secret regeneration is needed.
 
 **An existing installation must pin its volumes before changing the Compose project.** Preserve the working `.env`, every override, port binding and optional backend. Stop the existing deployment before starting the new one; never run two application instances against a SQLite volume.
 
