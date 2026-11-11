@@ -31,7 +31,7 @@ Open http://localhost:8000. Read `SETUP_TOKEN` from your local `.env`, create th
 
 Weather requests identify the deployment using PUBLIC_URL or the optional WEATHER_USER_AGENT setting. Configure your own reachable contact identity and follow the provider terms linked in .env.example.
 
-See the [documentation index](docs/README.md), [installation](INSTALL.md), [updates](docs/updates.md), and [security](docs/security.md).
+See the [documentation index](docs/README.md), [installation](INSTALL.md), [updates](docs/updates.md), [release history](CHANGELOG.md), and [security](docs/security.md).
 
 ## Optional services
 
