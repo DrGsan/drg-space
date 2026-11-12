@@ -21,7 +21,7 @@ test('list recovery and worldwide city configuration',async({page})=>{
  await page.locator('[data-close-task-panel]').click().catch(async()=>{await page.keyboard.press('Escape');});
  await appSection(page,'Главная');await page.getByRole('button',{name:'Настроить главную',exact:true}).click();
  let dialog=page.getByRole('dialog').last();await dialog.getByLabel('Новый виджет').selectOption('clock');await dialog.getByRole('button',{name:'Добавить виджет',exact:true}).click();await dialog.locator('[data-configure]').last().click();
- await dialog.locator('[data-city-query]').fill('Лимасол');await expect(dialog.locator('[data-city="0"]')).toContainText('Кипр');await page.screenshot({path:dir+'/after-clock-search.png'});await dialog.locator('[data-city="0"]').click();
+ await dialog.locator('.clock-city-disclosure > summary').click();await dialog.locator('[data-city-query]').fill('Лимасол');await expect(dialog.locator('[data-city="0"]')).toContainText('Кипр');await page.screenshot({path:dir+'/after-clock-search.png'});await dialog.locator('[data-city="0"]').click();
  await expect(dialog.locator('[name=clock_timezone]')).toHaveValue('Asia/Nicosia');
  await page.screenshot({path:dir+'/after-clock.png'});
  await dialog.getByRole('button',{name:'Сохранить виджет',exact:true}).click();
@@ -32,7 +32,7 @@ test('list recovery and worldwide city configuration',async({page})=>{
  await dialog.locator('[data-city-query]').fill('Лимасол');await expect(dialog.locator('[data-city="0"]')).toContainText('Кипр');await page.screenshot({path:dir+'/after-weather.png'});await dialog.locator('[data-city="0"]').click();await dialog.getByRole('button',{name:'Сохранить виджет',exact:true}).click();dialog=page.getByRole('dialog').last();await dialog.getByRole('button',{name:'Сохранить настройки',exact:true}).click();await expect(dialog).not.toBeVisible();
  await expect.poll(async()=>{const saved=(await (await page.request.get('/api/dashboard/layout')).json()).instances;return saved.some(x=>x.module_id==='weather' && x.config.latitude>34.6 && x.config.latitude<34.8 && x.config.city==='Лимасол');}).toBe(true);
  await page.setViewportSize({width:390,height:844});await page.addInitScript(()=>Object.defineProperty(navigator,'standalone',{get:()=>true}));await page.reload();
- await page.getByRole('button',{name:'Дела',exact:true}).click();await page.locator('[data-toggle-tasks-sidebar]').click();await page.locator(`[data-task-list="${list.id}"]`).click();await page.locator('[data-list-settings]').click();await page.locator('[data-delete-task-list]').click();await page.locator('[data-confirm-delete-list]').click();await page.locator('[data-toggle-tasks-sidebar]').click();
+ await page.getByRole('button',{name:'Напоминания',exact:true}).click();await page.locator('[data-toggle-tasks-sidebar]').click();await page.locator(`[data-task-list="${list.id}"]`).click();await page.locator('[data-list-settings]').click();await page.locator('[data-delete-task-list]').click();await page.locator('[data-confirm-delete-list]').click();await page.locator('[data-toggle-tasks-sidebar]').click();
  await expect(page.locator('[data-restore-list]')).toBeVisible();await page.screenshot({path:dir+'/after-webapp-reminders.png'});
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
