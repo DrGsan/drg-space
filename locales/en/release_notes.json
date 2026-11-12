@@ -1,4 +1,7 @@
 {
+  "release5_1_2Title": "Concurrent connections and chat history",
+  "release5_1_2Change1": "Keep notifications, chat and shared notes responsive while more clients are connected.",
+  "release5_1_2Change2": "Load chat history with fewer database requests while preserving access checks.",
   "release5_1_1Title": "Note downloads and localized release notes",
   "release5_1_1Change1": "Download file attachments from read-only and synchronized notes.",
   "release5_1_1Change2": "Release titles and change lists follow the interface language.",

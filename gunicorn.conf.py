@@ -10,8 +10,12 @@ def bounded_env(name,default,maximum):
     return int(raw)
 
 workers = bounded_env('GUNICORN_WORKERS',1,16)
-worker_class = 'gthread'
-threads = bounded_env('GUNICORN_THREADS',64,128)
+worker_class = 'app.worker.Worker'
+# The existing setting now bounds the Flask HTTP adapter, not async sockets.
+_http_threads = bounded_env('GUNICORN_THREADS',64,128)
+threads = 1
+asgi_lifespan = 'on'
+websocket_max_message_size = 2100000
 keepalive = 15
 # Upload/archive duration is bounded by the app/proxy, not a 30-second worker kill.
 timeout = 0
@@ -24,8 +28,11 @@ def on_starting(server):
     if server.cfg.preload_app:raise RuntimeError('Preloading the app is unsupported; initialize services after fork.')
 
 def post_worker_init(worker):
-    worker.wsgi.start_services()
+    from gunicorn.workers.gasgi import ASGIWorker
+    if not isinstance(worker, ASGIWorker):
+        worker.wsgi.start_services()
 
 def worker_exit(server, worker):
-    if hasattr(worker, 'wsgi'):
+    from gunicorn.workers.gasgi import ASGIWorker
+    if not isinstance(worker, ASGIWorker) and hasattr(worker, 'wsgi'):
         worker.wsgi.stop_services()

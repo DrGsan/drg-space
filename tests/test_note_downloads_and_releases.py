@@ -85,7 +85,9 @@ def test_release_validation_rejects_missing_translation_and_stale_english_source
     def missing(language, namespace):
         table = dict(actual(language, namespace))
         if language == 'ru':
-            table.pop(next(key for key in table if key.endswith('Title') and '5_1_1' in key))
+            import re
+            prefix = 'release' + re.sub('[^A-Za-z0-9]', '_', APP_RELEASE['version'])
+            table.pop(prefix + 'Title')
         return table
     monkeypatch.setattr(version, 'catalog', missing)
     with pytest.raises(ValueError, match='Missing release notes'):

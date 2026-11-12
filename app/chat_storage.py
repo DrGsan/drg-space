@@ -15,7 +15,8 @@ DRAFT_SECONDS=86400
 EDIT_SECONDS=86400
 CHAT_TIMERS=(0,86400,604800,2592000)
 
-def mentioned_members(c,sid,text):
+def mentioned_members(c,sid,text,*,view=None):
+    if view is not None:return view.mentions(sid,text)
     if '@' not in text:return []
     if not c.execute("SELECT 1 FROM spaces WHERE id=? AND kind='family'",(sid,)).fetchone():return []
     from app.notifications import actor
@@ -80,21 +81,88 @@ def serial_file(row):
     if kind=='file' and media_kind(mimetypes.guess_type(row['name'])[0])!='file':result['preview_url']=url+'/preview'
     return result
 
-def serial_message(c,row,stamp=None):
+def serial_message(c,row,stamp=None,*,view=None):
     from app.reactions import payload,read
-    result=dict(row);result['reactions']=payload(c,row['space_id'],row['id'],stamp or row['created']);result['reaction_revision']=read(c,row['space_id'],row['id']).get('revision',0);text,ids,reply_to=envelope(row['body']);result['body']=text;result['attachments']=[];result['reply']=None;result['editable_until']=row['created']+EDIT_SECONDS;result['mentions']=mentioned_members(c,row['space_id'],text)
+    result=dict(row);result['reactions']=view.reactions(row) if view is not None else payload(c,row['space_id'],row['id'],stamp or row['created']);result['reaction_revision']=(view.reaction(row) if view is not None else read(c,row['space_id'],row['id'])).get('revision',0);text,ids,reply_to=envelope(row['body']);result['body']=text;result['attachments']=[];result['reply']=None;result['editable_until']=row['created']+EDIT_SECONDS;result['mentions']=mentioned_members(c,row['space_id'],text,view=view)
     for fid in ids:
         from app.chat_recordings import file_row
-        file=file_row(c,fid,sender=row['sender_id'],version=row['id']+1)
+        file=view.file(row,fid) if view is not None else file_row(c,fid,sender=row['sender_id'],version=row['id']+1)
         if file and attachment_room(fid)==row['space_id']:result['attachments'].append(serial_file(file))
     if reply_to is not None:
         import time
-        reference=c.execute('SELECT m.id,m.body,m.sender_id,m.expires,u.login AS sender FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.id=? AND m.space_id=? AND m.created>? AND (m.expires=0 OR m.expires>?)',(reply_to,row['space_id'],cutoff(stamp if stamp is not None else int(time.time())),stamp if stamp is not None else int(time.time()))).fetchone()
+        reference=view.references.get((row['space_id'],reply_to)) if view is not None else c.execute('SELECT m.id,m.body,m.sender_id,m.expires,u.login AS sender FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.id=? AND m.space_id=? AND m.created>? AND (m.expires=0 OR m.expires>?)',(reply_to,row['space_id'],cutoff(stamp if stamp is not None else int(time.time())),stamp if stamp is not None else int(time.time()))).fetchone()
         from app.notifications import actor
-        person=actor(c,reference['sender_id'],stamp if stamp is not None else int(time.time())) if reference else {}
-        result['reply']={'id':reply_to,'sender_profile':{key:person.get(key,'') for key in ('id','login','display_name')} if reference else {},'sender_id':reference['sender_id'] if reference else None,'mentions':[{key:p.get(key,'') for key in ('id','login','display_name')} for p in mentioned_members(c,row['space_id'],decode(reference['body'])[0])] if reference else [],'sender':(person.get('display_name') or reference['sender']) if reference else None,'body':decode(reference['body'])[0][:240] if reference else '', 'unavailable':reference is None}
+        person=(view.profile(reference['sender_id']) if view is not None else actor(c,reference['sender_id'],stamp if stamp is not None else int(time.time()))) if reference else {}
+        result['reply']={'id':reply_to,'sender_profile':{key:person.get(key,'') for key in ('id','login','display_name')} if reference else {},'sender_id':reference['sender_id'] if reference else None,'mentions':[{key:p.get(key,'') for key in ('id','login','display_name')} for p in mentioned_members(c,row['space_id'],decode(reference['body'])[0],view=view)] if reference else [],'sender':(person.get('display_name') or reference['sender']) if reference else None,'body':decode(reference['body'])[0][:240] if reference else '', 'unavailable':reference is None}
         if reference and reference['expires']:result['reply']['expires']=reference['expires']
     return result
+
+
+class MessageView:
+    """One authorized history read; never shared between transactions or users."""
+    def __init__(self,c,rows,stamp):
+        from app.notifications import actors
+        from app.reactions import key
+        self.stamp=stamp;self.members={};self.references={};self.files={};self.reaction_values={}
+        spaces=sorted({row['space_id'] for row in rows})
+        for batch in self.batches(spaces):
+            for row in c.execute('SELECT m.space_id,u.id,u.login,s.kind FROM space_members m JOIN users u ON u.id=m.user_id JOIN spaces s ON s.id=m.space_id WHERE m.space_id IN ('+self.marks(batch)+')',tuple(batch)):
+                self.members.setdefault(row['space_id'],[]).append(dict(row))
+        keys=list({key(row['space_id'],row['id']) for row in rows})
+        for batch in self.batches(keys):
+            for row in c.execute('SELECT key,value FROM app_settings WHERE key IN ('+self.marks(batch)+')',tuple(batch)):
+                self.reaction_values[row['key']]=json.loads(row['value'])
+        reply_ids=set();file_ids=set()
+        for row in rows:
+            _,files,reply=envelope(row['body']);file_ids.update(files)
+            if reply is not None:reply_ids.add(reply)
+        for batch in self.batches(sorted(reply_ids)):
+            for row in c.execute('SELECT m.id,m.space_id,m.body,m.sender_id,m.expires,u.login AS sender FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.id IN ('+self.marks(batch)+') AND m.space_id IN ('+self.marks(spaces)+') AND m.created>? AND (m.expires=0 OR m.expires>?)',(*batch,*spaces,cutoff(stamp),stamp)):
+                self.references[(row['space_id'],row['id'])]=row
+        versions={}
+        for row in rows:versions.setdefault(row['sender_id'],set()).add(row['id']+1)
+        owners=' OR '.join('(f.user_id=? AND f.version IN ('+self.marks(values)+'))' for values in versions.values())
+        owner_params=tuple(value for uid,values in versions.items() for value in (uid,*sorted(values)))
+        for batch in self.batches(sorted(file_ids)):
+            for row in c.execute('SELECT f.*,r.payload AS recording_payload FROM files f LEFT JOIN chat_recordings r ON r.file_id=f.id WHERE f.id IN ('+self.marks(batch)+') AND ('+owners+')',(*batch,*owner_params)):
+                self.files[row['id']]=row
+        identities={row['sender_id'] for row in rows}|{row['sender_id'] for row in self.references.values()}
+        identities.update(member['id'] for members in self.members.values() for member in members)
+        ordered=sorted(identities)
+        self.profiles=dict(zip(ordered,actors(c,ordered,stamp)))
+
+    @staticmethod
+    def batches(values):
+        for start in range(0,len(values),200):yield values[start:start+200]
+
+    @staticmethod
+    def marks(batch):return ','.join('?' for _ in batch)
+
+    def profile(self,uid):return self.profiles[uid]
+
+    def reaction(self,row):
+        from app.reactions import key
+        return self.reaction_values.get(key(row['space_id'],row['id']),{'version':1,'space':row['space_id'],'message':row['id'],'users':{}})
+
+    def reactions(self,row):
+        from app.reactions import serialize
+        value=self.reaction(row);members={m['id'] for m in self.members.get(row['space_id'],[])}
+        return serialize(value,{uid:self.profile(uid) for uid in value['users'] if uid in members})
+
+    def file(self,row,fid):
+        saved=self.files.get(fid)
+        return saved if saved and saved['user_id']==row['sender_id'] and saved['version']==row['id']+1 else None
+
+    def mentions(self,sid,text):
+        if '@' not in text:return []
+        text=re.sub(r'https?://[^\s<>"\']+','',text,flags=re.I)
+        return [self.profile(row['id']) for row in self.members.get(sid,[]) if row['kind']=='family' and re.search(r'(?<![\w@])@'+re.escape(row['login'])+r'(?![\w@-]|\.[\w.-])',text,re.I)]
+
+
+def serial_messages(c,rows,stamp):
+    if not rows:return []
+    view=MessageView(c,rows,stamp)
+    return [serial_message(c,row,stamp,view=view)|{'sender_profile':view.profile(row['sender_id'])} for row in rows]
 
 def retire(c,row,stamp):
     if row['object_id']:c.execute('INSERT OR IGNORE INTO blob_gc VALUES(?,?,?)',(row['object_id'],'file',stamp))

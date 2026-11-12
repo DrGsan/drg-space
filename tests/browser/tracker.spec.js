@@ -267,12 +267,13 @@ test('tracker opt-in, complete import, edits, conflict, files and responsive nav
  await expect(page.locator('.tracker-filter-chip')).toHaveCount(0);
  // Losing access during an inline edit must not trap navigation forever.
  await page.locator('[data-tracker-layout]').selectOption('table');
- await page.route('**/api/tracker/issues/'+leaf.id,route=>route.fulfill({status:403,json:{detail:'Access revoked'}}));
+ const revokedIssue=url=>url.pathname==='/api/tracker/issues/'+leaf.id;
+ await page.route(revokedIssue,route=>route.fulfill({status:403,json:{detail:'Access revoked'}}));
  await page.locator('[data-table-issue="'+leaf.id+'"] [data-field=priority]').selectOption('3');
  await expect(page.locator('[data-tracker-inline-discard]')).toBeVisible();
  await page.locator('[data-tracker-error] [data-tracker-inline-open]').click();
  await expect(page.locator('[data-tracker-layout]')).toHaveCount(0);
- await page.unroute('**/api/tracker/issues/'+leaf.id);
+ await page.unroute(revokedIssue);
  await page.locator('[data-tracker-inline-discard]').click();
  await expect(page.locator('[data-tracker-project="'+project.id+'"]').first()).toBeVisible();
  expect((await api(page,'/tracker/issues/'+leaf.id)).priority).toBe(1);

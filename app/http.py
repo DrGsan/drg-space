@@ -1,8 +1,8 @@
-"""Flask HTTP boundary with explicit Pydantic binding and Flask-Sock transport.
+"""Flask HTTP boundary with explicit Pydantic binding.
 
 Business modules share one persistent asyncio loop for room state, retention and
-storage coordination. Flask/Gunicorn threads serve HTTP and streaming bodies;
-there is no ASGI application or per-request event loop.
+storage coordination. Production uses the shared ASGI loop for WebSockets and
+bounded Flask threads for HTTP; WSGI tests retain the Flask-Sock compatibility path.
 """
 from app.i18n import message as localized_message
 import asyncio
@@ -18,6 +18,7 @@ from itertools import count
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Annotated
+from urllib.parse import parse_qsl
 
 from flask import Blueprint, Flask, request as flask_request
 from flask import Response as FlaskResponse
@@ -27,6 +28,7 @@ from pydantic.fields import FieldInfo
 from simple_websocket import ConnectionClosed
 from werkzeug.exceptions import HTTPException as WerkzeugError
 from werkzeug.datastructures import Headers, MultiDict
+from werkzeug.http import parse_cookie
 
 
 class HTTPError(Exception):
@@ -45,7 +47,8 @@ class Request:
     def __init__(self, source):
         if isinstance(source, dict):
             self.headers = Headers([(k.decode(), v.decode('latin-1')) for k, v in source.get('headers', [])])
-            self.cookies, self.args = {}, MultiDict()
+            self.cookies = parse_cookie(self.headers.get('Cookie', ''))
+            self.args = MultiDict(parse_qsl(source.get('query_string', b'').decode('latin-1'), keep_blank_values=True))
             self.method = source.get('method', 'GET')
             self.url = SimpleNamespace(path=source.get('path', '/'))
             peer = source.get('client')
@@ -129,6 +132,14 @@ class AsyncRuntime:
         self.lock = threading.Lock()
         self.loop = None
         self.thread = None
+        self.external = False
+
+    def attach(self, loop):
+        """Share the server loop; never create a thread per long-lived socket."""
+        with self.lock:
+            if self.loop is not None and self.loop is not loop:
+                raise RuntimeError('Application services already use another event loop.')
+            self.loop, self.external = loop, True
 
     def start(self):
         with self.lock:
@@ -157,6 +168,10 @@ class AsyncRuntime:
 
     def stop(self):
         if self.loop is None:
+            return
+        if self.external:
+            # The server owns this loop and its request/lifespan tasks.
+            self.loop, self.external = None, False
             return
         async def cancel():
             pending = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
@@ -317,7 +332,16 @@ class Application(TypedRoutes, Flask):
         self.service_lock = threading.Lock()
         self.config['SOCK_SERVER_OPTIONS'] = {'max_message_size': 2100000, 'ping_interval':25}
         self.sock = Sock(self)
+        self._asgi_gateway = None
         atexit.register(self.stop_services)
+
+    def __call__(self, *args):
+        if len(args) == 3:
+            if self._asgi_gateway is None:
+                from app.asgi import Gateway
+                self._asgi_gateway = Gateway(self)
+            return self._asgi_gateway(*args)
+        return super().__call__(*args)
 
     def wsgi_app(self, environ, start_response):
         environ['drg.application'] = self
@@ -343,6 +367,8 @@ class Application(TypedRoutes, Flask):
             self.register_socket(rule, function)
 
     def register_socket(self, rule, function):
+        if (rule, function) not in self.socket_routes:
+            self.socket_routes.append((rule, function))
         endpoint='socket_'+str(next(_endpoint_ids))
         @self.before_request
         def authorize_upgrade():
@@ -426,11 +452,13 @@ class Application(TypedRoutes, Flask):
         async def invoke(req):
             response = Response()
             try:
-                values = bind(function, req, response, path_values)
+                # Flask's JSON/form binding can read the streaming WSGI input.
+                # The ASGI loop must remain free to supply those body chunks.
+                from app.storage import blocking
+                values = await blocking(bind, function, req, response, path_values)
                 if inspect.iscoroutinefunction(function):
                     result = await function(**values)
                 else:
-                    from app.storage import blocking
                     result = await blocking(function, **values)
                 if not isinstance(result, FlaskResponse):
                     result = JSONResponse(result)

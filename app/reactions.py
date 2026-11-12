@@ -22,8 +22,12 @@ def eligible(c,space,uid):
         return has_access(settings,row['role'],gid) and (row['role']=='owner' or gid in settings.get('family_photo_access',{}).get('write_groups',[]))
     return bool(c.execute('SELECT 1 FROM space_members WHERE space_id=? AND user_id=?',(space,uid)).fetchone())
 def payload(c,space,mid,stamp):
-    value=read(c,space,mid);result=[]
+    value=read(c,space,mid)
     profiles={uid:actor(c,uid,stamp) for uid in value['users'] if eligible(c,space,uid)}
+    return serialize(value,profiles)
+
+def serialize(value,profiles):
+    result=[]
     for emoji in EMOJIS:
         identities=[uid for uid,values in value['users'].items() if emoji in values and uid in profiles]
         if identities:result.append({'emoji':emoji,'count':len(identities),'people':[profiles[uid] for uid in sorted(identities)],'source':'site','complete':True})

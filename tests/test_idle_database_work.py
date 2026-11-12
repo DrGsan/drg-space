@@ -3,6 +3,7 @@ import asyncio
 from contextlib import contextmanager
 import json
 import time
+import threading
 from types import SimpleNamespace
 
 import pytest
@@ -14,6 +15,29 @@ from app.notifications import create_notifications_router, unread_count
 from app.storage import StorageGate
 from tests.test_multiprocess_realtime import FakeSocket, fail
 from tests.test_storage_encryption import databases
+
+
+def test_inbox_waiting_for_authentication_keeps_the_event_loop_available(tmp_path):
+    backend=Database(tmp_path,url='',cipher=DataCipher.ephemeral());backend.initialize()
+    uid='c'*32;stamp=int(time.time());entered=threading.Event();release=threading.Event()
+    with backend.connection() as c:
+        c.execute('INSERT INTO users(id,login,password,role,created) VALUES(?,?,?,?,?)',(uid,'slow-auth','test','user',stamp))
+    def ready(request):
+        entered.set()
+        assert release.wait(3), 'Authentication blocked the server loop.'
+        return {'user_id':uid,'csrf':'csrf','token':'test'}
+    async def run():
+        routes=create_notifications_router(backend.connection,ready,SimpleNamespace(check_csrf=lambda *args:None),
+            lambda *args,**kwargs:None,StorageGate(),lambda:int(time.time()),fail,'http://testserver')
+        socket=FakeSocket(uid);task=asyncio.create_task(routes.socket_routes[0][1](socket))
+        try:
+            assert await asyncio.wait_for(asyncio.to_thread(entered.wait,1),2)
+            assert not task.done()
+            release.set();socket.send({'type':'auth','csrf':'csrf'})
+            await socket.event('ready')
+        finally:
+            release.set();task.cancel();await asyncio.gather(task,return_exceptions=True)
+    asyncio.run(run())
 
 
 class Counted:

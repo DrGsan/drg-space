@@ -1,5 +1,13 @@
 # Updating DrG Space
 
+## 5.1.2: concurrent connections and chat history
+
+Gunicorn now uses its native ASGI worker for long-lived WebSockets. Flask HTTP routes retain their existing streaming interface through a bounded adapter. HTTP and socket URLs, ports and reverse-proxy Upgrade handling are unchanged; no extra service or container is required. `GUNICORN_THREADS` continues to bound the Flask HTTP pool per worker, while idle sockets do not reserve those threads.
+
+Rebuild the application image using the existing update commands below. For a Python installation, reinstall `requirements.lock.txt`: Gunicorn is updated to 27.0.0 and a2wsgi 1.10.10 is added for bounded streaming adaptation. Do not run the new configuration with an old environment. Preserve existing Compose overlays, worker/thread environment values, data, keys and volumes. No schema, storage-format or key changes, new environment settings, clean database or migration are required.
+
+Chat history batches author profiles, reactions, replies, mentions and attachment metadata within each authorized request. It retains live session checks and group membership filtering; no shared profile cache or additional retention is introduced.
+
 ## 5.1.1: note downloads and release language
 
 File blocks expose a compact action menu beside the filename, with Download available in read-only and synchronized notes. It uses the existing authorized file route, session refresh and native browser download; filenames and stored bytes are preserved. Missing stored objects are rejected by the access preflight. Existing Notion files do not need to be reimported.
