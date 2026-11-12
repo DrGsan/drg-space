@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from app.http import Router,Request,WebSocket,WebSocketDisconnect,HTTPError,Query
 from pydantic import BaseModel,ConfigDict
 from app.redis_cache import CACHE_SECONDS
+from app.storage import blocking
 
 RETENTION=7*86400
 CHAT_ACTIVITY_TTL=30
@@ -269,7 +270,9 @@ def create_notifications_router(db,ready,tokens,rate,gate,now,fail,public_url,co
             return ready(req),req
         try:
             if ws.headers.get('origin','').rstrip('/')!=public_url:await ws.close(code=4403);return
-            async with gate.shared():s,req=auth();rate(req,'inbox-connect',120,subject=s['user_id'])
+            async with gate.shared():
+                s,req=await blocking(auth)
+                await blocking(rate,req,'inbox-connect',120,subject=s['user_id'])
             if coordinator:
                 from app.multiprocess import PeerLimit
                 try:lease=await coordinator.register_peer('inbox',s['user_id'],('inbox',s['user_id']),secrets.token_urlsafe(18))
@@ -283,11 +286,11 @@ def create_notifications_router(db,ready,tokens,rate,gate,now,fail,public_url,co
             tokens.check_csrf(SimpleNamespace(headers={'x-csrf-token':str(hello.get('csrf',''))}),s['csrf'])
             if coordinator:coordinator.subscribe_changes(invalidate)
             async with gate.shared_wait():
-                s,req=auth()
+                s,req=await blocking(auth)
                 await activity(hello,s)
                 dirty.clear()
-                initial,next_refresh=inbox(s['user_id'],deadline=True)
-                chat_cursor=message_cursor(s['user_id'])
+                initial,next_refresh=await blocking(inbox,s['user_id'],deadline=True)
+                chat_cursor=await blocking(message_cursor,s['user_id'])
             cursor=initial['cursor'];unread=initial['unread'];cleared=initial['chat_cleared'];reads=initial['message_reads'];await ws.send_json({'type':'ready',**initial})
             receiver=asyncio.create_task(ws.receive_text())
             waker=asyncio.create_task(dirty.wait())
@@ -309,16 +312,16 @@ def create_notifications_router(db,ready,tokens,rate,gate,now,fail,public_url,co
                 # Keep the independent 1-second security watchdog. An idle data
                 # subscription must never delay session revocation or expiry.
                 async with gate.shared_wait():
-                    current,_=auth()
+                    current,_=await blocking(auth)
                     if data is not None:
                         if data.get('type')=='activity' and 'chat_active' not in data:fail(422,localized_message('messageSectionStatusRequired'))
                         await activity(data,current)
                     interval=coordinator.recovery_interval if coordinator else 1
                     refresh=changed or now()>=next_refresh or interval==1
                     if refresh:
-                        updates,next_refresh=inbox(current['user_id'],cursor,deadline=True)
+                        updates,next_refresh=await blocking(inbox,current['user_id'],cursor,deadline=True)
                         next_refresh=min(next_refresh,now()+interval)
-                        latest=message_cursor(current['user_id']) if chat_active else chat_cursor
+                        latest=await blocking(message_cursor,current['user_id']) if chat_active else chat_cursor
                 if data and data.get('type')=='activity':await ws.send_json({'type':'activity','chat_active':chat_active})
                 if not refresh:continue
                 if latest!=chat_cursor:
