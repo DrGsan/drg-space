@@ -10,7 +10,7 @@ from typing import Annotated
 from app.http import Router, Request, WebSocket, WebSocketDisconnect, HTTPError, Query
 from pydantic import BaseModel, Field, ConfigDict, StrictBool
 from app.notifications import notify,actor,chat_is_foreground,RETENTION as NOTIFICATION_RETENTION
-from app.chat_storage import cutoff,encode,decode,envelope,serial_message,attachment_room,MAX_ATTACHMENT,DRAFT_SECONDS,EDIT_SECONDS,ATTACHMENT_PATTERN,CHAT_TIMERS,retire,history_version,HISTORY_VERSION_PREFIX,deletion_key
+from app.chat_storage import cutoff,encode,decode,envelope,serial_message,serial_messages,attachment_room,MAX_ATTACHMENT,DRAFT_SECONDS,EDIT_SECONDS,ATTACHMENT_PATTERN,CHAT_TIMERS,retire,history_version,HISTORY_VERSION_PREFIX,deletion_key
 from app.collaboration import MAX_STATE, load_doc, project, links_ok
 from app.modules.social import note_access, space_access
 from app.modules.notion import require_role
@@ -365,8 +365,7 @@ def create_realtime_router(db,ready,guards,tokens,protection,gate,now,fail,publi
             state=dict(c.execute('SELECT chat_revision,chat_ttl,chat_cleared FROM spaces WHERE id=?',(sid,)).fetchone());edit_cursor=state.pop('chat_revision')
             state['history_version']=history_version(c,sid)
             rows=c.execute('SELECT m.*,u.login AS sender FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.space_id=? AND m.created>? AND (m.expires=0 OR m.expires>?) AND (? IS NULL OR m.id<?) AND (? IS NULL OR m.id>?) ORDER BY m.id '+('ASC' if after is not None else 'DESC')+' LIMIT 101',(sid,cutoff(now()),now(),before,before,after,after)).fetchall()
-            items=[serial_message(c,row,now())|{'sender_profile':actor(c,row['sender_id'],now())} for row in rows[:100]]
-            edits=[];edit_more=False
+            edit_rows=[];edit_more=False
             if edited_after is not None:
                 changed=c.execute('SELECT m.*,u.login AS sender FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.space_id=? AND m.created>? AND (m.expires=0 OR m.expires>?) AND m.revision>? ORDER BY m.revision ASC LIMIT 101',(sid,cutoff(now()),now(),edited_after)).fetchall()
                 from app.reactions import changed as changed_reactions
@@ -375,8 +374,11 @@ def create_realtime_router(db,ready,guards,tokens,protection,gate,now,fail,publi
                     row=c.execute('SELECT m.*,u.login AS sender FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.space_id=? AND m.id=? AND m.created>? AND (expires=0 OR expires>?)',(sid,mid,cutoff(now()),now())).fetchone()
                     if row:combined[mid]=row
                 ordered=sorted(combined.values(),key=lambda row:max(row['revision'],reactions.get(row['id'],0)))
-                edits=[serial_message(c,row,now())|{'sender_profile':actor(c,row['sender_id'],now())} for row in ordered[:100]]
-                edit_more=len(ordered)>100;edit_cursor=max(edits[-1]['revision'],edits[-1]['reaction_revision']) if edits else edited_after
+                edit_rows=ordered[:100]
+                edit_more=len(ordered)>100
+            combined=serial_messages(c,[*rows[:100],*edit_rows],now())
+            items=combined[:min(100,len(rows))];edits=combined[min(100,len(rows)):]
+            if edited_after is not None:edit_cursor=max(edits[-1]['revision'],edits[-1]['reaction_revision']) if edits else edited_after
 
         if after is None:items.reverse()
         return {**state,'reads':reads,'items':items,'more':len(rows)>100,'edits':edits,'edit_more':edit_more,'edit_cursor':edit_cursor,'server_time':now(),'retention_cutoff':cutoff(now()),'retention_months':3,'max_attachment_bytes':MAX_ATTACHMENT}
