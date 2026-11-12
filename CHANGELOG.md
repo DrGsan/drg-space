@@ -2,6 +2,14 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.1.2-rc.1] — 2026-11-12 — Concurrent connections and chat history
+
+- Keep notifications, chat and shared notes responsive while more clients are connected.
+- Load chat history with fewer database requests while preserving access checks.
+
+- **Installation:** Rebuild the image with the existing Compose settings, or reinstall requirements.lock.txt for a Python installation.
+- **Compatibility:** Existing URLs, ports, environment settings, schema, storage formats and keys are preserved; no migration is required.
+
 ## [5.1.1] — 2026-11-12 — Note downloads and localized release notes
 
 - Download file attachments from read-only and synchronized notes.

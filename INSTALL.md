@@ -8,6 +8,8 @@
 
 For development without Docker, install Python dependencies from `requirements.lock.txt`, Node.js 26 dependencies with `npm ci`, and build with `npm run build`. Generate `.env`, then start with `.venv/bin/gunicorn --config gunicorn.conf.py app.main:app` (load your `.env` into the process environment first).
 
+Gunicorn's ASGI worker serves HTTP and WebSockets on the same port. Flask retains the HTTP routes and streaming bodies through a bounded adapter; notifications, chat and shared-note sockets run on the shared async loop. `GUNICORN_WORKERS` still selects worker processes, and `GUNICORN_THREADS` bounds each worker's Flask HTTP pool. An idle WebSocket does not occupy an HTTP thread. Keep the supplied Gunicorn configuration so startup, shutdown and socket message limits remain enabled.
+
 ## First start
 
 Clone your repository into `drg-space`, then run:
