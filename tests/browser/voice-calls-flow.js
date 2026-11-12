@@ -156,8 +156,9 @@ export async function voiceCallsFlow(page,browser,totp,reviewOut='artifacts'){
     await page.bringToFront();if(mockMicrophone)await page.evaluate(mockMicrophone);await page.evaluate(()=>window.__callOutputs=[{kind:'audiooutput',deviceId:'test-speaker',label:'Speaker'},{kind:'audiooutput',deviceId:'test-receiver',label:'Receiver'},{kind:'audiooutput',deviceId:'test-headphones',label:'Test headphones'}]);await page.locator('.chat-call-row').click();await expect(page.locator('.voice-call [data-call-status]')).toHaveText('Исходящий вызов');
     expect(await page.evaluate(()=>document.querySelector('audio')!==window.__retiredCallAudio)).toBe(true);
     await page.evaluate(()=>{window.__outputBeforeLate=window.__callOutputChanges.length;window.__releaseCallOutput();});await expect.poll(()=>page.evaluate(()=>window.__callOutputChanges.length-window.__outputBeforeLate)).toBeGreaterThanOrEqual(2);await expect.poll(()=>page.evaluate(()=>window.__retiredCallAudio.sinkId)).toBe('');
-    // A new desktop call starts on the system output; the retired request must not select headphones.
-    expect(await page.locator('audio').evaluate(el=>el.sinkId)).toBe('');expect(await page.evaluate(()=>navigator.audioSession.type)).toBe('play-and-record');
+    // The viewport is now a phone: a fresh call selects its receiver, while
+    // the retired request must never select headphones on the new element.
+    await expect.poll(()=>page.locator('audio').evaluate(el=>el.sinkId)).toBe('test-receiver');expect(await page.evaluate(()=>navigator.audioSession.type)).toBe('play-and-record');
     await phoneCallBounds(page);await peer.setViewportSize({width:390,height:844});await peer.bringToFront();await expect(peer.locator('[data-call-answer]')).toBeVisible({timeout:15000});await phoneCallBounds(peer);await peer.screenshot({path:reviewOut+'/incoming-call-fullscreen-mobile.png'});await peer.locator('[data-call-end]').click();await expect.poll(async()=>(await api(page,'/calls/history')).items[0]?.status).toBe('declined');
     await expect.poll(async()=>(await api(page,'/calls/history')).items[0]?.status).toBe('declined');
     // Finish this call's terminal UI before the next scenario opens dialogs.
