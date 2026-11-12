@@ -1,6 +1,6 @@
 # Updating DrG Space
 
-## 5.1.2 preview: concurrent connections and chat history
+## 5.1.2: concurrent connections and chat history
 
 Gunicorn now uses its native ASGI worker for long-lived WebSockets. Flask HTTP routes retain their existing streaming interface through a bounded adapter. HTTP and socket URLs, ports and reverse-proxy Upgrade handling are unchanged; no extra service or container is required. `GUNICORN_THREADS` continues to bound the Flask HTTP pool per worker, while idle sockets do not reserve those threads.
 

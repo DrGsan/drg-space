@@ -2,7 +2,7 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.1.2-rc.1] — 2026-11-12 — Concurrent connections and chat history
+## [5.1.2] — 2026-11-12 — Concurrent connections and chat history
 
 - Keep notifications, chat and shared notes responsive while more clients are connected.
 - Load chat history with fewer database requests while preserving access checks.
