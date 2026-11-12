@@ -74,6 +74,8 @@ def purge_trash(c, stamp):
 def purge_service_records(c,stamp):
     from app.tracker_lifecycle import purge as purge_tracker_projects
     purge_tracker_projects(c,stamp)
+    from app.tracker_issue_lifecycle import purge as purge_tracker_issues
+    purge_tracker_issues(c,stamp)
     from app.task_list_deletion import purge as purge_task_lists
     purge_task_lists(c,stamp)
     # Unfinished transfers expire; completed project work never does.

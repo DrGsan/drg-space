@@ -43,6 +43,24 @@ def remote(p, operation, **payload):
 def accept(p): return remote(p, 'tracker_accept')
 
 
+def test_remote_issue_recovery_closes_old_reads_and_checks_current_editor_role(pair):
+    p=pair;accept(p)
+    task=remote(p,'tracker_issue_read',issue_id=p.task['id'])
+    result=remote(p,'tracker_issue_delete',issue_id=task['id'],version=task['version'],project_version=task['delete_scope']['project_version'],confirmation=task['key'])
+    assert result['deletion']['delete_at']-result['deletion']['created']==7*86400
+    assert remote(p,'tracker_page')['items']==[]
+    with pytest.raises(FederationError):remote(p,'tracker_issue_read',issue_id=task['id'])
+    with pytest.raises(FederationError):remote(p,'tracker_comment',issue_id=task['id'],body='No hidden write')
+    recovery=remote(p,'tracker_deleted_issues');item=recovery['items'][0]
+    with p.backend.connection() as db:db.execute("UPDATE tracker_members SET role='viewer' WHERE project_id=?",(p.project['id'],))
+    with pytest.raises(FederationError):remote(p,'tracker_issue_restore',issue_id=item['id'],version=item['version'],project_version=recovery['project_version'])
+    with pytest.raises(FederationError):remote(p,'tracker_deleted_issues')
+    with p.backend.connection() as db:db.execute("UPDATE tracker_members SET role='editor' WHERE project_id=?",(p.project['id'],))
+    restored=remote(p,'tracker_issue_restore',issue_id=item['id'],version=item['version'],project_version=recovery['project_version'])
+    assert restored['id']==task['id']
+    assert remote(p,'tracker_issue_read',issue_id=task['id'])['status']==task['status']
+
+
 def test_remote_consent_create_edit_comments_and_foreign_issue_binding(pair):
     p = pair
     catalog = remote(p, 'tracker_catalog')

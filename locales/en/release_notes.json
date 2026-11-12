@@ -1,4 +1,8 @@
 {
+  "release5_2_0_rc_1Title": "Recoverable task deletion",
+  "release5_2_0_rc_1Change1": "Delete a task and its subtasks together, with seven days to restore the branch.",
+  "release5_2_0_rc_1Change2": "Project deletion pauses the remaining task recovery time; restoring the project resumes it.",
+  "release5_2_0_rc_1Change3": "Expired task branches and their attachments are cleaned up together.",
   "release5_1_2Title": "Concurrent connections and chat history",
   "release5_1_2Change1": "Keep notifications, chat and shared notes responsive while more clients are connected.",
   "release5_1_2Change2": "Load chat history with fewer database requests while preserving access checks.",

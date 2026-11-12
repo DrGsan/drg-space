@@ -40,6 +40,15 @@ class ProjectRestore(domain.Strict):
     version: int = Field(strict=True, ge=1)
 
 
+class IssueRestore(domain.Strict):
+    version: int = Field(strict=True, ge=1)
+    project_version: int = Field(strict=True, ge=1)
+
+
+class IssueDelete(IssueRestore):
+    confirmation: str = Field(max_length=32)
+
+
 def add_member(c, pid, data, uid, stamp):
     domain.access(c, pid, uid, required='manager');domain.lock_project(c, pid)
     project = domain.access(c, pid, uid, required='manager')
@@ -143,6 +152,32 @@ def create_tracker_router(db, ready, now, fail, rate, data_dir):
             c.execute('BEGIN IMMEDIATE')
             return restore(c,pid,uid,data.version,now())
 
+    @router.get('/api/tracker/projects/{pid}/deleted-issues')
+    def deleted_issues(pid: str, request: Request):
+        uid = session(request)['user_id']
+        from app.tracker_issue_lifecycle import purge, deleted_issues
+        with db() as c:
+            c.execute('BEGIN IMMEDIATE')
+            domain.access(c, pid, uid, required='editor')
+            purge(c, now(), project_id=pid)
+            return deleted_issues(c, pid, uid, now())
+
+    @router.delete('/api/tracker/issues/{iid}')
+    def delete_issue(iid: str, data: IssueDelete, request: Request):
+        uid = session(request, True)['user_id']
+        from app.tracker_issue_lifecycle import schedule
+        with db() as c:
+            c.execute('BEGIN IMMEDIATE')
+            return {'ok': True, 'deletion': schedule(c, iid, uid, data.version, data.project_version, data.confirmation, now())}
+
+    @router.post('/api/tracker/issues/{iid}/restore')
+    def restore_issue(iid: str, data: IssueRestore, request: Request):
+        uid = session(request, True)['user_id']
+        from app.tracker_issue_lifecycle import restore
+        with db() as c:
+            c.execute('BEGIN IMMEDIATE')
+            return restore(c, iid, uid, data.version, data.project_version, now())
+
     @router.post('/api/tracker/projects')
     def create(data: domain.Project, request: Request):
         uid = session(request, True)['user_id']
@@ -224,7 +259,7 @@ def create_tracker_router(db, ready, now, fail, rate, data_dir):
         with db() as c:
             row = domain.issue_row(c, iid); project = domain.access(c, row['project_id'], uid)
             if row['status']=='cancelled' and not include_cancelled:domain.fail(409,'trackerUpdateRequired')
-            return domain.serialize_issue(c, row, project, now(), detail=True)
+            return domain.serialize_issue(c, row, project, now(), detail=True, delete_scope=domain.ROLES[domain.role(c, project, uid)] >= domain.ROLES['editor'])
 
     @router.patch('/api/tracker/issues/{iid}')
     def update(iid: str, data: domain.IssueUpdate, request: Request, include_cancelled: bool = Query(default=False)):

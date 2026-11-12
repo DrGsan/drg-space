@@ -40,6 +40,8 @@ def schedule(c, space, uid, stamp):
     template = templates(c).get(sid, 'family') if space['kind'] == 'family' else 'group'
     value = {'version': 1, 'created': stamp, 'delete_at': stamp + PERIODS[template]}
     management.write(c, DELETE_PREFIX + sid, value)
+    from app.tracker_issue_lifecycle import refresh_workspace
+    refresh_workspace(c, sid, stamp)
     audit(c, sid, uid, 'deletion_scheduled', {'delete_at': value['delete_at']}, stamp)
     return value
 
@@ -135,6 +137,8 @@ def destroy(c, sid, stamp):
         c.execute('UPDATE tracker_projects SET space_id=NULL,updated=?,version=version+1 WHERE id=?',(stamp,project['id']))
         from app.tracker import history
         history(c,project['id'],None,project['owner_id'],'','workspace_removed',{},stamp)
+        from app.tracker_issue_lifecycle import refresh_clocks
+        refresh_clocks(c, project['id'], stamp)
     c.execute('DELETE FROM spaces WHERE id=?', (sid,))
     for prefix in (DELETE_PREFIX, AUDIT_PREFIX):
         c.execute('DELETE FROM app_settings WHERE key=? OR key LIKE ?', (prefix + sid, prefix + sid + ':%'))

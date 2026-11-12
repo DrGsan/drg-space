@@ -44,6 +44,8 @@ def schedule(c, pid, uid, version, confirmation, stamp):
         tracker.fail(422, 'trackerDeleteConfirmation')
     value = {'created': stamp, 'delete_at': stamp + LIFETIME}
     c.execute('INSERT INTO app_settings(key,value) VALUES(?,?)', (PREFIX + pid, tracker.dump(value)))
+    from app.tracker_issue_lifecycle import refresh_clocks
+    refresh_clocks(c, pid, stamp)
     c.execute('UPDATE tracker_projects SET updated=?,version=version+1 WHERE id=?', (stamp, pid))
     # Preserve states while invalidating in-flight grants and uploads.
     c.execute('UPDATE tracker_members SET revision=revision+1 WHERE project_id=?', (pid,))
@@ -69,6 +71,8 @@ def restore(c, pid, uid, version, stamp):
     for fid in associated_files(c, pid):
         c.execute('UPDATE files SET deleted=deleted+?,updated=?,version=version+1 WHERE id=? AND deleted IS NOT NULL', (paused, stamp, fid))
     c.execute('DELETE FROM app_settings WHERE key=?', (PREFIX + pid,))
+    from app.tracker_issue_lifecycle import refresh_clocks
+    refresh_clocks(c, pid, stamp)
     c.execute('UPDATE tracker_projects SET updated=?,version=version+1 WHERE id=?', (stamp, pid))
     c.execute('UPDATE tracker_members SET revision=revision+1 WHERE project_id=?', (pid,))
     c.quota_transfer_owners = getattr(c, 'quota_transfer_owners', set()) | {uid}
@@ -91,17 +95,18 @@ def deleted_projects(c, uid):
     return result
 
 
-def associated_files(c, pid):
+def associated_files(c, pid, *, issue_ids=None):
     project = c.execute('SELECT owner_id FROM tracker_projects WHERE id=?',(pid,)).fetchone()
     if not project:
         return set()
     rows = [dict(r) for r in c.execute('SELECT id,user_id,parent_id,kind,mime FROM files')]
-    ids = {r['id'] for r in rows if r['user_id']==project['owner_id'] and r['kind'] == 'folder' and r['mime'] == 'application/x-drg-tracker;project=' + pid}
-    linked = list(c.execute('SELECT a.id,i.project_id FROM tracker_attachments a JOIN tracker_issues i ON i.id=a.issue_id'))
-    ids.update(r['id'] for r in linked if r['project_id'] == pid)
-    foreign = {r['id'] for r in linked if r['project_id'] != pid}
+    ids = {r['id'] for r in rows if r['user_id']==project['owner_id'] and r['kind'] == 'folder' and r['mime'] == 'application/x-drg-tracker;project=' + pid and (issue_ids is None or r['id'] in issue_ids)}
+    linked = list(c.execute('SELECT a.id,a.issue_id,i.project_id FROM tracker_attachments a JOIN tracker_issues i ON i.id=a.issue_id'))
+    selected = lambda r: r['project_id'] == pid and (issue_ids is None or r['issue_id'] in issue_ids)
+    ids.update(r['id'] for r in linked if selected(r))
+    foreign = {r['id'] for r in linked if not selected(r)}
     foreign.update(r['id'] for r in rows if r['user_id']!=project['owner_id'])
-    foreign.update(r['id'] for r in rows if r['kind']=='folder' and r['mime'].startswith('application/x-drg-tracker;project=') and r['mime']!='application/x-drg-tracker;project='+pid)
+    foreign.update(r['id'] for r in rows if r['kind']=='folder' and r['mime'].startswith('application/x-drg-tracker;project=') and (r['mime']!='application/x-drg-tracker;project='+pid or issue_ids is not None and r['id'] not in issue_ids))
     ids.difference_update(foreign)
     while True:
         children = {r['id'] for r in rows if r['parent_id'] in ids and r['id'] not in foreign}
@@ -136,6 +141,8 @@ def purge(c, stamp):
             if project:
                 purge_file_rows(c, associated_files(c, pid), stamp, include_pending_tracker=True)
                 c.quota_recount.add(project['owner_id'])
+                from app.tracker_issue_lifecycle import clear_project
+                clear_project(c, pid)
                 c.execute('DELETE FROM tracker_projects WHERE id=?', (pid,))
                 for notice in c.execute("SELECT id,payload FROM notifications WHERE kind IN ('tracker','tracker_invitation')").fetchall():
                     if json.loads(notice['payload']).get('project_id') == pid:

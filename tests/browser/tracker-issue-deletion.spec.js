@@ -1,0 +1,50 @@
+import {test,expect} from '@playwright/test';
+import {createHmac} from 'node:crypto';
+import {mkdirSync} from 'node:fs';
+import {appSection} from './notes-ui.js';
+
+function totp(secret){let bits='';for(const c of secret)bits+='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'.indexOf(c).toString(2).padStart(5,'0');const bytes=[];for(let i=0;i+8<=bits.length;i+=8)bytes.push(parseInt(bits.slice(i,i+8),2));const counter=Buffer.alloc(8);counter.writeBigUInt64BE(BigInt(Math.floor(Date.now()/30000)));const hash=createHmac('sha1',Buffer.from(bytes)).update(counter).digest(),offset=hash[19]&15;return String((hash.readUInt32BE(offset)&0x7fffffff)%1000000).padStart(6,'0');}
+
+test('recover task branches across independent child and project deletion',async({page})=>{
+ test.setTimeout(150000);const out=process.env.DRG_REVIEW_OUT||test.info().outputPath('review');mkdirSync(out,{recursive:true});
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ let csrf='';const origin='http://127.0.0.1:8001';
+ const api=async(path,method='GET',data)=>{const r=await page.request.fetch(origin+'/api'+path,{method,headers:{Origin:origin,'X-CSRF-Token':csrf},data});expect(r.status(),path+' '+await r.text()).toBe(200);return r.json();};
+ const password='Issue-recovery-password-123';csrf=(await api('/setup','POST',{login:'recoveryowner',password,token:'browser-test-setup-key'})).csrf;
+ const enrollment=await api('/2fa/enroll','POST',{password});await api('/2fa/confirm','POST',{code:totp(enrollment.secret)});csrf=(await api('/2fa/activate','POST',{saved_recovery_codes:true})).csrf;
+ await api('/modules','PUT',{enabled:{tracker:true}});
+ const project=await api('/tracker/projects','POST',{name:'Рабочее пространство',key:'WORK'});
+ const create=data=>api('/tracker/projects/'+project.id+'/issues','POST',data);
+ const parent=await create({title:'Подготовить семейную поездку',kind:'epic'}),child=await create({title:'Согласовать маршрут',parent_id:parent.id,status:'done'});
+ await create({title:'Сохранить независимую задачу'});
+ await api('/tracker/issues/'+child.id+'/comments','POST',{body:'Маршрут согласован, сохраняем историю.'});
+ const file=await api('/tracker/issues/'+child.id+'/attachments?name=route.txt','POST',Buffer.from('FICTIONAL_ROUTE'));
+ const suffix='/tracker/issues/';
+ const remove=async item=>{const d=await api(suffix+item.id);return api(suffix+item.id,'DELETE',{version:d.version,project_version:d.delete_scope.project_version,confirmation:d.key});};
+ await page.route('**/api/widgets/**/rss',r=>r.fulfill({json:{items:[],errors:[]}}));
+ await page.setViewportSize({width:1280,height:900});
+ const pattern='**/api/tracker/projects/'+project.id+'/issues?*';
+ const oldControls=async route=>{const r=await route.fetch(),d=await r.json();d.project.issue_deletion_supported=false;await route.fulfill({response:r,json:d});};
+ await page.route(pattern,oldControls);
+ await page.goto('/');await appSection(page,'Задачи');await page.locator('[data-tracker-project="'+project.id+'"]').click();await page.locator('[data-tracker-issue="'+parent.id+'"]').click();
+ await expect(page.locator('[data-tracker-delete-issue]')).toHaveCount(0);await page.screenshot({path:out+'/before-issue-desktop.png'});
+ await page.unroute(pattern,oldControls);await page.locator('[data-tracker-back]').click();await page.locator('[data-tracker-issue="'+parent.id+'"]').click();
+ await expect(page.locator('[data-tracker-delete-issue]')).toBeVisible();await page.screenshot({path:out+'/after-issue-desktop.png'});
+ await page.locator('[data-tracker-delete-issue]').click();let form=page.locator('[data-issue-delete-form]');await expect(form.locator('[type=submit]')).toBeDisabled();await expect(page.getByRole('dialog')).toContainText('7 дней');
+ await form.locator('[name=confirmation]').fill(parent.key);
+ const leaf=await create({title:'Проверить билеты',parent_id:child.id,status:'work'});
+ await form.locator('[type=submit]').click();await expect(page.locator('[data-recheck-issue-delete]')).toBeVisible();await page.locator('[data-recheck-issue-delete]').click();form=page.locator('[data-issue-delete-form]');await expect(form.locator('[name=confirmation]')).toHaveValue('');await expect(page.getByRole('dialog')).toContainText('задач: 3');
+ await form.locator('[name=confirmation]').fill(parent.key);await page.screenshot({path:out+'/after-confirm-desktop.png'});await form.locator('[type=submit]').click();await expect(page.locator('.tracker-card')).toHaveCount(1);
+ await page.locator('[data-tracker-deleted-issues]').click();await expect(page.locator('[data-restore-issue="'+parent.id+'"]')).toBeEnabled();await expect(page.locator('[data-issue-delete-countdown]')).toContainText('д.');await page.screenshot({path:out+'/after-trash-desktop.png'});await page.locator('[data-restore-issue="'+parent.id+'"]').click();await expect(page.locator('.tracker-card')).toHaveCount(4);
+ expect((await api(suffix+child.id)).comments.some(c=>c.body.includes('Маршрут согласован'))).toBe(true);
+ expect(await (await page.request.get('/api'+suffix+child.id+'/attachments/'+file.id)).text()).toBe('FICTIONAL_ROUTE');
+ await remove(child);
+ await page.locator('[data-tracker-refresh]').click();await page.locator('[data-tracker-issue="'+parent.id+'"]').click();await page.locator('[data-tracker-delete-issue]').click();form=page.locator('[data-issue-delete-form]');await expect(page.getByRole('dialog')).toContainText('удалённые раньше');await form.locator('[name=confirmation]').fill(parent.key);await form.locator('[type=submit]').click();await expect(page.locator('.tracker-card')).toHaveCount(1);
+ const current=await api('/tracker/projects/'+project.id);await api('/tracker/projects/'+project.id,'DELETE',{version:current.version,confirmation:current.name});
+ await page.reload();await appSection(page,'Задачи');await page.locator('[data-tracker-restore-project="'+project.id+'"]').click();await expect(page.locator('.tracker-card')).toHaveCount(1);
+ await page.locator('[data-tracker-deleted-issues]').click();await expect(page.locator('[data-restore-issue]')).toHaveCount(1);await page.locator('[data-restore-issue="'+parent.id+'"]').click();await expect(page.locator('.tracker-card')).toHaveCount(2);
+ await page.locator('[data-tracker-deleted-issues]').click();await expect(page.locator('[data-restore-issue="'+child.id+'"]')).toBeVisible();await page.setViewportSize({width:390,height:844});await page.screenshot({path:out+'/after-trash-mobile.png'});const bounds=await page.getByRole('dialog').boundingBox();expect(bounds.x).toBeGreaterThanOrEqual(0);expect(bounds.x+bounds.width).toBeLessThanOrEqual(390);
+ await page.locator('[data-restore-issue="'+child.id+'"]').click();await expect(page.locator('.tracker-card')).toHaveCount(4);expect((await api('/tracker/projects/'+project.id+'/deleted-issues')).items).toEqual([]);
+ await page.setViewportSize({width:1280,height:900});await api('/language','PUT',{language:'en'});await page.reload();await page.locator('.sidebar [data-view=tracker]').click();if(await page.locator('[data-tracker-project="'+project.id+'"]').count())await page.locator('[data-tracker-project="'+project.id+'"]').click();await page.locator('[data-tracker-issue="'+parent.id+'"]').click();await page.locator('[data-tracker-delete-issue]').click();await expect(page.getByRole('dialog')).toContainText('7 days');await page.screenshot({path:out+'/after-confirm-en.png'});await page.keyboard.press('Escape');await expect(page.getByRole('dialog')).toHaveCount(0);
+ expect(errors).toEqual([]);expect((await api(suffix+leaf.id)).status).toBe('work');
+});

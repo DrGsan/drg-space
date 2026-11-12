@@ -1,5 +1,13 @@
 # Updating DrG Space
 
+## 5.2.0 preview: recoverable task deletion
+
+Editors can explicitly delete an issue together with its complete subtree and restore that deletion batch for seven days. Completion and cancellation remain durable and never start deletion. The dialog confirms the issue key and the current branch/project version; newly added descendants require a fresh confirmation. Deleted issues disappear from ordinary reads, edits, attachments, notifications, counts and older clients. Recovery is available in the updated web/Web App and native iOS client; older clients still exclude deleted issues from ordinary reads.
+
+Independent child deletions retain their own batch. Enclosing task deletion pauses their remaining time; restoring the parent does not restore those previously deleted children. Thirty-day project deletion pauses task recovery clocks, project restoration resumes the exact remaining time, and final project deletion removes every pending branch as well. Pending deletion of an enclosing shared workspace also pauses task clocks; cancelling it or detaching retained projects into their owners' personal space resumes the remaining time. Expired branches remove their comments, history, upload chunks, scoped file metadata and service markers; physical object deletion uses the retry queue and preserves referenced/foreign objects.
+
+Existing schema, storage formats, encryption, keys, dependencies, environment settings, ports and volumes are unchanged; no migration or clean database is required. Rebuild using the existing Compose overlays. Full backups preserve original deadlines and pauses, including expiry after restoring an old snapshot; personal transfer copies owned retained content without deletion timers or other users' grants. Before downgrading to a server without task recovery support, restore all pending issue branches using this version: older servers do not understand these service markers. Do not blindly start an old image while pending task deletions exist.
+
 ## 5.1.2: concurrent connections and chat history
 
 Gunicorn now uses its native ASGI worker for long-lived WebSockets. Flask HTTP routes retain their existing streaming interface through a bounded adapter. HTTP and socket URLs, ports and reverse-proxy Upgrade handling are unchanged; no extra service or container is required. `GUNICORN_THREADS` continues to bound the Flask HTTP pool per worker, while idle sockets do not reserve those threads.

@@ -22,6 +22,8 @@ def register_lifecycle(router, db, ready, now, fail, rate, space_access):
             if not value: return {'ok': True}
             if value['delete_at'] <= now(): fail(409, localized_message('recoveryPeriodHasExpired'))
             c.execute('DELETE FROM app_settings WHERE key=?', (lifecycle.DELETE_PREFIX + sid,))
+            from app.tracker_issue_lifecycle import refresh_workspace
+            refresh_workspace(c, sid, now())
             lifecycle.audit(c, sid, session['user_id'], 'deletion_cancelled', {}, now())
         return {'ok': True}
 
