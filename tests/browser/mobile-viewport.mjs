@@ -1,15 +1,15 @@
+import {readAppStyles,openTestOrigin} from './fixtures.mjs';
 // Model keyboard resize/pan explicitly: desktop WebKit has no iOS keyboard.
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
 import {build} from 'esbuild';
 import {chromium,webkit} from 'playwright';
 const bundle=await build({entryPoints:['web/core/mobile.js'],bundle:true,format:'iife',globalName:'MobileApp',write:false});
-const css=await readFile('app/static/assets/app.css','utf8');
+const css=await readAppStyles();
 const browser=await (process.env.DRG_BROWSER_ENGINE==='webkit'?webkit:chromium).launch({headless:true});
 try{
   for(const tasks of [false,true]){
     const page=await browser.newPage({locale:'ru-RU',viewport:{width:390,height:844},hasTouch:true});
-    await page.setContent(`<!doctype html><style>${css}</style><div id="app">${tasks?'<div class="workspace tasks-open"><main class="content"><div id="view-content"><div class="tasks-shell"><main class="tasks-center"><div class="tasks-scroll-area">Дела</div><div class="tasks-add-area"><input aria-label="Новое дело"></div></main></div></div></main><nav class="mobile-app-tabs"><button>Сообщения</button><button>Дела</button></nav></div>':'<div class="auth-layout"><main class="auth-main"><form class="auth-card"><label>Логин<input autocomplete="username"></label></form></main></div>'}</div>`);
+    await openTestOrigin(page);await page.setContent(`<!doctype html><style>${css}</style><div id="app">${tasks?'<div class="workspace tasks-open"><main class="content"><div id="view-content"><div class="tasks-shell"><main class="tasks-center"><div class="tasks-scroll-area">Дела</div><div class="tasks-add-area"><input aria-label="Новое дело"></div></main></div></div></main><nav class="mobile-app-tabs"><button>Сообщения</button><button>Дела</button></nav></div>':'<div class="auth-layout"><main class="auth-main"><form class="auth-card"><label>Логин<input autocomplete="username"></label></form></main></div>'}</div>`);
     await page.addScriptTag({content:bundle.outputFiles[0].text});
     await page.evaluate(()=>{
       document.documentElement.classList.add('app-standalone');Object.defineProperty(navigator,'standalone',{value:true});

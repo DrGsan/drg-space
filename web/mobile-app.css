@@ -229,3 +229,6 @@
  html.app-standalone .tasks-shell .tasks-add-area{order:3}
  html.app-standalone .tasks-shell .tasks-list-options .tasks-text-button{font-size:11px;padding:4px}
 }
+
+/* Full-screen reminder properties take precedence over floating navigation. */
+@media(max-width:700px){html.app-standalone .workspace:has(.tasks-shell.has-properties) .mobile-app-tabs{visibility:hidden;pointer-events:none}}

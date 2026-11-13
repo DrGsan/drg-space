@@ -1313,5 +1313,7 @@
   "trackerUpdateRequired": "Update the client to open cancelled issues.",
   "trackerIssueDeleteConfirmation": "Enter the exact task key to confirm deletion.",
   "trackerIssueRestoreParentFirst": "Restore the enclosing task branch first.",
-  "trackerIssueRecoveryExpired": "The task recovery period has expired or is paused by an enclosing deletion."
+  "trackerIssueRecoveryExpired": "The task recovery period has expired or is paused by an enclosing deletion.",
+  "trackerModuleTitle": "Work",
+  "trackerModuleDescription": "Projects, boards, work items and collaboration. Completed work is retained."
 }

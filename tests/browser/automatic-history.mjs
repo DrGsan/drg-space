@@ -1,10 +1,10 @@
+import {readAppStyles} from './fixtures.mjs';
 // Real UI modules with in-memory API replies; no live Telegram/account traffic.
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
 import {build} from 'esbuild';
 import {chromium,webkit} from 'playwright';
 const bundle=await build({stdin:{contents:"export * from './web/modules/family-photos/index.js';export * from './web/modules/chat/index.js';",resolveDir:process.cwd()},bundle:true,format:'iife',globalName:'History',write:false,loader:{'.css':'empty'}});
-const css=await readFile('app/static/assets/app.css','utf8');
+const css=await readAppStyles();
 const browser=await (process.env.DRG_BROWSER_ENGINE==='webkit'?webkit:chromium).launch({headless:true});
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 try{

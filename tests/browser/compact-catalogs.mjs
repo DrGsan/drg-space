@@ -1,10 +1,11 @@
+import {readAppStyles} from './fixtures.mjs';
 import assert from 'node:assert/strict';
-import {readFile,mkdir} from 'node:fs/promises';
+import {mkdir} from 'node:fs/promises';
 import {build} from 'esbuild';
 import {chromium,webkit} from 'playwright';
 import {expect} from '@playwright/test';
 const bundle=await build({stdin:{contents:"export {mountSocial} from './web/modules/social/index.js';export {auditLog} from './web/modules/social/lifecycle.js';export {mountFamilyPhotoAccess} from './web/modules/admin/family-photos.js';",resolveDir:process.cwd()},bundle:true,format:'iife',globalName:'Catalogs',write:false,loader:{'.css':'empty'}});
-const css=await readFile('app/static/assets/app.css','utf8');
+const css=await readAppStyles();
 const browser=process.env.DRG_BROWSER_ENGINE==='webkit'?await webkit.launch({headless:true}):await chromium.launch({headless:true,channel:process.env.DRG_BROWSER_CHANNEL||undefined});
 await mkdir('artifacts',{recursive:true});
 try{
@@ -56,7 +57,7 @@ try{
  await page.getByLabel('Поиск доступа к фото',{exact:true}).fill('');await expect(first.locator('[name=group]')).toBeChecked();
  await first.getByRole('button',{name:'Сохранить доступ',exact:true}).click();await expect(first.locator('[data-fp-user-state]')).toHaveText('Включён');
  await expect(first.locator('[data-fp-user-groups]')).toHaveText('Общий фотоархив');
- await page.getByRole('button',{name:'Следующая страница: Поиск доступа к фото',exact:true}).click();await expect(page.locator('.catalog-pagination [role=status]')).toHaveText('11–20 из 24');
+ await page.getByRole('button',{name:'Следующая страница: Поиск доступа к фото',exact:true}).click();await expect(page.getByRole('button',{name:'Следующая страница: Поиск доступа к фото',exact:true}).locator('../..').getByRole('status')).toHaveText('11–20 из 24');
  for(const width of [1440,768,390,320]){
    await page.setViewportSize({width,height:1000});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
    await page.screenshot({path:`artifacts/compact-photo-access-${width}.png`,fullPage:true});

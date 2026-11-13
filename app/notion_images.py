@@ -5,9 +5,7 @@ import binascii
 import hashlib
 import re
 import secrets
-from contextlib import suppress
 from dataclasses import dataclass
-from types import SimpleNamespace
 from urllib.parse import urlsplit, urlunsplit, unquote, unquote_to_bytes
 
 import httpx
@@ -151,42 +149,3 @@ def insert_images(c,items,uid,now):
         if not folder:c.execute('INSERT INTO files(id,user_id,kind,name,mime,created,updated) VALUES(?,?,?,?,?,?,?)',(page.identity,uid,'folder','Вложения — '+page.title[:200],'application/x-drg-note;space=private',now(),now()))
         c.execute('INSERT INTO files(id,user_id,parent_id,kind,name,mime,size,object_id,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?)',
                   (item['id'],uid,page.identity,'file',item['name'],item['mime'],item['size'],item['object_id'],now(),now()))
-
-
-def repair_images(db,store,uid,downloaded,now,public_url):
-    """Relocate URLs in one account, preserving text, page IDs and history content."""
-    import json
-    from app.notion_import import rewrite_markdown_links
-    writers=[]
-    try:
-        with db() as c:
-            c.execute('BEGIN IMMEDIATE')
-            pages=c.execute('SELECT * FROM notes WHERE user_id=? AND space_id IS NULL',(uid,)).fetchall()
-            owners={}
-            for page in pages:
-                urls=document_urls(json.loads(page['blocks']) if page['blocks'] else None,page['body'])
-                for url in downloaded.keys() & urls:
-                    owners.setdefault(url,SimpleNamespace(identity=page['id'],title=page['title']))
-            links,items=stage_images(downloaded,owners,store,writers)
-            links={key:public_url.rstrip('/')+value for key,value in links.items()}
-            insert_images(c,items,uid,now)
-            changed=[]
-            for page in pages:
-                blocks=replace_images(json.loads(page['blocks']),links) if page['blocks'] else None
-                body=rewrite_markdown_links(page['body'],lambda url,image:links.get(url,url))
-                encoded=json.dumps(blocks,ensure_ascii=False) if blocks is not None else None
-                if blocks==(json.loads(page['blocks']) if page['blocks'] else None) and body==page['body']:continue
-                updated=c.execute('UPDATE notes SET blocks=?,body=?,updated=?,version=version+1 WHERE id=? AND version=?',(encoded,body,now(),page['id'],page['version']))
-                if updated.rowcount!=1:raise ValueError('Page changed during image repair.')
-                c.execute('DELETE FROM collaborative_docs WHERE note_id=?',(page['id'],))
-                changed.append(page['id'])
-            for row in c.execute('SELECT r.* FROM note_revisions r JOIN notes n ON n.id=r.note_id WHERE n.user_id=? AND n.space_id IS NULL',(uid,)).fetchall():
-                blocks=replace_images(json.loads(row['blocks']),links) if row['blocks'] else None
-                body=rewrite_markdown_links(row['body'],lambda url,image:links.get(url,url))
-                if blocks!=(json.loads(row['blocks']) if row['blocks'] else None) or body!=row['body']:
-                    c.execute('UPDATE note_revisions SET blocks=?,body=? WHERE id=?',(json.dumps(blocks,ensure_ascii=False) if blocks is not None else None,body,row['id']))
-            return {'pages':changed,'files':len(items),'localized_urls':len(links)}
-    except BaseException:
-        for writer in writers:
-            with suppress(Exception):writer.abort()
-        raise

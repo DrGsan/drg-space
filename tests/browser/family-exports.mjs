@@ -1,3 +1,4 @@
+import {readAppStyles} from './fixtures.mjs';
 import assert from 'node:assert/strict';
 import {readFile,mkdir} from 'node:fs/promises';
 import {build} from 'esbuild';
@@ -19,7 +20,7 @@ try{
   return route.fulfill({contentType:'text/html; charset=utf-8',body:'<main class="workspace"><div id="gallery"></div><div class="preferences-surface"><details class="preference-row" open><summary>Семейные фото</summary><section class="panel admin-family-photos"><div id="management"></div></section></details></div></main>'});
  });
  await page.goto('https://family-export.test/');
- await page.addStyleTag({content:(await readFile('app/static/assets/app.css','utf8')).replace(/@font-face\s*\{[^}]*\}/g,'')});
+ await page.addStyleTag({content:(await readAppStyles()).replace(/@font-face\s*\{[^}]*\}/g,'')});
  await page.addStyleTag({content:'.workspace{display:block;max-width:1100px;margin:auto;padding:16px}'});
  await page.addScriptTag({content:bundle.outputFiles[0].text});
  await page.addScriptTag({content:adminBundle.outputFiles[0].text});

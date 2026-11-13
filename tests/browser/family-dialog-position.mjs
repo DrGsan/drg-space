@@ -1,5 +1,6 @@
+import {readAppStyles,openTestOrigin} from './fixtures.mjs';
 import assert from 'node:assert/strict';
-import {readFile,mkdir} from 'node:fs/promises';
+import {mkdir} from 'node:fs/promises';
 import {build} from 'esbuild';
 import {chromium,webkit} from 'playwright';
 import {expect} from '@playwright/test';
@@ -7,7 +8,7 @@ const bundles=await Promise.all([
  build({entryPoints:['web/modules/admin/family-groups.js'],bundle:true,format:'iife',globalName:'FamilyGroups',write:false,loader:{'.css':'empty'}}),
  build({entryPoints:['web/core/modal.js'],bundle:true,format:'iife',globalName:'Dialogs',write:false,loader:{'.css':'empty'}})
 ]);
-const css=(await readFile('app/static/assets/app.css','utf8')).replace(/@font-face\s*\{[^}]*\}/g,'');
+const css=(await readAppStyles()).replace(/@font-face\s*\{[^}]*\}/g,'');
 const browser=await(process.env.DRG_BROWSER_ENGINE==='webkit'?webkit:chromium).launch({headless:true});
 await mkdir('artifacts',{recursive:true});
 try{
@@ -16,7 +17,7 @@ try{
   page.on('pageerror',error=>errors.push(error.message));
   await page.route('https://family-dialog.test/',route=>route.fulfill({contentType:'text/html; charset=utf-8',body:'<meta charset="utf-8">'}));
   await page.goto('https://family-dialog.test/');
-  await page.setContent('<meta charset="utf-8"><main id="screen"><div style="height:700px">Начало управления</div><details class="preference-row" open><summary>Семейные фото</summary><section class="panel admin-family-photos"><div id="fixture"></div></section></details><div style="height:900px">Конец управления</div></main>');
+  await openTestOrigin(page);await page.setContent('<meta charset="utf-8"><main id="screen"><div style="height:700px">Начало управления</div><details class="preference-row" open><summary>Семейные фото</summary><section class="panel admin-family-photos"><div id="fixture"></div></section></details><div style="height:900px">Конец управления</div></main>');
   await page.addStyleTag({content:css});
   await page.addStyleTag({content:`body{margin:0}#screen{max-width:1100px;margin:auto;padding:16px;${scrolling==='panel'?'height:100dvh;overflow:auto;':''}}`});
   for(const bundle of bundles)await page.addScriptTag({content:bundle.outputFiles[0].text});

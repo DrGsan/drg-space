@@ -1,15 +1,16 @@
+import {readAppStyles,openTestOrigin} from './fixtures.mjs';
 import assert from 'node:assert/strict';
-import {readFile,mkdir} from 'node:fs/promises';
+import {mkdir} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import {chromium,webkit} from 'playwright';
 
-const css=await readFile('app/static/assets/app.css','utf8');
+const css=await readAppStyles();
 const browser=await (process.env.DRG_BROWSER_ENGINE==='webkit'?webkit:chromium).launch({headless:true});
 await mkdir('artifacts',{recursive:true});
 try{
   for(const [width,height,top,bottom,side] of [[390,844,59,34,0],[320,568,0,0,0],[740,390,0,21,44]]){
     const page=await browser.newPage({locale:'ru-RU',viewport:{width,height},hasTouch:true});
-    await page.setContent(`<!doctype html><style>${css}</style><div id="app-status-background"></div><div id="app"><div class="workspace"><main class="content"><div style="height:1800px">Прокрутите вниз</div><button id="last-action">Последняя строка</button></main><nav class="mobile-app-tabs">${['Сообщения','Заметки','Дела','Настройки'].map((name,i)=>`<button ${i===0?'aria-current="page"':''}><svg viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 3z" fill="none" stroke="currentColor"/></svg><span>${name}</span></button>`).join('')}</nav></div></div>`);
+    await openTestOrigin(page);await page.setContent(`<!doctype html><style>${css}</style><div id="app-status-background"></div><div id="app"><div class="workspace"><main class="content"><div style="height:1800px">Прокрутите вниз</div><button id="last-action">Последняя строка</button></main><nav class="mobile-app-tabs">${['Сообщения','Заметки','Дела','Настройки'].map((name,i)=>`<button ${i===0?'aria-current="page"':''}><svg viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 3z" fill="none" stroke="currentColor"/></svg><span>${name}</span></button>`).join('')}</nav></div></div>`);
     await page.evaluate(({top,bottom,side})=>{
       const root=document.documentElement;root.classList.add('app-standalone');root.dataset.scheme='dark';root.dataset.theme='ocean';
       for(const [key,value] of Object.entries({top,bottom,left:side,right:side}))root.style.setProperty('--app-safe-'+key,value+'px');

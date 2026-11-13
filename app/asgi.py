@@ -27,6 +27,15 @@ class StreamingResponder(WSGIResponder):
         self.gone = gone
         self.finished = threading.Event()
 
+    def start_response(self, status, response_headers, exc_info=None):
+        try:
+            return super().start_response(status, response_headers, exc_info)
+        except ClientGone:
+            # Flask calls start_response before returning its ClosingIterator.
+            # Let it return that iterator so WSGIResponder.wsgi can close the
+            # response (and its storage lease) when the first body send fails.
+            return lambda chunk: self.send({'type':'http.response.body', 'body':chunk, 'more_body':True})
+
     def send(self, message):
         if self.gone.is_set() or self.finished.is_set():
             raise ClientGone()

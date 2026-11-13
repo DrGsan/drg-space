@@ -1,10 +1,11 @@
+import {readAppStyles} from './fixtures.mjs';
 import assert from 'node:assert/strict';
 import {readFile,mkdir} from 'node:fs/promises';
 import {build} from 'esbuild';
 import {chromium,webkit} from 'playwright';
 
 const bundle=await build({entryPoints:['web/modules/admin/security.js'],bundle:true,format:'iife',globalName:'AdminSecurity',write:false,loader:{'.css':'empty'}});
-const css=(await Promise.all(['app/static/assets/app.css','web/modules/admin/security.css'].map(path=>readFile(path,'utf8')))).join('\n');
+const css=(await Promise.all([readAppStyles(),readFile('web/modules/admin/security.css','utf8')])).join('\n');
 const engine=process.env.DRG_BROWSER_ENGINE||'chromium';
 const browser=await (engine==='webkit'?webkit:chromium).launch({headless:true});
 await mkdir('artifacts',{recursive:true});

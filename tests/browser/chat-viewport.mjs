@@ -1,17 +1,18 @@
+import {readAppStyles,openTestOrigin} from './fixtures.mjs';
 // Desktop WebKit cannot open the real iOS keyboard. Exercise its separate
 // visual viewport resize/pan against the production CSS and viewport binding.
 import assert from 'node:assert/strict';
-import {readFile,mkdir} from 'node:fs/promises';
+import {mkdir} from 'node:fs/promises';
 import {build} from 'esbuild';
 import {chromium,webkit} from 'playwright';
 const bundle=await build({entryPoints:['web/modules/chat/viewport.js'],bundle:true,format:'iife',globalName:'ChatViewport',write:false});
-const css=await readFile('app/static/assets/app.css','utf8');
+const css=await readAppStyles();
 const browser=await (process.env.DRG_BROWSER_ENGINE==='webkit'?webkit:chromium).launch({headless:true});
 await mkdir('artifacts',{recursive:true});
 try{
  for(const telegram of [false,true]){
   const page=await browser.newPage({locale:'ru-RU',viewport:{width:390,height:844}});
-  await page.setContent(`<!doctype html><style>${css}</style><div id="app-wallpaper" style="background-image:linear-gradient(30deg,#dbb78e,#b7c9bf)"></div><div id="app-status-background"></div><div id="app"><div class="workspace chat-open"><main class="content"><div id="view-content"><div class="chat-shell room-open"><div class="chat-workspace"><aside class="chat-sidebar"></aside><main class="chat-main">${telegram?'<div class="fp-chat">':''}<header class="chat-header"><h2>Тест клавиатуры</h2></header><div class="chat-messages">${Array.from({length:40},(_,i)=>`<article class="chat-message"><p>Сообщение ${i}</p></article>`).join('')}</div><form class="chat-compose"><div class="chat-compose-content"><div class="chat-composer-shell"><textarea rows="1" aria-label="Сообщение"></textarea></div></div></form>${telegram?'</div>':''}</main></div></div></div></main><nav class="mobile-app-tabs"><button>Сообщения</button></nav></div></div>`);
+  await openTestOrigin(page);await page.setContent(`<!doctype html><style>${css}</style><div id="app-wallpaper" style="background-image:linear-gradient(30deg,#dbb78e,#b7c9bf)"></div><div id="app-status-background"></div><div id="app"><div class="workspace chat-open"><main class="content"><div id="view-content"><div class="chat-shell room-open"><div class="chat-workspace"><aside class="chat-sidebar"></aside><main class="chat-main">${telegram?'<div class="fp-chat">':''}<header class="chat-header"><h2>Тест клавиатуры</h2></header><div class="chat-messages">${Array.from({length:40},(_,i)=>`<article class="chat-message"><p>Сообщение ${i}</p></article>`).join('')}</div><form class="chat-compose"><div class="chat-compose-content"><div class="chat-composer-shell"><textarea rows="1" aria-label="Сообщение"></textarea></div></div></form>${telegram?'</div>':''}</main></div></div></div></main><nav class="mobile-app-tabs"><button>Сообщения</button></nav></div></div>`);
   await page.addScriptTag({content:bundle.outputFiles[0].text});
   await page.evaluate(()=>{
    document.documentElement.classList.add('app-standalone');document.documentElement.dataset.interface='glass';document.documentElement.dataset.theme='amber';document.documentElement.dataset.scheme='light';

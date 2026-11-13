@@ -73,6 +73,14 @@ def test_async_sockets_streaming_disconnect_and_revocation(tmp_path):
             download.close();raw.close()
             wait_for(lambda: (root/'stream-closed').exists())
             wait_for(lambda: client.get('/api/health').json()['leases'] == 0)
+            # Navigation can cancel a download while the route still prepares
+            # its headers. Its eventual response must release the storage gate.
+            early = http.client.HTTPConnection('127.0.0.1', port, timeout=5)
+            early.request('GET', '/slow-download')
+            wait_for(lambda: (root/'slow-started').exists())
+            early.close()
+            wait_for(lambda: (root/'slow-closed').exists())
+            wait_for(lambda: client.get('/api/health').json()['leases'] == 0)
             (root/'revoked').touch()
             with pytest.raises(ConnectionClosed):connections[0].recv(timeout=5)
             (root/'revoked').unlink()

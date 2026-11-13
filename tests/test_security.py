@@ -1,6 +1,8 @@
 import httpx
 import os, tempfile, secrets, time, json
-os.environ['DATA_DIR']=tempfile.mkdtemp(prefix='drg-tests-')
+os.environ['PYTHON_DOTENV_DISABLED']='1'
+_test_storage=tempfile.TemporaryDirectory(prefix='drg-tests-')
+os.environ['DATA_DIR']=_test_storage.name
 os.environ['DATABASE_URL']=os.getenv('DRG_TEST_DATABASE_URL','')
 os.environ['DATABASE_SCHEMA']=os.getenv('DRG_TEST_DATABASE_SCHEMA','drg_tests_'+secrets.token_hex(8))
 os.environ['DATA_ENCRYPTION_ENABLED']=os.getenv('DRG_TEST_ENCRYPTION_ENABLED','true')
