@@ -1,6 +1,6 @@
 # Updating DrG Space
 
-## 5.2.1 preview: backup reliability and maintenance
+## 5.2.1: backup reliability and maintenance
 
 Downloads cancelled before response headers now close their responses and release storage leases, preventing subsequent backups from waiting indefinitely. The task module title now follows English interface settings. Floating navigation no longer overlaps the mobile reminder properties panel. Normal note/image imports and task recovery behavior remain unchanged; the removed image repair helper had no application or CLI callers. Browser regression fixtures resolve built styles through the asset manifest, localization is included in the existing opt-in CI profile, and disposable Python/browser storage is cleaned up on normal shutdown. Supported legacy clients and archive fixtures are retained.
 
