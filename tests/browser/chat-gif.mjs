@@ -1,3 +1,4 @@
+import {readAppStyles,openTestOrigin} from './fixtures.mjs';
 import assert from 'node:assert/strict';
 import {chromium,webkit} from 'playwright';
 import {build} from 'esbuild';
@@ -11,8 +12,8 @@ try{
  const errors=[];page.on('pageerror',error=>errors.push(error.message));
  const bytes=await readFile('tests/fixtures/chat-video.mp4');
  await page.route('https://gifs.test/**',route=>route.fulfill({contentType:'video/mp4',body:bytes}));
- await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><html data-scheme="dark"><main class="chat-shell"><div class="chat-messages" style="height:700px;overflow:auto"></div></main></html>');
- await page.addStyleTag({content:(await readFile('app/static/assets/app.css','utf8')).replace(/@font-face\s*\{[^}]*\}/g,'')+'body{margin:0}.chat-shell{display:block;width:100%}.chat-message.has-visual-media{width:180px!important}.chat-media-row{height:90px!important;aspect-ratio:auto!important}.chat-media-album.is-single .chat-media-tile>video{object-fit:cover}'});
+ await openTestOrigin(page);await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><html data-scheme="dark"><main class="chat-shell"><div class="chat-messages" style="height:700px;overflow:auto"></div></main></html>');
+ await page.addStyleTag({content:(await readAppStyles()).replace(/@font-face\s*\{[^}]*\}/g,'')+'body{margin:0}.chat-shell{display:block;width:100%}.chat-message.has-visual-media{width:180px!important}.chat-media-row{height:90px!important;aspect-ratio:auto!important}.chat-media-album.is-single .chat-media-tile>video{object-fit:cover}'});
  await page.addScriptTag({content:script.outputFiles[0].text});
  await page.evaluate(()=>{
   const host=document.querySelector('.chat-messages');window.gifFiles=[];

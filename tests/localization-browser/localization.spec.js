@@ -67,19 +67,21 @@ test('public links select English before sign-in and keep access permissions and
 test('avatar categories and all presets translate in profiles and account administration',async({page})=>{
  await signedIn(page);await page.goto('/');
  const labels={
-  en:{categories:['Abstract','Landscapes','Animals'],items:[
+  en:{categories:['Abstract','Landscapes','Animals','Space'],items:[
    ['Loop','Pebbles','Wave','Orbit','Petals','Arches','Crystal','Spiral','Saturn'],
    ['Forest','Coast','Dunes','Mountains','Moonlit lake','Lavender','Meadow','Birch','Island'],
-   ['Cat','Fox','Owl','Panda','Koala','Rabbit','Penguin','Bear','Capybara']]},
-  ru:{categories:['Абстракция','Пейзажи','Животные'],items:[
+   ['Cat','Fox','Owl','Panda','Koala','Rabbit','Penguin','Bear','Capybara'],
+   ['Earth','Saturn','Moon','Sun','Comet','Galaxy','Nebula','Distant planets','Star cluster']]},
+  ru:{categories:['Абстракция','Пейзажи','Животные','Космос'],items:[
    ['Петля','Камни','Волна','Орбита','Лепестки','Арки','Кристалл','Спираль','Сатурн'],
    ['Лес','Побережье','Дюны','Горы','Лунное озеро','Лаванда','Луг','Берёза','Остров'],
-   ['Кот','Лиса','Сова','Панда','Коала','Кролик','Пингвин','Медведь','Капибара']]}
+   ['Кот','Лиса','Сова','Панда','Коала','Кролик','Пингвин','Медведь','Капибара'],
+   ['Земля','Сатурн','Луна','Солнце','Комета','Галактика','Туманность','Далёкие планеты','Звёздное скопление']]}
  };
  async function checkGallery(gallery,language){
   const expected=labels[language];
   await expect(gallery.locator('[data-avatar-category]')).toHaveText(expected.categories);
-  for(const [index,category] of ['abstract','nature','animals'].entries()){
+  for(const [index,category] of ['abstract','nature','animals','space'].entries()){
    await gallery.locator('[data-avatar-category="'+category+'"]').click();
    await expect(gallery.locator('[data-avatar-preset] span')).toHaveText(expected.items[index]);
    for(const [itemIndex,label] of expected.items[index].entries())
@@ -92,7 +94,7 @@ test('avatar categories and all presets translate in profiles and account admini
   if(!await row.evaluate(element=>element.open))await row.locator('summary').click();
   const gallery=row.locator('[data-avatar-presets]');
   await checkGallery(gallery,language);
-  await gallery.locator('[data-avatar-preset="animals-9"]').click();
+  await gallery.locator('[data-avatar-category="animals"]').click();await gallery.locator('[data-avatar-preset="animals-9"]').click();
   await expect(gallery.locator('[data-avatar-preset="animals-9"]')).toHaveAttribute('aria-pressed','true');
   const me=await page.context().request.get('/api/me');
   expect((await me.json()).settings.profile.avatar_preset).toBe('animals-9');
@@ -106,6 +108,7 @@ test('avatar categories and all presets translate in profiles and account admini
   await page.locator('.admin-account-details [data-admin-profile]').click();
   const dialog=page.getByRole('dialog');
   await checkGallery(dialog.locator('[data-avatar-presets]'),language);
+  await dialog.locator('[data-avatar-category="animals"]').click();
   await expect(dialog.locator('[data-avatar-preset="animals-9"]')).toHaveAttribute('aria-pressed','true');
   await dialog.locator('.modal-close').click();
   await page.locator('[data-view="settings"]').click();
@@ -174,6 +177,8 @@ test('English desktop opens every configured section and keeps system labels tra
   if(section==='home')await expect(page.locator('#widget-grid [data-widget]')).toHaveCount(13);
   if(section==='settings'){
    const row=page.locator('[data-preference-key=language]');if(!await row.evaluate(element=>element.open))await row.locator('summary').click();
+   const modules=page.locator('[data-preference-key=modules]');if(!await modules.evaluate(el=>el.open))await modules.locator('summary').click();
+   await expect(modules.locator('.module-switch').filter({has:page.locator('[name=tracker]')}).locator('strong')).toHaveText('Work');
   }
   if(section==='notes'){
    await page.locator('[data-open-page="'+noteId+'"]').first().click();

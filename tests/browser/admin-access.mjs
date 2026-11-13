@@ -1,16 +1,17 @@
+import {readAppStyles} from './fixtures.mjs';
 import assert from 'node:assert/strict';
-import {readFile,mkdir} from 'node:fs/promises';
+import {mkdir} from 'node:fs/promises';
 import {build} from 'esbuild';
 import {chromium,webkit} from 'playwright';
 
 const bundle=await build({entryPoints:['web/modules/admin/index.js'],bundle:true,format:'iife',globalName:'AdminWorkspace',write:false,loader:{'.css':'empty'}});
-const css=await readFile('app/static/assets/app.css','utf8');
+const css=await readAppStyles();
 const browser=await (process.env.DRG_BROWSER_ENGINE==='webkit'?webkit:chromium).launch({headless:true});
 await mkdir('artifacts',{recursive:true});
 try{
   const page=await browser.newPage({locale:'ru-RU',viewport:{width:1280,height:900}}),errors=[];
   page.on('pageerror',error=>errors.push(error.message));
-  await page.route('http://admin-access.test/**',route=>route.fulfill({body:'<main id="fixture"></main><div id="toast"></div>',contentType:'text/html'}));
+  await page.route('http://admin-access.test/**',route=>route.fulfill({body:'<div id="app"><main id="fixture"></main><div id="toast"></div></div>',contentType:'text/html'}));
   await page.goto('http://admin-access.test/');await page.clock.install();await page.addStyleTag({content:css});
   await page.addScriptTag({content:bundle.outputFiles[0].text});
   await page.evaluate(()=>{
@@ -35,6 +36,7 @@ try{
       if(!status().unlocked)throw locked();
       if(path==='/admin/users'){state.reads++;return {users,families:[],database_bytes:0,media_bytes:0,file_bytes:0,site_total_bytes:0,note_content_bytes:0,backup_limit_bytes:1073741824};}
       if(path==='/admin/registration')return {enabled:false};
+      if(path==='/invites')return {invitations:[]};
       if(path==='/family-photos/admin')return {users:[],groups:state.exportRequested?[{id:'-1001',title:'Семейный архив из уведомления',enabled:true,photos:10,videos:0}]:[],status:{available:state.exportRequested,group_management:true,photo_exports:true}};
       if(path==='/family-photos/admin/exports'){state.exportReads=(state.exportReads||0)+1;return {items:[],server_time:stamp()};}
       if(path.endsWith('/friends')){

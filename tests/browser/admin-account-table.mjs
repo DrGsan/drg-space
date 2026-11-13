@@ -1,16 +1,17 @@
+import {readAppStyles,openTestOrigin} from './fixtures.mjs';
 import assert from 'node:assert/strict';
-import {readFile,mkdir} from 'node:fs/promises';
+import {mkdir} from 'node:fs/promises';
 import {build} from 'esbuild';
 import {chromium,webkit} from 'playwright';
 import {expect} from '@playwright/test';
 const bundle=await build({entryPoints:['web/modules/admin/account-table.js'],bundle:true,format:'iife',globalName:'AccountTable',write:false,loader:{'.css':'empty'}});
-const css=await readFile('app/static/assets/app.css','utf8');
+const css=await readAppStyles();
 const browser=process.env.DRG_BROWSER_ENGINE==='webkit'?await webkit.launch({headless:true}):await chromium.launch({headless:true,channel:process.env.DRG_BROWSER_CHANNEL||undefined});
 await mkdir('artifacts',{recursive:true});
 try{
   const page=await browser.newPage({locale:'ru-RU',viewport:{width:1440,height:1000}}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  await page.setContent('<main class="panel"><h2>Аккаунты и данные</h2><div id="fixture"></div></main>');
+  await openTestOrigin(page);await page.setContent('<main class="panel"><h2>Аккаунты и данные</h2><div id="fixture"></div></main>');
   await page.addStyleTag({content:css});await page.addScriptTag({content:bundle.outputFiles[0].text});
   await page.evaluate(()=>{
     const stamp=Math.floor(Date.now()/1000),workspaces=[{id:'company',name:'Компания'},{id:'project',name:'Проект'}];

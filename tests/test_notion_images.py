@@ -1,49 +1,8 @@
 import asyncio
-import hashlib
-import json
-import pytest
-from tests.test_security import owner,member,reset
+from tests.test_security import reset
 from tests.test_widgets import image_bytes
-from app import main as m, notion_images
-from app.file_store import file_store
-from app.http import HTTPError
-from app.notion_images import Download,download_images,repair_images
-
-
-def download(body):return Download(body,'image/png','image.png',hashlib.sha256(body).hexdigest())
-
-
-def test_existing_page_image_repair_is_private_atomic_and_idempotent():
-    c,_,_=owner();g,_=member(c);uid=c.get('/api/me').json()['id'];url='https://images.example/one.png';body=image_bytes()
-    blocks=[{'id':'img','type':'image','props':{'url':url,'caption':'Caption'}},{'id':'code','type':'codeBlock','content':'![code]('+url+')'}]
-    p=c.post('/api/notes',json={'title':'Original','blocks':blocks,'body':'![Caption]('+url+')\n```\n![Code]('+url+')\n```'}).json()
-    c.put('/api/notes/'+p['id'],json={'title':'Edited','blocks':blocks,'body':p['body'],'version':p['version']})
-    foreign=g.post('/api/notes',json={'title':'Foreign','blocks':blocks}).json()
-    store=file_store(m.db,m.DATA);before=store.ids()
-    with m.db() as db:db.execute('UPDATE user_limits SET limit_bytes=used_bytes+10 WHERE user_id=?',(uid,))
-    with pytest.raises(HTTPError):repair_images(m.db,store,uid,{url:download(body)},m.now,m.PUBLIC_URL)
-    assert store.ids()==before and c.get('/api/notes/'+p['id']).json()['blocks']==blocks
-    with m.db() as db:db.execute('UPDATE user_limits SET limit_bytes=? WHERE user_id=?',(1024**3,uid))
-    report=repair_images(m.db,store,uid,{url:download(body)},m.now,m.PUBLIC_URL)
-    assert report=={'pages':[p['id']],'files':1,'localized_urls':1}
-    result=c.get('/api/notes/'+p['id']).json();image=result['blocks'][0]
-    assert result['title']=='Edited' and image['id']=='img' and image['props']['caption']=='Caption'
-    assert c.get(image['props']['url']).content==body
-    assert g.get(image['props']['url']).status_code==404
-    assert result['blocks'][1]==blocks[1] and '![Code]('+url+')' in result['body']
-    assert g.get('/api/notes/'+foreign['id']).json()==foreign
-    revision=c.get('/api/notes/'+p['id']+'/history').json()[0]
-    assert c.get('/api/notes/'+p['id']+'/history/'+revision['id']).json()['blocks'][0]['props']['url']==image['props']['url']
-    assert repair_images(m.db,store,uid,{url:download(body)},m.now,m.PUBLIC_URL)=={'pages':[],'files':0,'localized_urls':0}
-    assert len(store.ids()-before)==1
-
-
-def test_code_only_url_does_not_create_unused_attachment():
-    c,_,_=owner();uid=c.get('/api/me').json()['id'];url='https://images.example/code.png'
-    c.post('/api/notes',json={'title':'Code','body':'```\n![example]('+url+')\n```','blocks':[{'type':'codeBlock','content':url}]})
-    store=file_store(m.db,m.DATA);before=store.ids()
-    assert repair_images(m.db,store,uid,{url:download(image_bytes())},m.now,m.PUBLIC_URL)['files']==0
-    assert store.ids()==before
+from app import notion_images
+from app.notion_images import download_images
 
 
 def test_invalid_image_and_download_budget_leave_sources_in_failure_report(monkeypatch):

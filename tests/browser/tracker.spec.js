@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './installed-test.mjs';
 import {createHmac} from 'node:crypto';
 import {mkdirSync} from 'node:fs';
 import {appSection} from './notes-ui.js';
@@ -275,6 +275,7 @@ test('tracker opt-in, complete import, edits, conflict, files and responsive nav
  await expect(page.locator('[data-tracker-layout]')).toHaveCount(0);
  await page.unroute(revokedIssue);
  await page.locator('[data-tracker-inline-discard]').click();
+ await page.locator('[data-tracker-projects]').click();
  await expect(page.locator('[data-tracker-project="'+project.id+'"]').first()).toBeVisible();
  expect((await api(page,'/tracker/issues/'+leaf.id)).priority).toBe(1);
  expect(errors).toEqual([]);

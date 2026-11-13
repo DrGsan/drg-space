@@ -1,4 +1,4 @@
-import {test,expect} from '@playwright/test';
+import {test,expect} from './installed-test.mjs';
 import {createHmac} from 'node:crypto';
 import {mkdirSync} from 'node:fs';
 import {appSection} from './notes-ui.js';

@@ -1,7 +1,8 @@
+import {readAppStyles} from './fixtures.mjs';
 import {expect} from '@playwright/test';
 import {chromium,webkit} from 'playwright';
 import {build} from 'esbuild';
-import {readFile,mkdir} from 'node:fs/promises';
+import {mkdir} from 'node:fs/promises';
 const bundle=await build({stdin:{contents:`import {inboxController} from './web/modules/notifications/index.js';inboxController.attach=()=>{};export {mountChat,chatController} from './web/modules/chat/index.js';`,resolveDir:process.cwd()},bundle:true,format:'iife',globalName:'MuteTest',write:false,loader:{'.css':'empty'}});
 const browser=await (process.env.DRG_BROWSER_ENGINE==='webkit'?webkit:chromium).launch({headless:true});
 try{
@@ -9,7 +10,7 @@ try{
   page.on('pageerror',e=>errors.push(e.message));
   await page.route('http://mute.test/**',r=>r.fulfill({body:'<html data-theme="ocean" data-scheme="dark"><body><main id="app"></main></body></html>',contentType:'text/html'}));
   await page.route('http://mute.test/api/users/peer/avatar*',r=>r.fulfill({path:'tests/fixtures/blue.png',contentType:'image/png'}));
-  await page.goto('http://mute.test/');await page.addStyleTag({content:await readFile('app/static/assets/app.css','utf8')});
+  await page.goto('http://mute.test/');await page.addStyleTag({content:await readAppStyles()});
   await page.addScriptTag({content:bundle.outputFiles[0].text});
   await page.evaluate(async()=>{
     const stamp=Math.floor(Date.now()/1000),gid='-1001234567890';

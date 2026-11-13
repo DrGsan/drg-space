@@ -1,3 +1,4 @@
+import {readAppStyles,openTestOrigin} from './fixtures.mjs';
 import assert from 'node:assert/strict';
 import {chromium,webkit} from 'playwright';
 import {build} from 'esbuild';
@@ -10,8 +11,8 @@ try{
  const page=await browser.newPage({locale:'ru-RU',viewport:{width:430,height:932},isMobile:true,hasTouch:true});
  const portrait=await readFile('tests/fixtures/chat-portrait.png');
  await page.route('https://widths.test/**',route=>route.fulfill({contentType:'image/png',body:portrait}));
- await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><html data-scheme="dark"><main class="chat-shell"><div class="chat-messages" style="height:900px"></div></main></html>');
- await page.addStyleTag({content:(await readFile('app/static/assets/app.css','utf8')).replace(/@font-face\s*\{[^}]*\}/g,'')+'body{margin:0}.chat-shell{display:block;width:100%}'});
+ await openTestOrigin(page);await page.setContent('<meta name="viewport" content="width=device-width,initial-scale=1"><html data-scheme="dark"><main class="chat-shell"><div class="chat-messages" style="height:900px"></div></main></html>');
+ await page.addStyleTag({content:(await readAppStyles()).replace(/@font-face\s*\{[^}]*\}/g,'')+'body{margin:0}.chat-shell{display:block;width:100%}'});
  await page.addScriptTag({content:script.outputFiles[0].text});
  await page.evaluate(()=>{
   const host=document.querySelector('.chat-messages'),file=id=>({id,kind:'photo',url:'https://widths.test/'+id,state:'ready'});

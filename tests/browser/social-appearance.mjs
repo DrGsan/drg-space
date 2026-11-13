@@ -1,9 +1,10 @@
+import {readAppStyles} from './fixtures.mjs';
 import assert from 'node:assert/strict';
 import {readFile,mkdir} from 'node:fs/promises';
 import {build} from 'esbuild';
 import {chromium,webkit} from 'playwright';
 const bundle=await build({entryPoints:['web/modules/social/index.js'],bundle:true,format:'iife',globalName:'Social',write:false,loader:{'.css':'empty'}});
-const css=await readFile('app/static/assets/app.css','utf8'),png=await readFile('tests/fixtures/blue.png');
+const css=await readAppStyles(),png=await readFile('tests/fixtures/blue.png');
 const browser=await (process.env.DRG_BROWSER_ENGINE==='webkit'?webkit:chromium).launch({headless:true});
 await mkdir('artifacts',{recursive:true});
 try{
@@ -35,7 +36,7 @@ try{
    assert.deepEqual(geometry[0],geometry[1],'family and friend summaries share their sizes');
    for(const row of [family,friends])await row.locator(':scope>summary').click();
    assert.equal(await family.locator('.member-chip').count(),0);
-   assert.equal(await family.locator('.social-member').count(),2);assert.equal(await friends.locator('.social-member').count(),2);
+   assert.equal(await family.locator('[data-people-row]').count(),2);assert.equal(await friends.locator('.social-member').count(),1);
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
    await page.screenshot({path:`artifacts/social-unified-${width}-${dark?'dark':'light'}.png`,fullPage:true});
   }

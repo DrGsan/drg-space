@@ -1,14 +1,15 @@
+import {readAppStyles,openTestOrigin} from './fixtures.mjs';
 import assert from 'node:assert/strict';
-import {readFile,mkdir} from 'node:fs/promises';
+import {mkdir} from 'node:fs/promises';
 import {build} from 'esbuild';
 import {chromium,webkit} from 'playwright';
 import {touchSequence,touchEvent} from './touch-gesture.mjs';
 const bundle=await build({entryPoints:['web/core/mobile-back.js'],bundle:true,format:'iife',globalName:'MobileBack',write:false});
-const css=await readFile('app/static/assets/app.css','utf8'),engine=process.env.DRG_BROWSER_ENGINE||'chromium';
+const css=await readAppStyles(),engine=process.env.DRG_BROWSER_ENGINE||'chromium';
 const browser=await (engine==='webkit'?webkit:chromium).launch({headless:true});
 try{
  const page=await browser.newPage({locale:'ru-RU',viewport:{width:390,height:844},hasTouch:true});
- await page.setContent(`<!doctype html><style>${css}#pad{position:absolute;inset:80px 0 120px;background:var(--bg)}#form,#editor,#horizontal{position:absolute;left:0;top:180px;width:200px}#horizontal{overflow-x:auto}#horizontal>div{width:600px}</style><div id="app"></div>`);
+ await openTestOrigin(page);await page.setContent(`<!doctype html><style>${css}#pad{position:absolute;inset:80px 0 120px;background:var(--bg)}#form,#editor,#horizontal{position:absolute;left:0;top:180px;width:200px}#horizontal{overflow-x:auto}#horizontal>div{width:600px}</style><div id="app"></div>`);
  await page.addScriptTag({content:bundle.outputFiles[0].text});
  await page.evaluate(()=>{document.documentElement.classList.add('app-standalone');Object.defineProperty(navigator,'standalone',{configurable:true,value:true});window.originalViewport=window.visualViewport;});
  async function fixture(kind='chat'){

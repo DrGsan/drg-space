@@ -16,7 +16,7 @@ import {voiceCallsFlow} from './voice-calls-flow.js';
 import {chatWorkspaceFlow} from './chat-workspace-flow.js';
 import {siteRefreshFlow} from './site-refresh-flow.js';
 import {tasksFlow} from './tasks-flow.js';
-import { test, expect } from "@playwright/test";
+import { test, expect } from './installed-test.mjs';
 import { interfaceFlow } from './interface-flow.js';
 import { notionFlow } from './notion-flow.js';
 import { socialFlow } from "./social-flow.js";
@@ -28,6 +28,8 @@ import { shareEditFlow } from './share-edit-flow.js';
 import { widgetsFlow,weatherSizingFlow } from "./widgets-flow.js";
 import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
+// Mobile call routes depend on a coarse pointer as well as viewport size.
+test.use({hasTouch:true});
 function totp(secret) {
   const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
   let bits = "";

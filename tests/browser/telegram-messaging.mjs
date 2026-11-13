@@ -1,3 +1,4 @@
+import {readAppStyles} from './fixtures.mjs';
 import assert from 'node:assert/strict';
 import {expect} from '@playwright/test';
 import {chromium,webkit} from 'playwright';
@@ -16,7 +17,7 @@ try{
  await page.route('https://bot-ui.test/**',route=>route.request().url().includes('/uploads/')?route.fulfill({body:png,contentType:'image/png'}):route.fulfill({contentType:'text/html; charset=utf-8',body:'<meta name="viewport" content="width=device-width,initial-scale=1"><html class="app-standalone" data-scheme="dark"><main id="app"><div class="workspace chat-open"><main class="content"><section id="view-content"></section></main></div></main></html>'}));
  await page.goto('https://bot-ui.test/');
  await page.clock.install();
- await page.addStyleTag({content:(await readFile('app/static/assets/app.css','utf8')).replace(/@font-face\s*\{[^}]*\}/g,'')});
+ await page.addStyleTag({content:(await readAppStyles()).replace(/@font-face\s*\{[^}]*\}/g,'')});
  await page.addStyleTag({content:'.workspace{display:block!important;width:100%;height:100dvh!important}.content{margin:0!important;padding:0!important;height:100%}#view-content{height:100%}#app{position:fixed;inset:0}'});
  await page.addScriptTag({content:bundle.outputFiles[0].text});
  await page.evaluate(async()=>{
@@ -67,7 +68,7 @@ try{
  await expect(page.locator('[data-fp-compose]')).toBeVisible();await expect(page.locator('[data-fp-chat-status]')).toBeHidden();
  const input=page.locator('#fp-message');await input.fill('Семейная фотография');
  await page.locator('[data-attach-chat]').click();
- await expect(page.getByRole('menu',{name:'Прикрепить'}).getByRole('menuitem')).toHaveText(['Фото или видео','Файл','Камера']);
+ await expect(page.getByRole('menu',{name:'Прикрепить'}).getByRole('menuitem')).toHaveText(['Фото или видео','Файл','Камера','Голосовое сообщение','Видеокружок']);
  const chooser=page.waitForEvent('filechooser');await page.getByRole('menuitem',{name:'Фото или видео',exact:true}).click();await(await chooser).setFiles('tests/fixtures/blue.png');
  await expect(page.locator('[data-chat-drafts] img')).toBeVisible();
  await page.locator('[data-fp-compose] [type=submit]').click();
@@ -100,12 +101,12 @@ try{
  await page.evaluate(()=>botFixture.holdUpload=false);
  for(const width of [390,320,1440])for(const scheme of ['dark','light']){
    await page.setViewportSize({width,height:844});await page.locator('html').evaluate((el,scheme)=>el.dataset.scheme=scheme,scheme);
-   const tg=await page.locator('[data-fp-compose]').evaluate(form=>({padding:getComputedStyle(form).padding,gap:getComputedStyle(form).gap,button:form.querySelector('[type=submit]').getBoundingClientRect().height,font:getComputedStyle(form.querySelector('textarea')).fontSize}));
+   const tg=await page.locator('[data-fp-compose]').evaluate(form=>({padding:getComputedStyle(form).padding,gap:getComputedStyle(form).gap,button:[...form.querySelectorAll('[type=submit],[data-recording-hold]')].find(button=>button.getClientRects().length).getBoundingClientRect().height,font:getComputedStyle(form.querySelector('textarea')).fontSize}));
    assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
    if(width===390&&scheme==='dark')await page.screenshot({path:`artifacts/telegram-composer-${engine}.png`});
    if(width<=760)await page.locator('[data-fp-back]').click();
-   await page.locator('[data-room=direct]').click();
-   const native=await page.locator('#send-message').evaluate(form=>({padding:getComputedStyle(form).padding,gap:getComputedStyle(form).gap,button:form.querySelector('[type=submit]').getBoundingClientRect().height,font:getComputedStyle(form.querySelector('textarea')).fontSize}));
+   await page.locator('[data-room=direct]').click();await page.locator('#send-message textarea').fill('Черновик');
+   const native=await page.locator('#send-message').evaluate(form=>({padding:getComputedStyle(form).padding,gap:getComputedStyle(form).gap,button:[...form.querySelectorAll('[type=submit],[data-recording-hold]')].find(button=>button.getClientRects().length).getBoundingClientRect().height,font:getComputedStyle(form.querySelector('textarea')).fontSize}));
    assert.deepEqual(tg,native,'Telegram and direct composers use identical geometry');
    if(width<=760)await page.locator('[data-chat-back]').click();
    await page.locator('[data-room="telegram:-1001"]').click();

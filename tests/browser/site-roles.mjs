@@ -1,16 +1,17 @@
+import {readAppStyles} from './fixtures.mjs';
 import assert from 'node:assert/strict';
-import {readFile,mkdir} from 'node:fs/promises';
+import {mkdir} from 'node:fs/promises';
 import {build} from 'esbuild';
 import {chromium,webkit} from 'playwright';
 import {expect} from '@playwright/test';
 const bundle=await build({entryPoints:['web/modules/admin/index.js'],bundle:true,format:'iife',globalName:'AdminWorkspace',write:false,loader:{'.css':'empty'}});
-const css=await readFile('app/static/assets/app.css','utf8');
+const css=await readAppStyles();
 const browser=await (process.env.DRG_BROWSER_ENGINE==='webkit'?webkit:chromium).launch({headless:true});
 await mkdir('artifacts',{recursive:true});
 try{
   const page=await browser.newPage({locale:'ru-RU',viewport:{width:1280,height:900}}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
-  await page.route('http://site-roles.test/**',r=>r.fulfill({body:'<div class="workspace"><main class="content"><div id="view-content"><div id="fixture"></div></div></main></div><div id="toast"></div>',contentType:'text/html'}));
+  await page.route('http://site-roles.test/**',r=>r.fulfill({body:'<div id="app" class="workspace"><main class="content"><div id="view-content"><div id="fixture"></div></div></main></div><div id="toast"></div>',contentType:'text/html'}));
   await page.goto('http://site-roles.test/');await page.addStyleTag({content:css});await page.addScriptTag({content:bundle.outputFiles[0].text});
   const mount=async viewer=>page.evaluate(viewer=>{
     window.disposeAdmin?.();document.querySelector('#fixture').innerHTML='';
@@ -22,6 +23,7 @@ try{
       if(path==='/admin/access'||path==='/admin/access/activity')return status();
       if(path==='/admin/users')return {users,can_change_roles:viewer==='owner',families:[],workspaces:[],database_bytes:0,media_bytes:0,file_bytes:0,site_total_bytes:0,note_content_bytes:0};
       if(path==='/admin/registration')return {enabled:false};
+      if(path==='/invites')return {invitations:[]};
       if(path.endsWith('/role')){
         roleChanges.push(data);const user=users.find(u=>path.includes(u.id));
         if(data.role==='admin'&&!user.two_factor)throw Error('Перед назначением администратором пользователь должен включить 2FA.');
@@ -69,7 +71,7 @@ try{
   await page.locator('[data-open-admin-user="'+'3'.repeat(32)+'"]').click();
   await expect(page.locator('[data-admin-profile]')).toBeVisible();await expect(page.locator('[data-admin-friends]')).toHaveCount(0);
   await page.locator('.modal-close').click();
-  assert.deepEqual(await page.evaluate(()=>[...new Set(rolesApiCalls)].sort()),['/admin/access','/admin/registration','/admin/users']);
+  assert.deepEqual(await page.evaluate(()=>[...new Set(rolesApiCalls)].sort()),['/admin/access','/admin/registration','/admin/users','/invites']);
   await page.screenshot({path:`artifacts/site-roles-admin-${process.env.DRG_BROWSER_ENGINE||'chromium'}.png`,fullPage:true});
   assert.deepEqual(errors,[]);console.log('Site roles passed: owner confirmation/cancel, filters, 320–1280px, restricted administrator sections and actions.');
 }finally{await browser.close();}

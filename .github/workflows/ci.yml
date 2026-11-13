@@ -107,6 +107,8 @@ jobs:
           done
       - run: npx playwright test
         if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - run: npm run test:i18n:browser
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
       - run: node tests/browser/telegram-messaging.mjs
         if: matrix.engine == 'postgres' && matrix.encryption == 'true'
       - run: node tests/browser/people-groups.mjs

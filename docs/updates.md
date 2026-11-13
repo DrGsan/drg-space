@@ -1,5 +1,11 @@
 # Updating DrG Space
 
+## 5.2.1 preview: language settings and maintenance
+
+The task module title now follows English interface settings. Floating navigation no longer overlaps the mobile reminder properties panel. Normal note/image imports and task recovery behavior remain unchanged; the removed image repair helper had no application or CLI callers. Browser regression fixtures resolve built styles through the asset manifest, localization is included in the existing opt-in CI profile, and disposable Python/browser storage is cleaned up on normal shutdown. Supported legacy clients and archive fixtures are retained.
+
+There are no schema, key, storage-format, dependency, environment, port or volume changes. No migration, clean database or replacement configuration is required. Rebuild with the existing Compose overlays. A rollback to 5.2.0 uses the same schema and seven-day recovery markers; the restrictions for downgrading below 5.2.0 still apply.
+
 ## 5.2.0: recoverable task deletion
 
 Editors can explicitly delete an issue together with its complete subtree and restore that deletion batch for seven days. Completion and cancellation remain durable and never start deletion. The dialog confirms the issue key and the current branch/project version; newly added descendants require a fresh confirmation. Deleted issues disappear from ordinary reads, edits, attachments, notifications, counts and older clients. Recovery is available in the updated web/Web App and native iOS client; older clients still exclude deleted issues from ordinary reads.

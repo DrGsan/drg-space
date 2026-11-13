@@ -1,12 +1,13 @@
+import {readAppStyles} from './fixtures.mjs';
 import assert from 'node:assert/strict';
 import {expect} from '@playwright/test';
 import {chromium,webkit} from 'playwright';
 import {build} from 'esbuild';
-import {readFile,mkdir} from 'node:fs/promises';
+import {mkdir} from 'node:fs/promises';
 
 const engine=process.env.DRG_BROWSER_ENGINE||'chromium';
 const bundle=await build({stdin:{contents:`import {inboxController} from './web/modules/notifications/index.js';inboxController.attach=()=>{};export {mountChat,chatController} from './web/modules/chat/index.js';`,resolveDir:process.cwd()},bundle:true,format:'iife',globalName:'ChatLayout',write:false,loader:{'.css':'empty'}});
-const css=(await readFile('app/static/assets/app.css','utf8')).replace(/@font-face\s*\{[^}]*\}/g,'');
+const css=(await readAppStyles()).replace(/@font-face\s*\{[^}]*\}/g,'');
 const browser=await(engine==='webkit'?webkit:chromium).launch({headless:true});
 await mkdir('artifacts',{recursive:true});
 try{

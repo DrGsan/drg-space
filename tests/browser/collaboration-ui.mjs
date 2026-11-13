@@ -1,20 +1,20 @@
+import {readAppStyles} from './fixtures.mjs';
 import {expect} from '@playwright/test';
 import {chromium,webkit} from 'playwright';
 import {build} from 'esbuild';
-import {readFile} from 'node:fs/promises';
 const bundle=await build({stdin:{contents:`export {trashPopover} from './web/modules/notes/trash.js';export {mountTelegramChat} from './web/modules/family-photos/index.js';export {inboxController} from './web/modules/notifications/index.js';`,resolveDir:process.cwd()},bundle:true,format:'iife',globalName:'Collaboration',write:false,loader:{'.css':'empty'}});
 const browser=await (process.env.DRG_BROWSER_ENGINE==='webkit'?webkit:chromium).launch({headless:true});
 try{
  const page=await browser.newPage({locale:'ru-RU',viewport:{width:1100,height:850}}),errors=[];page.on('pageerror',e=>errors.push(e.message));let avatarRequests=0;
  await page.route('http://collaboration.test/**',async route=>{if(route.request().url().includes('/people/42/avatar')){avatarRequests++;return route.fulfill({path:'tests/fixtures/blue.png',contentType:'image/png'});}if(route.request().url().includes('/portrait/'))return route.fulfill({body:'<svg xmlns="http://www.w3.org/2000/svg" width="120" height="180"><rect width="120" height="180" fill="#4d859a"/></svg>',contentType:'image/svg+xml'});if(route.request().url().includes('/emoji/'))return route.fulfill({path:'tests/fixtures/blue.png',contentType:'image/png'});return route.fulfill({body:'<html data-theme="ocean" data-scheme="dark"><head><meta charset="utf-8"></head><body><button id="open-inbox">Уведомления</button><button id="trash">Корзина</button><main id="fixture" class="chat-shell" style="height:700px"></main></body></html>',contentType:'text/html'});});
- await page.goto('http://collaboration.test/');await page.addStyleTag({content:await readFile('app/static/assets/app.css','utf8')});await page.addScriptTag({content:bundle.outputFiles[0].text});
+ await page.goto('http://collaboration.test/');await page.addStyleTag({content:await readAppStyles()});await page.addScriptTag({content:bundle.outputFiles[0].text});
  await page.evaluate(()=>{
   const stamp=Math.floor(Date.now()/1000),uid='a'.repeat(32),person={id:uid,login:'site-user',name:'Пользователь сайта'};
   const ctx=window.ctx={state:{me:{...person,settings:{}}},toast(){},navigate(){},moduleEnabled(){return true;},modal(html){const d=document.createElement('div');d.className='modal-overlay';d.innerHTML='<section class="modal" role="dialog"><button class="modal-close" aria-label="Закрыть">×</button>'+html+'</section>';d.querySelector('button').onclick=()=>d.remove();document.body.append(d);return d;},async api(path,method='GET',body){
-   if(path==='/family-photos/groups')return {items:[{id:'-1001',title:'Семейная группа'}],status:{can_send:!window.readOnly}};
+   if(path==='/family-photos/groups')return {items:[{id:'-1001',title:'Семейная группа',kind:'supergroup',can_send:!window.readOnly}],status:{bot_messaging:!window.readOnly}};
    if(path.endsWith('/reactions')){window.reactionCalls.push({path,body});return {reactions:[{emoji:body.emoji,count:1,people:[person],source:'site'}]};}
    if(path.includes('/messages'))return {items:window.rows,more:false};
-   if(path.endsWith('/outbox'))return {items:[]};
+   if(path.endsWith('/outbox')||path.endsWith('/site-sends'))return {items:[]};
    if(path==='/notifications')return {items:[{id:2,kind:'message',created:stamp,read:false,payload:{actor_profile:person,preview:'Непрочитанное сообщение'}},{id:1,kind:'session',created:stamp-86400,read:true,payload:{agent:'Mozilla/5.0 (Macintosh) Version/27.0 Safari/605',ip:'127.0.0.1'}}],unread:1};
    if(path==='/me')return ctx.state.me;
    if(path.includes('/notifications'))return {ok:true};

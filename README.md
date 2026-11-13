@@ -101,7 +101,7 @@ node --test tests/*.test.mjs
 python3 scripts/check-public-content.py
 ```
 
-The tests use disposable data. PostgreSQL tests require an explicitly supplied disposable database; never point test variables at production. Browser checks additionally require Playwright browsers. Run `npx playwright test tests/browser/workspace.spec.js` for the workspace and `node tests/browser/expense-entry.mjs` for billing entry, shares and photo galleries. The full build/test CI is opt-in until repository administrators enable automatic runs. Documentation changes have a separate lightweight content check.
+The tests use disposable data. PostgreSQL tests require an explicitly supplied disposable database; never point test variables at production. Browser checks additionally require Playwright browsers and a current `npm run build`: styles are resolved through the asset manifest. Run `npx playwright test` for the default browser suite, `npm run test:i18n:browser` for the separate language suite, and `node tests/browser/expense-entry.mjs` for billing entry, shares and photo galleries. Python fixture storage and the supervised Playwright server are removed on normal shutdown; retain the configured graceful shutdown when using a custom runner. The full build/test CI is opt-in until repository administrators enable automatic runs and includes both browser suites. Documentation changes have a separate lightweight content check.
 
 ## Release history
 

@@ -1,4 +1,8 @@
 {
+  "release5_2_1_rc_1Title": "Language settings and maintenance",
+  "release5_2_1_rc_1Change1": "The task module name follows English interface settings.",
+  "release5_2_1_rc_1Change2": "Floating navigation stays out of the way while mobile reminder settings are open.",
+  "release5_2_1_rc_1Change3": "Updated compatibility checks cover administration, messaging, mobile controls and both interface languages.",
   "release5_2_0Title": "Recoverable task deletion",
   "release5_2_0Change1": "Delete a task and its subtasks together, with seven days to restore the branch.",
   "release5_2_0Change2": "Project deletion pauses the remaining task recovery time; restoring the project resumes it.",
@@ -19,5 +23,6 @@
   "release5_0_2Title": "Consistent runtime names",
   "release5_0_2Change1": "Docker containers, images, Compose project and diagnostic labels use DrG Space names.",
   "release5_0_2Change2": "Existing data volumes can be pinned as external volumes when changing the Compose project.",
-  "release5_0_2Change3": "Downloaded backups use the DrG Space filename; existing backup formats and tokens stay compatible."
+  "release5_0_2Change3": "Downloaded backups use the DrG Space filename; existing backup formats and tokens stay compatible.",
+  "release5_2_1_rc_1Change4": "Note and image imports preserve their behavior while unused maintenance code is removed."
 }
