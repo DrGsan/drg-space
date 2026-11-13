@@ -41,7 +41,7 @@ try{
  await expect(page.locator('[data-vault-enable]')).toBeVisible();await page.locator('[data-vault-enable]').click();
  const enable=page.locator('[data-vault-form]');await enable.locator('[name=pin]').fill('1234');await enable.locator('[name=repeat]').fill('1234');await enable.locator('[name=code]').fill(confirmed.recovery_codes[0]);await enable.locator('[type=submit],button.primary').click();
  await expect(page.locator('[data-vault-change]')).toBeVisible();await expect(page.locator('[data-toggle-2fa]')).toBeDisabled();
- await appSection(page,'Заметки');await page.locator('#customize-sidebar').click();
+ await appSection(page,'Заметки');await expect(page.locator('[data-sidebar-section=secret]')).toBeVisible();await page.locator('#customize-sidebar').click();
  await expect(page.locator('[data-visible=secret]')).toBeChecked();await expect(page.getByText('Ярлыки страниц',{exact:true})).toHaveCount(0);
  await page.locator('[data-visible=secret]').uncheck();await page.locator('[data-sidebar-done]').click();await expect(page.locator('[data-sidebar-section=secret]')).toHaveCount(0);
  await page.locator('#customize-sidebar').click();await page.locator('[data-visible=secret]').check();await page.locator('[data-up=secret]').click();await page.locator('[data-up=secret]').click();

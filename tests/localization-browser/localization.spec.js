@@ -216,7 +216,7 @@ test('first registration with an English browser creates an English reminders li
   await newPage.route('**/api/widgets/*/rss',route=>route.fulfill({json:{items:[],errors:[]}}));
   await newPage.goto(invitation.url);
   await expect(newPage.locator('html')).toHaveAttribute('lang','en');
-  await newPage.locator('#auth-form [name=login]').fill('english-newcomer');
+  await expect(newPage.locator('#auth-form [name=login]')).toHaveValue('english-newcomer');
   await newPage.locator('#auth-form [name=password]').fill('Newcomer-password-123');
   const registered=newPage.waitForResponse(response=>response.url().endsWith('/api/register')&&response.request().method()==='POST');
   await newPage.locator('#auth-form button[type=submit]').click();
