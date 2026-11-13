@@ -60,6 +60,13 @@ def download():
             (root / 'stream-closed').touch()
     return StreamingResponse(chunks())
 
+@app.get('/slow-download')
+async def slow_download():
+    (root / 'slow-started').touch()
+    await asyncio.sleep(.3)
+    return StreamingResponse(iter((b'private test download',)),
+        background=lambda: (root / 'slow-closed').touch())
+
 router = Router()
 
 @router.websocket('/probe/{room}')

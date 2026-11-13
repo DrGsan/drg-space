@@ -2,12 +2,13 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.2.1-rc.1] — 2026-11-13 — Language settings and maintenance
+## [5.2.1-rc.1] — 2026-11-13 — Backup reliability and maintenance
 
 - The task module name follows English interface settings.
 - Floating navigation stays out of the way while mobile reminder settings are open.
 - Updated compatibility checks cover administration, messaging, mobile controls and both interface languages.
 - Note and image imports preserve their behavior while unused maintenance code is removed.
+- Cancelled downloads release the storage lock even before response headers arrive, so backups can proceed.
 
 - **Installation:** Rebuild with the existing Compose settings and volumes.
 - **Compatibility:** No schema, key, storage-format, dependency or environment changes; no migration is required.

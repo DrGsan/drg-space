@@ -1,5 +1,5 @@
 {
-  "release5_2_1_rc_1Title": "Language settings and maintenance",
+  "release5_2_1_rc_1Title": "Backup reliability and maintenance",
   "release5_2_1_rc_1Change1": "The task module name follows English interface settings.",
   "release5_2_1_rc_1Change2": "Floating navigation stays out of the way while mobile reminder settings are open.",
   "release5_2_1_rc_1Change3": "Updated compatibility checks cover administration, messaging, mobile controls and both interface languages.",
@@ -24,5 +24,6 @@
   "release5_0_2Change1": "Docker containers, images, Compose project and diagnostic labels use DrG Space names.",
   "release5_0_2Change2": "Existing data volumes can be pinned as external volumes when changing the Compose project.",
   "release5_0_2Change3": "Downloaded backups use the DrG Space filename; existing backup formats and tokens stay compatible.",
-  "release5_2_1_rc_1Change4": "Note and image imports preserve their behavior while unused maintenance code is removed."
+  "release5_2_1_rc_1Change4": "Note and image imports preserve their behavior while unused maintenance code is removed.",
+  "release5_2_1_rc_1Change5": "Cancelled downloads release the storage lock even before response headers arrive, so backups can proceed."
 }

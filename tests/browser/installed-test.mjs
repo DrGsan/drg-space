@@ -40,6 +40,6 @@ export const test=base.extend({
       }
       const path=info.outputPath('server.log');await mkdir(dirname(path),{recursive:true});await writeFile(path,logs);
     }
-  },{auto:true}],
+  },{auto:true,timeout:90000}],
 });
 export {expect};

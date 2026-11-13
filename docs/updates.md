@@ -1,8 +1,8 @@
 # Updating DrG Space
 
-## 5.2.1 preview: language settings and maintenance
+## 5.2.1 preview: backup reliability and maintenance
 
-The task module title now follows English interface settings. Floating navigation no longer overlaps the mobile reminder properties panel. Normal note/image imports and task recovery behavior remain unchanged; the removed image repair helper had no application or CLI callers. Browser regression fixtures resolve built styles through the asset manifest, localization is included in the existing opt-in CI profile, and disposable Python/browser storage is cleaned up on normal shutdown. Supported legacy clients and archive fixtures are retained.
+Downloads cancelled before response headers now close their responses and release storage leases, preventing subsequent backups from waiting indefinitely. The task module title now follows English interface settings. Floating navigation no longer overlaps the mobile reminder properties panel. Normal note/image imports and task recovery behavior remain unchanged; the removed image repair helper had no application or CLI callers. Browser regression fixtures resolve built styles through the asset manifest, localization is included in the existing opt-in CI profile, and disposable Python/browser storage is cleaned up on normal shutdown. Supported legacy clients and archive fixtures are retained.
 
 There are no schema, key, storage-format, dependency, environment, port or volume changes. No migration, clean database or replacement configuration is required. Rebuild with the existing Compose overlays. A rollback to 5.2.0 uses the same schema and seven-day recovery markers; the restrictions for downgrading below 5.2.0 still apply.
 
