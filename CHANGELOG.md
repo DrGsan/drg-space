@@ -2,7 +2,7 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.2.0-rc.1] — 2026-11-12 — Recoverable task deletion
+## [5.2.0] — 2026-11-13 — Recoverable task deletion
 
 - Delete a task and its subtasks together, with seven days to restore the branch.
 - Project deletion pauses the remaining task recovery time; restoring the project resumes it.

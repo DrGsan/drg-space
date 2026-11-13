@@ -1,6 +1,6 @@
 # Updating DrG Space
 
-## 5.2.0 preview: recoverable task deletion
+## 5.2.0: recoverable task deletion
 
 Editors can explicitly delete an issue together with its complete subtree and restore that deletion batch for seven days. Completion and cancellation remain durable and never start deletion. The dialog confirms the issue key and the current branch/project version; newly added descendants require a fresh confirmation. Deleted issues disappear from ordinary reads, edits, attachments, notifications, counts and older clients. Recovery is available in the updated web/Web App and native iOS client; older clients still exclude deleted issues from ordinary reads.
 
