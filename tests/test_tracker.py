@@ -33,7 +33,8 @@ def test_module_is_opt_in_and_does_not_change_reminders():
     assert task['key'] == 'DRG-1' and task['status'] == 'todo'
     assert ok(c.get('/api/tasks')) == []
     assert ok(c.get('/api/tracker/projects/' + p['id']))['retain_completed'] is True
-    assert c.delete('/api/tracker/issues/' + task['id']).status_code in (404, 405)
+    # Destructive requests require a current branch preview and confirmation.
+    assert c.delete('/api/tracker/issues/' + task['id']).status_code == 422
 
 
 def test_project_isolation_strict_fields_tree_and_conflicts():

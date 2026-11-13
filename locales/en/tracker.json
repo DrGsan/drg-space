@@ -215,5 +215,18 @@
   "field_cancellation_reason": "Cancellation reason",
   "cancelledCount_one": "{{count}} cancelled issue",
   "cancelledCount_other": "{{count}} cancelled issues",
-  "clearSearch": "Clear search"
+  "clearSearch": "Clear search",
+  "deleteIssue": "Delete task",
+  "recentlyDeletedIssues": "Recently deleted tasks",
+  "deleteIssueWarning": "Delete “{{name}}” and its entire branch ({{count}} tasks)? They will be unavailable and can be restored for 7 days. After that, tasks, comments, history and attachments are permanently removed.",
+  "confirmIssueKey": "Enter {{key}} to confirm deletion",
+  "issueKeyConfirmation": "Task key confirmation",
+  "restoreIssue": "Restore branch",
+  "deletedIssueHelp": "Deleted task branches can be restored for 7 days. Deleting a project pauses the remaining task recovery time; restoring the project resumes it. Permanent project deletion also removes every deleted task.",
+  "issueProjectRecovery": "If the project is deleted too, the remaining 7-day task timer is paused. Restoring the project resumes it; permanent project deletion removes this branch as well.",
+  "independentIssueRecovery": "Tasks deleted earlier by a separate action keep their own recovery state. Restoring a parent does not restore those tasks.",
+  "deletedIssueCount": "Tasks in branch: {{count}}",
+  "noDeletedIssues": "No recently deleted tasks.",
+  "history_issue_deletion_scheduled": "Task branch moved to recently deleted",
+  "history_issue_restored": "Task branch restored"
 }

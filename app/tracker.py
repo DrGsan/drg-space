@@ -1,7 +1,7 @@
 """Project tracker domain and authorization shared by HTTP and federation.
 
-Completed issues have no TTL. Project removal has a separate recovery period;
-individual issues have no destructive endpoint. History and counters are committed
+Completed issues have no TTL. Explicit branch deletion has seven-day recovery,
+separate from project removal. History and counters are committed
 in the same transaction as the corresponding change.
 """
 import json
@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from typing import Literal
 from app.http import HTTPError
 from app.i18n import message as localized_message
+from app.tracker_issue_lifecycle import visible
 
 IDENTITY = r'^[A-Za-z0-9_-]{16}$'
 USER = r'^[a-f0-9]{32}$'
@@ -185,7 +186,7 @@ def serialize_group(c,row,detail=False):
     if not detail:payload.pop('description',None)
     result={k:row[k] for k in ('id','project_id','position','created','updated','version')} | payload
     result['counts']={s:0 for s in STATES}
-    for r in c.execute('SELECT status,COUNT(*) n FROM tracker_issues WHERE project_id=? AND group_id=? GROUP BY status',(row['project_id'],row['id'])):result['counts'][r['status']]=r['n']
+    for r in c.execute('SELECT i.status,COUNT(*) n FROM tracker_issues i WHERE i.project_id=? AND i.group_id=? AND '+visible('i')+' GROUP BY i.status',(row['project_id'],row['id'])):result['counts'][r['status']]=r['n']
     if detail:
         result['history']=[]
         for item in c.execute('SELECT * FROM tracker_history WHERE group_id=? ORDER BY created DESC,id DESC LIMIT 50',(row['id'],)):
@@ -321,11 +322,11 @@ def serialize_project(c, row, uid, stamp, peer_id='', invitation=False, include_
     result = {key: row[key] for key in ('id', 'owner_id', 'space_id', 'created', 'updated', 'version')}
     result['viewer']={'actor_id':uid,'peer_id':peer_id}
     result.update(payload, role=actual, manage=ROLES[actual] >= ROLES['manager'], editable=ROLES[actual] >= ROLES['editor'],
-                  shared=shared, retain_completed=True, cancellation_supported=True, pending=invitation, can_delete=actual == 'owner' and not peer_id)
+                  shared=shared, retain_completed=True, cancellation_supported=True, issue_deletion_supported=True, pending=invitation, can_delete=actual == 'owner' and not peer_id)
     result['avatar_url']='/api/tracker/projects/'+row['id']+'/avatar?v='+payload['avatar_version'] if payload['has_avatar'] and not invitation else None
     if not invitation:
         result['counts'] = {state: 0 for state in STATES}
-        for item in c.execute('SELECT status,COUNT(*) AS n FROM tracker_issues WHERE project_id=? GROUP BY status', (row['id'],)):
+        for item in c.execute('SELECT i.status,COUNT(*) AS n FROM tracker_issues i WHERE i.project_id=? AND '+visible('i')+' GROUP BY i.status', (row['id'],)):
             result['counts'][item['status']] = item['n']
         if include_members:
             result['members'] = members(c, row, stamp)
@@ -375,8 +376,8 @@ def create_project(c, data, uid, stamp):
     return serialize_project(c, project_row(c, pid), uid, stamp)
 
 
-def issue_row(c, iid):
-    row = c.execute('SELECT * FROM tracker_issues WHERE id=?', (iid,)).fetchone()
+def issue_row(c, iid, *, include_deleted=False):
+    row = c.execute('SELECT i.* FROM tracker_issues i WHERE i.id=?'+('' if include_deleted else ' AND '+visible('i')), (iid,)).fetchone()
     if not row: fail(404, 'trackerIssueNotFound')
     return dict(row)
 
@@ -399,7 +400,7 @@ def status_entry_times(c, rows):
     return result
 
 
-def serialize_issue(c, row, project, stamp, *, detail=False, entry_times=None):
+def serialize_issue(c, row, project, stamp, *, detail=False, entry_times=None, delete_scope=False):
     result = {key: row[key] for key in ('id', 'project_id', 'number', 'parent_id', 'status', 'kind', 'assignee_id',
                'assignee_peer', 'author_id', 'author_peer', 'position', 'created', 'updated', 'completed_at', 'version')}
     payload = json.loads(row['payload'])
@@ -408,9 +409,12 @@ def serialize_issue(c, row, project, stamp, *, detail=False, entry_times=None):
     if not detail: payload = {key: value for key, value in payload.items() if key != 'description'}
     result.update(payload, key=json.loads(project['payload'])['key'] + '-' + str(row['number']))
     if row['kind']=='epic':
-        total,done,cancelled=c.execute("SELECT COALESCE(SUM(CASE WHEN status!='cancelled' THEN 1 ELSE 0 END),0),COALESCE(SUM(CASE WHEN status='done' THEN 1 ELSE 0 END),0),COALESCE(SUM(CASE WHEN status='cancelled' THEN 1 ELSE 0 END),0) FROM tracker_issues WHERE parent_id=?",(row['id'],)).fetchone()
+        total,done,cancelled=c.execute("SELECT COALESCE(SUM(CASE WHEN status!='cancelled' THEN 1 ELSE 0 END),0),COALESCE(SUM(CASE WHEN status='done' THEN 1 ELSE 0 END),0),COALESCE(SUM(CASE WHEN status='cancelled' THEN 1 ELSE 0 END),0) FROM tracker_issues i WHERE i.parent_id=? AND "+visible('i'),(row['id'],)).fetchone()
         result['progress']={'total':total,'done':done,'cancelled':cancelled}
     if detail:
+        if delete_scope:
+            from app.tracker_issue_lifecycle import plan
+            result['delete_scope'] = plan(c, row, project)
         result['comments'] = [dict(item) | {'person': person(c, item['actor_id'], item['peer_id'], project['owner_id'], stamp)}
                               for item in reversed(c.execute('SELECT * FROM tracker_comments WHERE issue_id=? ORDER BY created DESC,id DESC LIMIT 50', (row['id'],)).fetchall())]
         result['history'] = []
@@ -427,7 +431,7 @@ def serialize_issue(c, row, project, stamp, *, detail=False, entry_times=None):
 
 def issue_page(c, pid, uid, stamp, peer_id='', *, after=0, limit=200, group_id=None, include_cancelled=True):
     project = access(c, pid, uid, peer_id)
-    clause='' if include_cancelled else " AND status!='cancelled'";params=[pid,after]
+    clause=' AND '+visible('tracker_issues')+('' if include_cancelled else " AND status!='cancelled'");params=[pid,after]
     if group_id is not None:
         if group_id:group_row(c,group_id,pid);clause+=' AND group_id=?';params.append(group_id)
         else:clause+=' AND group_id IS NULL'
@@ -440,7 +444,7 @@ def issue_page(c, pid, uid, stamp, peer_id='', *, after=0, limit=200, group_id=N
             'view_counts':counts,'project': serialize_project(c, project, uid, stamp, peer_id)}
 
 
-def validate_relations(c, project, value, iid=None):
+def validate_relations(c, project, value, iid=None, *, include_deleted=False):
     if value.group_id:group_row(c,value.group_id,project['id'])
     if value.assignee_peer and not value.assignee_id: fail(422, 'trackerInvalidMember')
     if value.assignee_id:
@@ -450,7 +454,7 @@ def validate_relations(c, project, value, iid=None):
     while parent:
         if parent in seen or len(seen) > 20: fail(422, 'trackerInvalidParent')
         seen.add(parent)
-        row = c.execute('SELECT project_id,parent_id,group_id FROM tracker_issues WHERE id=?', (parent,)).fetchone()
+        row = c.execute('SELECT i.project_id,i.parent_id,i.group_id FROM tracker_issues i WHERE i.id=?'+('' if include_deleted else ' AND '+visible('i')), (parent,)).fetchone()
         if not row or row['project_id'] != project['id']: fail(422, 'trackerInvalidParent')
         if row['group_id']!=value.group_id:fail(422,'trackerInvalidGroup')
         parent = row['parent_id']
@@ -499,7 +503,7 @@ def create_issue(c, pid, data, uid, stamp, peer_id='', *, original_id=None, crea
     history(c, pid, iid, uid, peer_id, 'imported' if imported else 'created', {}, stamp)
     row = issue_row(c, iid)
     if not imported: notify_issue(c, project, row, uid, peer_id, 'created', stamp)
-    return serialize_issue(c, row, project, stamp, detail=True)
+    return serialize_issue(c, row, project, stamp, detail=True, delete_scope=True)
 
 
 def update_issue(c, iid, data, uid, stamp, peer_id=''):
@@ -532,7 +536,7 @@ def update_issue(c, iid, data, uid, stamp, peer_id=''):
     if data.position is not None:
         position = data.position
         if position != row['position']: difference['position'] = {'before': row['position'], 'after': position}
-    if not difference: return serialize_issue(c, row, project, stamp, detail=True)
+    if not difference: return serialize_issue(c, row, project, stamp, detail=True, delete_scope=True)
     completed = row['completed_at'] if row['status'] == 'done' and updated.status == 'done' else stamp if updated.status == 'done' else None
     result = c.execute('UPDATE tracker_issues SET parent_id=?,status=?,kind=?,assignee_id=?,assignee_peer=?,payload=?,position=?,updated=?,completed_at=?,group_id=?,version=version+1 WHERE id=? AND version=?',
                         (updated.parent_id, updated.status, updated.kind, updated.assignee_id, updated.assignee_peer, dump(issue_payload(updated)), position, stamp, completed,updated.group_id, iid, data.version))
@@ -547,7 +551,7 @@ def update_issue(c, iid, data, uid, stamp, peer_id=''):
     history(c, project['id'], iid, uid, peer_id, 'updated', difference, stamp)
     row = issue_row(c, iid)
     notify_issue(c, project, row, uid, peer_id, 'updated', stamp)
-    return serialize_issue(c, row, project, stamp, detail=True)
+    return serialize_issue(c, row, project, stamp, detail=True, delete_scope=True)
 
 
 def add_comment(c, iid, data, uid, stamp, peer_id=''):
@@ -613,6 +617,8 @@ def validate_archive(c, invalid):
     try:
         from app.tracker_lifecycle import validate_archive as validate_deletions
         validate_deletions(c, invalid)
+        from app.tracker_issue_lifecycle import validate_archive as validate_issue_deletions
+        validate_issue_deletions(c, invalid)
         if c.execute('SELECT 1 FROM tracker_history h JOIN tracker_groups g ON g.id=h.group_id WHERE h.project_id!=g.project_id LIMIT 1').fetchone():raise ValueError()
         for project in c.execute('SELECT * FROM tracker_projects'):
             project = dict(project)
@@ -625,6 +631,6 @@ def validate_archive(c, invalid):
                 value = Issue.model_validate(json.loads(row['payload']) | {k: row[k] for k in ('status','kind','parent_id','group_id','assignee_id','assignee_peer')})
                 # A former assignee remains historical data after leaving.
                 value.assignee_id = ''; value.assignee_peer = ''
-                validate_relations(c, project, value, row['id'])
+                validate_relations(c, project, value, row['id'], include_deleted=True)
                 if row['status'] != 'done' and row['completed_at'] is not None: raise ValueError()
     except (ValueError, TypeError, KeyError, HTTPError): invalid()

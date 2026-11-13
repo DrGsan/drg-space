@@ -1310,5 +1310,8 @@
   "livekitSignalingNotAccepted": "Эта комната использует LiveKit; передача параметров WebRTC не требуется.",
   "groupCallsRequireLivekit": "Для групповых звонков нужен настроенный и доступный LiveKit. Личные звонки используют coturn.",
   "legacyGuestInvitationClosed": "Это приглашение создано в прежнем формате и больше не принимает участников. Создайте новое приглашение через LiveKit.",
-  "trackerUpdateRequired": "Обновите клиент, чтобы открыть отменённую задачу."
+  "trackerUpdateRequired": "Обновите клиент, чтобы открыть отменённую задачу.",
+  "trackerIssueDeleteConfirmation": "Для подтверждения удаления введите точный ключ задачи.",
+  "trackerIssueRestoreParentFirst": "Сначала восстановите родительскую ветку задач.",
+  "trackerIssueRecoveryExpired": "Срок восстановления задачи истёк или приостановлен удалением родительских данных."
 }

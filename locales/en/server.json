@@ -1310,5 +1310,8 @@
   "livekitSignalingNotAccepted": "This room uses LiveKit; peer WebRTC signaling is not accepted.",
   "groupCallsRequireLivekit": "Group calls require a configured and available LiveKit server. Personal calls use coturn.",
   "legacyGuestInvitationClosed": "This invitation uses the previous format and no longer accepts participants. Create a new invitation using LiveKit.",
-  "trackerUpdateRequired": "Update the client to open cancelled issues."
+  "trackerUpdateRequired": "Update the client to open cancelled issues.",
+  "trackerIssueDeleteConfirmation": "Enter the exact task key to confirm deletion.",
+  "trackerIssueRestoreParentFirst": "Restore the enclosing task branch first.",
+  "trackerIssueRecoveryExpired": "The task recovery period has expired or is paused by an enclosing deletion."
 }

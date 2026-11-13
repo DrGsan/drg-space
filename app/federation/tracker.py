@@ -12,7 +12,7 @@ from app.http import HTTPError
 from app.modules.preferences import module_enabled
 from .identity import FederationError
 
-READS = {'tracker_catalog','tracker_project','tracker_page','tracker_issue_read','tracker_attachment_read','tracker_avatar_read','tracker_group_read'}
+READS = {'tracker_catalog','tracker_project','tracker_page','tracker_issue_read','tracker_attachment_read','tracker_avatar_read','tracker_group_read','tracker_deleted_issues'}
 
 
 class Address(domain.Strict):
@@ -43,6 +43,15 @@ class Update(IssueAddress):
     data: domain.IssueUpdate
 
 
+class RestoreIssue(IssueAddress):
+    version: int = Field(strict=True, ge=1)
+    project_version: int = Field(strict=True, ge=1)
+
+
+class DeleteIssue(RestoreIssue):
+    confirmation: str = Field(max_length=32)
+
+
 class Comment(IssueAddress):
     body: str = Field(min_length=1, max_length=10000)
 
@@ -71,7 +80,8 @@ MODELS = {'tracker_catalog': domain.Strict, 'tracker_project': Address, 'tracker
           'tracker_avatar_read':Address,'tracker_group_read':GroupAddress,
           'tracker_issue_read': IssueAddress, 'tracker_issue_create': Create, 'tracker_issue_update': Update,
           'tracker_comment': Comment, 'tracker_accept': Address, 'tracker_attachment_read': Attachment,
-          'tracker_upload_start': Upload, 'tracker_upload_chunk': Chunk, 'tracker_upload_finish': UploadAddress}
+          'tracker_upload_start': Upload, 'tracker_upload_chunk': Chunk, 'tracker_upload_finish': UploadAddress,
+          'tracker_deleted_issues': Address, 'tracker_issue_delete': DeleteIssue, 'tracker_issue_restore': RestoreIssue}
 
 
 def validate_payload(operation, payload):
@@ -99,7 +109,7 @@ def authorize(service, connection, peer, intent):
         if intent.operation not in READS and not pending and domain.ROLES[actual] < domain.ROLES['editor']:
             raise FederationError('resource_access_denied')
         if hasattr(payload, 'issue_id'):
-            row = domain.issue_row(c, payload.issue_id)
+            row = domain.issue_row(c, payload.issue_id, include_deleted=intent.operation in ('tracker_issue_delete','tracker_issue_restore'))
             if row['project_id'] != project['id']: raise FederationError('resource_access_denied')
         if intent.operation=='tracker_group_read':domain.group_row(c,payload.group_id,project['id'])
         if not payload.include_cancelled and (hasattr(payload,'issue_id') and row['status']=='cancelled' or hasattr(payload,'data') and getattr(payload.data,'status',None)=='cancelled'):
@@ -121,6 +131,8 @@ def execute(service, connection, peer, intent):
     c = application(connection); stamp = int(time.time()); payload = validate_payload(intent.operation, intent.payload)
     project = authorize(service, connection, peer, intent)
     if project and intent.operation not in READS:
+        if intent.operation in ('tracker_issue_delete','tracker_issue_restore'):
+            domain.lock_owner(c, project['owner_id'])
         domain.lock_project(c,project['id'])
         project = authorize(service, connection, peer, intent)
     uid, peer_id = intent.actor_id, peer.server_id
@@ -146,8 +158,17 @@ def execute(service, connection, peer, intent):
             result = domain.issue_page(c, project['id'], uid, stamp, peer_id, after=payload.after, limit=payload.limit,group_id=payload.group_id,include_cancelled=payload.include_cancelled)
             result['project'] = annotated(c, project, uid, peer_id, stamp)
             return result, None
+        if intent.operation == 'tracker_deleted_issues':
+            from app.tracker_issue_lifecycle import deleted_issues
+            return deleted_issues(c, project['id'], uid, stamp, peer_id), None
+        if intent.operation == 'tracker_issue_delete':
+            from app.tracker_issue_lifecycle import schedule
+            return {'ok': True, 'deletion': schedule(c, payload.issue_id, uid, payload.version, payload.project_version, payload.confirmation, stamp, peer_id)}, None
+        if intent.operation == 'tracker_issue_restore':
+            from app.tracker_issue_lifecycle import restore
+            return restore(c, payload.issue_id, uid, payload.version, payload.project_version, stamp, peer_id), None
         if intent.operation == 'tracker_issue_read':
-            return domain.serialize_issue(c, domain.issue_row(c, payload.issue_id), project, stamp, detail=True), None
+            return domain.serialize_issue(c, domain.issue_row(c, payload.issue_id), project, stamp, detail=True, delete_scope=domain.ROLES[domain.role(c, project, uid, peer_id)] >= domain.ROLES['editor']), None
         if intent.operation == 'tracker_issue_create':
             return domain.create_issue(c, project['id'], payload.data, uid, stamp, peer_id), None
         if intent.operation == 'tracker_issue_update':

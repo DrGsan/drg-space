@@ -5,6 +5,9 @@ Retention is a property of each data type and configured policy. A sharing deadl
 | Content | Retention behavior |
 | --- | --- |
 | Ordinary notes, files, projects and reminders | Retained until explicitly deleted or covered by an enabled retention policy |
+| Completed or cancelled project-tracker issues | Retained indefinitely; status changes never start a deletion clock |
+| Explicitly deleted tracker issue branches | Seven days to restore the deletion batch; enclosing project deletion pauses the remaining time |
+| Explicitly deleted tracker projects | Thirty days to restore; final cleanup removes tasks, history and attachments, including paused issue deletions |
 | Deleted notes | Kept in the note trash for its retention period; the current default is 30 days |
 | Files scheduled for disposal | Moved to file trash after the confirmed policy becomes due; file trash lasts seven days |
 | Temporary messages, expense records and access grants | Follow their module-specific expiry settings |

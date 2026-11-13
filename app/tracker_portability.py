@@ -49,7 +49,10 @@ def snapshot(c, uid, stamp):
                    'source_shared': visible['shared'], 'created': row['created'], 'updated': row['updated'], 'issues': [],'groups':[]}
         for group in c.execute('SELECT * FROM tracker_groups WHERE project_id=? ORDER BY position,id',(row['id'],)):
             project['groups'].append(json.loads(group['payload']) | {k:group[k] for k in ('id','position','created','updated')})
-        for issue in c.execute('SELECT * FROM tracker_issues WHERE project_id=? ORDER BY number', (row['id'],)):
+        # Only the owner may copy retained deleted content. Other members must
+        # not bypass the issue recovery boundary through a personal export.
+        clause = '' if row['owner_id'] == uid else ' AND ' + tracker.visible('tracker_issues')
+        for issue in c.execute('SELECT * FROM tracker_issues WHERE project_id=?'+clause+' ORDER BY number', (row['id'],)):
             value = json.loads(issue['payload']) | {key: issue[key] for key in ('id','number','parent_id','group_id','status','kind','created','updated','completed_at')}
             value.update(assignee_id='', assignee_peer='')
             value['comments'] = [dict(comment) for comment in c.execute("SELECT id,body,created FROM tracker_comments WHERE issue_id=? AND actor_id=? AND peer_id='' ORDER BY created,id", (issue['id'], uid))]

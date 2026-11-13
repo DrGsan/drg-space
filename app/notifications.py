@@ -92,7 +92,8 @@ class InboxView:
             try:
                 project=project_row(c,data.get('project_id',''))
                 if not role(c,project,uid,pending=kind=='tracker_invitation'):return False
-                if kind=='tracker' and not c.execute('SELECT 1 FROM tracker_issues WHERE id=? AND project_id=?',(data.get('issue_id',''),project['id'])).fetchone():return False
+                from app.tracker_issue_lifecycle import visible
+                if kind=='tracker' and not c.execute('SELECT 1 FROM tracker_issues i WHERE i.id=? AND i.project_id=? AND '+visible('i'),(data.get('issue_id',''),project['id'])).fetchone():return False
             except HTTPError:return False
         if kind=='security' and (not self.user or self.user['role']!='owner'):return False
         if kind=='family_export_ready':

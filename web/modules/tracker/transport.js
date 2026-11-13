@@ -60,6 +60,9 @@ export class TrackerTransport{
  }
  async deleteProject(project,confirmation){return this.ctx.api('/tracker/projects/'+part(project.id),'DELETE',{version:project.version,confirmation});}
  async restoreProject(project){return this.ctx.api('/tracker/projects/'+part(project.id)+'/restore','POST',{version:project.version});}
+ async deletedIssues(project){return project.remote?this.call(project,'tracker_deleted_issues'):this.ctx.api('/tracker/projects/'+part(project.id)+'/deleted-issues');}
+ async deleteIssue(project,item,confirmation){const data={version:item.version,project_version:item.delete_scope.project_version,confirmation};return project.remote?this.call(project,'tracker_issue_delete',{issue_id:item.id,...data}):this.ctx.api('/tracker/issues/'+part(item.id),'DELETE',data);}
+ async restoreIssue(project,item,projectVersion){const data={version:item.version,project_version:projectVersion};return project.remote?this.call(project,'tracker_issue_restore',{issue_id:item.id,...data}):this.ctx.api('/tracker/issues/'+part(item.id)+'/restore','POST',data);}
  async upload(project,id,file){
   if(file.size>50*1024*1024)throw new Error(tText('tracker:attachmentHelp'));
   if(!project.remote)return this.ctx.api('/tracker/issues/'+part(id)+'/attachments?name='+part(file.name),'POST',file);
