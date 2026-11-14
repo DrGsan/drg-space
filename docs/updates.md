@@ -1,5 +1,11 @@
 # Updating DrG Space
 
+## 5.2.2-rc.1: stable Drive folder navigation (preview)
+
+Drive keeps its navigation and tools mounted while opening folders. The current folder remains visible with a local loading status until the requested folder is ready. Folder navigation remains available while file changes are disabled; an error preserves the current view and restores its controls. Delayed responses cannot replace a more recently selected folder. Folder names, file contents, permissions, layout settings and storage are unchanged.
+
+There are no schema, key, storage-format, dependency, environment, port or volume changes. No migration, clean database or replacement configuration is required. Rebuild with the existing Compose overlays. Rolling back to 5.2.1 requires no data changes; restrictions for downgrading below 5.2.0 still apply.
+
 ## 5.2.1: backup reliability and maintenance
 
 Downloads cancelled before response headers now close their responses and release storage leases, preventing subsequent backups from waiting indefinitely. The task module title now follows English interface settings. Floating navigation no longer overlaps the mobile reminder properties panel. Normal note/image imports and task recovery behavior remain unchanged; the removed image repair helper had no application or CLI callers. Browser regression fixtures resolve built styles through the asset manifest, localization is included in the existing opt-in CI profile, and disposable Python/browser storage is cleaned up on normal shutdown. Supported legacy clients and archive fixtures are retained.

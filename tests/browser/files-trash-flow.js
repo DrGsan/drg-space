@@ -19,6 +19,10 @@ export async function filesTrashFlow(page){
   await page.getByLabel('Название папки',{exact:true}).fill('Корзина browser');
   await page.getByLabel('Название папки',{exact:true}).press('Enter');
   await page.locator('.file-open').filter({hasText:'Корзина browser'}).click();
+  // Folder navigation retains the old input while loading; setInputFiles does
+  // not wait for disabled inputs the way a user's file-picker click does.
+  await expect(page.locator('.drive-heading h2')).toHaveText('Корзина browser');
+  await expect(page.locator('[data-upload-files]')).toBeEnabled();
   await page.locator('[data-upload-files]').setInputFiles({name:'trash.txt',mimeType:'text/plain',buffer:Buffer.from('Recoverable file contents')});
   await expect(page.locator('.file-list')).toContainText('trash.txt');
   const active=await api(page,'/files'),folder=active.items.find(item=>item.name==='Корзина browser');
