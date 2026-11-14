@@ -1,5 +1,11 @@
 # Updating DrG Space
 
+## 5.2.4-rc.1: reactions below media (preview)
+
+Photo and album reactions use a separate strip below the message background in built-in chats and Media history, including the installed Web App. Captions, quoted replies, documents and timestamps remain in the content bubble. Empty reaction strips reserve no space; multiple reactions wrap without overlapping the next message. Existing reaction actions, participants, permissions and synchronization are unchanged.
+
+There are no schema, key, storage-format, dependency, environment, port or volume changes. No migration or clean database is required. Rebuild with the existing Compose overlays. Rolling back to 5.2.3 requires no data changes; restrictions for downgrading below 5.2.0 still apply.
+
 ## 5.2.3: easier access to sharing links
 
 The file/folder sharing dialog opens on existing links when they are present. Each link has a readable address, copy/open/revoke actions, its expiry and the existing download-limit controls. Creating another link uses a separate tab and preserves the draft when switching tabs. An object with neither links nor disposal settings opens directly on the creation form. Clipboard restrictions leave the address selected for manual copying. Loading failures have a local retry; after a successful creation, a failed list refresh does not require resubmitting the form.

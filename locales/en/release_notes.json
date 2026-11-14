@@ -1,4 +1,7 @@
 {
+  "release5_2_4_rc_1Title": "Reactions below photos and albums",
+  "release5_2_4_rc_1Change1": "Show reactions below photos and albums without extending the message background.",
+  "release5_2_4_rc_1Change2": "Keep captions and timestamps inside the message while reactions wrap on narrow screens.",
   "release5_2_3Title": "Easier access to sharing links",
   "release5_2_3Change1": "See existing file and folder links first, with readable addresses and copy buttons.",
   "release5_2_3Change2": "Create another link in a separate tab without losing the form settings.",
