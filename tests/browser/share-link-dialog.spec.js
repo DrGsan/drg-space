@@ -9,8 +9,8 @@ function totp(secret){
   return String((hash.readUInt32BE(hash[19]&15)&0x7fffffff)%1000000).padStart(6,'0');
 }
 
-for(const width of [1280,390])for(const language of ['ru','en']){
-  test(`owner manages existing share links before creating another (${width}, ${language})`,async({page},info)=>{
+for(const {width,standalone} of [{width:1280},{width:390},{width:390,standalone:true}])for(const language of ['ru','en']){
+  test(`owner manages existing share links before creating another (${width}, ${language}${standalone?', Web App':''})`,async({page},info)=>{
     test.setTimeout(90000);
     const origin='http://127.0.0.1:8001',password='Sharing-dialog-isolated-123';let csrf='';
     const errors=[];page.on('pageerror',error=>errors.push(error.message));
@@ -25,7 +25,14 @@ for(const width of [1280,390])for(const language of ['ru','en']){
     const folder=await api('/files/folders',{name:'Shared documents'}),empty=await api('/files/folders',{name:'No links'});
     const first=await api('/files/'+folder.id+'/shares',{mode:'public',duration:2,unit:'days',download_limit:10});
     const second=await api('/files/'+folder.id+'/shares',{mode:'password',password:'Shared-secret-123',duration:1,unit:'days'});
-    await page.setViewportSize({width,height:900});await page.goto('/');await page.locator('.sidebar [data-view=files]').click();
+    if(standalone)await page.context().addInitScript(()=>Object.defineProperty(navigator,'standalone',{configurable:true,value:true}));
+    await page.setViewportSize({width,height:standalone?844:900});await page.goto('/');
+    if(standalone){
+      await expect(page.locator('html')).toHaveClass(/app-standalone/);
+      await page.locator('[data-mobile-view=settings]').click();
+      await page.locator('.mobile-section-links [data-mobile-open=files]').click();
+      await expect(page.locator('.drive-mobile-tabs')).toBeVisible();
+    }else await page.locator('.sidebar [data-view=files]').click();
     const dialog=page.locator('.file-share-dialog'),links=()=>dialog.locator('[data-share-tab=links]'),create=()=>dialog.locator('[data-share-tab=create]');
     async function open(id){await page.locator('[data-file-menu="'+id+'"]').click();await page.locator('[data-file-share]').click();await expect(dialog).toBeVisible();}
     async function close(){await dialog.locator('.modal-close').click();await expect(dialog).toHaveCount(0);}
