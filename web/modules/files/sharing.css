@@ -13,4 +13,4 @@
 .file-share-budget{display:flex;gap:8px 14px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:10px;color:var(--muted)}
 .file-share-dialog [data-file-share-result]:empty{display:none}
 .file-share-dialog [data-file-share-result]{color:var(--muted);margin:0 0 12px}
-@media(max-width:600px){.file-share-tabs>button{flex:1;white-space:normal}.file-share-dialog .file-share-link input[data-share-url]{font-size:16px}.file-share-link-actions>button,.file-share-link-actions>a,.file-share-budget>button{min-height:44px}.file-share-budget{align-items:flex-start;flex-direction:column}}
+@media(max-width:600px){.file-share-dialog .modal{padding:26px 20px}.file-share-tabs{flex-wrap:nowrap}.file-share-tabs>button{flex:1 1 auto;white-space:nowrap;font-size:13px;padding:10px 8px}.file-share-dialog .file-share-link input[data-share-url]{font-size:16px}.file-share-link-actions>button,.file-share-link-actions>a,.file-share-budget>button{min-height:44px}.file-share-budget{align-items:flex-start;flex-direction:column}}

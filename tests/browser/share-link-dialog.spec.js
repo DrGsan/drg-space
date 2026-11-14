@@ -34,6 +34,12 @@ for(const width of [1280,390])for(const language of ['ru','en']){
     const row=dialog.locator('[data-share-id="'+first.token+'"]'),url=row.locator('[data-share-url]');
     await expect(url).toHaveValue(first.url);await expect(row.locator('strong')).not.toHaveText('public');
     expect(await links().evaluate(el=>el.getBoundingClientRect().bottom<=el.closest('.modal').getBoundingClientRect().bottom)).toBe(true);
+    for(const scheme of ['light','dark']){
+      await page.evaluate(scheme=>document.documentElement.dataset.scheme=scheme,scheme);
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      expect(await dialog.locator('.modal').evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+      await page.screenshot({path:info.outputPath('links-'+scheme+'.png'),fullPage:true});
+    }
     await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>window.copiedShare=value}}));
     await row.locator('[data-copy-file-share]').click();expect(await page.evaluate(()=>window.copiedShare)).toBe(first.url);
     await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw Error('Clipboard denied');}}}));
@@ -54,12 +60,6 @@ for(const width of [1280,390])for(const language of ['ru','en']){
     await row.locator('[data-limit]').click();const limit=page.locator('[data-limit-form]');await limit.locator('[name=limit]').fill('12');await limit.locator('button').click();
     await expect(row).toContainText('12');
     await dialog.locator('[data-revoke-file-share="'+second.token+'"]').click();await expect(dialog.locator('[data-share-id]')).toHaveCount(2);
-    for(const scheme of ['light','dark']){
-      await page.evaluate(scheme=>document.documentElement.dataset.scheme=scheme,scheme);
-      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
-      expect(await dialog.locator('.modal').evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
-      await page.screenshot({path:info.outputPath('links-'+scheme+'.png'),fullPage:true});
-    }
     await close();
 
     const fail=route=>route.fulfill({status:503,json:{detail:'Links temporarily unavailable'}});
