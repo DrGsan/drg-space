@@ -288,5 +288,11 @@
   "shareExhaustedShort": "Download limit reached",
   "shareRecipientHint": "One file or ZIP counts as one download. The limit is shared by all recipients.",
   "shareRemaining_one": "Downloads remaining: {{remaining}} of {{limit}}",
-  "shareRemaining_other": "Downloads remaining: {{remaining}} of {{limit}}"
+  "shareRemaining_other": "Downloads remaining: {{remaining}} of {{limit}}",
+  "shareDialogSections": "Sharing management",
+  "shareLoadingLinks": "Loading links…",
+  "shareLinkAddress": "Link address",
+  "shareNoActiveLinks": "No active links yet.",
+  "shareLinkCreated": "Link created.",
+  "shareRetryLinks": "Retry loading"
 }

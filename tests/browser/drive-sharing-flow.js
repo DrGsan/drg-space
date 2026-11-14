@@ -13,9 +13,11 @@ export async function driveSharingFlow(page,csrf,origin){
  await page.locator('[data-file-menu="'+folder.id+'"]').click();await page.locator('[data-file-share]').click();
  const links=[];
  for(let i=0;i<2;i++){
+  await page.locator('[data-share-tab=create]').click();
   await page.locator('[data-file-share-form] button[type=submit]').click();
   await expect(page.locator('[data-file-share-list] .share-row')).toHaveCount(i+1);
-  links.push(await page.locator('[data-file-share-result] input').inputValue());
+  const urls=await page.locator('[data-file-share-list] [data-share-url]').evaluateAll(inputs=>inputs.map(input=>input.value));
+  links.push(urls.find(url=>!links.includes(url)));expect(links.at(-1)).toBeTruthy();
  }
  await page.locator('.modal-close').click();expect(links[0]).not.toBe(links[1]);
  const context=await page.context().browser().newContext(),guest=await context.newPage(),errors=[];guest.on('pageerror',e=>errors.push(e.message));

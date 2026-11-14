@@ -43,7 +43,7 @@ export function modal(html, {motion = false} = {}) {
     if (e.key === "Tab") {
       const items = [
         ...overlay.querySelectorAll("button,input,select,textarea,a[href]"),
-      ].filter((x) => !x.disabled && !x.hidden);
+      ].filter((x) => !x.disabled && x.tabIndex >= 0 && !x.closest('[inert]') && x.getClientRects().length);
       const first = items[0],
         last = items.at(-1);
       if (e.shiftKey && document.activeElement === first) {

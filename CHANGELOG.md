@@ -2,6 +2,15 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.2.3] — 2026-11-14 — Easier access to sharing links
+
+- See existing file and folder links first, with readable addresses and copy buttons.
+- Create another link in a separate tab without losing the form settings.
+- Retry loading links after an error and navigate the dialog with the keyboard.
+
+- **Installation:** Rebuild with the existing Compose settings and volumes.
+- **Compatibility:** No schema, key, storage-format, dependency or environment changes; no migration is required.
+
 ## [5.2.2] — 2026-11-14 — Stable Drive folder navigation
 
 - Keep Drive navigation and tools visible while opening folders.
