@@ -1,8 +1,8 @@
 {
-  "release5_2_3_rc_1Title": "Easier access to sharing links",
-  "release5_2_3_rc_1Change1": "See existing file and folder links first, with readable addresses and copy buttons.",
-  "release5_2_3_rc_1Change2": "Create another link in a separate tab without losing the form settings.",
-  "release5_2_3_rc_1Change3": "Retry loading links after an error and navigate the dialog with the keyboard.",
+  "release5_2_3Title": "Easier access to sharing links",
+  "release5_2_3Change1": "See existing file and folder links first, with readable addresses and copy buttons.",
+  "release5_2_3Change2": "Create another link in a separate tab without losing the form settings.",
+  "release5_2_3Change3": "Retry loading links after an error and navigate the dialog with the keyboard.",
   "release5_2_2Title": "Stable Drive folder navigation",
   "release5_2_2Change1": "Keep Drive navigation and tools visible while opening folders.",
   "release5_2_2Change2": "Show folder loading errors without discarding the current view.",
