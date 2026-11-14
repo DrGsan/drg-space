@@ -1,6 +1,6 @@
 # Updating DrG Space
 
-## 5.2.2-rc.1: stable Drive folder navigation (preview)
+## 5.2.2: stable Drive folder navigation
 
 Drive keeps its navigation and tools mounted while opening folders. The current folder remains visible with a local loading status until the requested folder is ready. Folder navigation remains available while file changes are disabled; an error preserves the current view and restores its controls. Delayed responses cannot replace a more recently selected folder. Folder names, file contents, permissions, layout settings and storage are unchanged.
 
