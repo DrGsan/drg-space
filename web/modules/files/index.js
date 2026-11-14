@@ -16,42 +16,79 @@ import {$,esc,date,formBind,bytes} from '../../core/ui.js';
 import {mountVault,vaultController,moveIntoVault} from '../security/vault.js';
 export {bytes};
 export async function mountFiles(host,ctx){
-  let parent=ctx.state.fileFolder||null,view=ctx.state.fileTrash?'trash':ctx.state.fileView||'active',sequence=0,busy=false;
-  let sort=view==='recent'?'updated':'name',layout=ctx.state.fileLayout||'list',transfer=null,deadlineWatch;
+  let location={parent:ctx.state.fileFolder||null,view:ctx.state.fileTrash?'trash':ctx.state.fileView||'active'};
+  let sequence=0,renderedSequence=0,busy=false,loading=false,pendingLocation,restoreView,pendingControls;
+  let sort=location.view==='recent'?'updated':'name',layout=ctx.state.fileLayout||'list',transfer=null,deadlineWatch;
   const heading=document.createElement('header');heading.className='drive-workspace-header';
   heading.innerHTML='<button type=button id=files-main-menu aria-label="'+(mobileApp()?tText("files:backToSettings"):tText("files:mainMenu"))+'">'+icon('back')+'<span>'+(mobileApp()?tText("files:back"):tText("files:mainMenu"))+'</span></button><h1>'+driveBrand()+'</h1>'+(ctx.notesInboxButton||'');
   $('#files-main-menu',heading).onclick=()=>ctx.navigate(mobileApp()?'settings':'home');
   const lifecycle=new MutationObserver(()=>{if(!heading.isConnected){deadlineWatch?.destroy();lifecycle.disconnect();}});
   lifecycle.observe(host.closest('.workspace')?.parentElement||host,{childList:true});
   const show=markup=>{
-    closeDriveMenu();host.replaceChildren(heading);host.insertAdjacentHTML('beforeend',markup);inboxController.attach(ctx);
+    closeDriveMenu();
+    const template=document.createElement('template');template.innerHTML=markup;
+    const panel=$('.drive-panel',host),next=$('.drive-panel',template.content);
+    if(panel&&next){
+      panel.dataset.driveView=next.dataset.driveView;
+      // A retained panel must not keep handlers from the previous file view.
+      panel.ondragover=panel.ondragleave=panel.ondrop=null;
+      // Keep the workspace geometry and mounted panels while committing a response.
+      for(const selector of ['.drive-sidebar','.drive-main']){
+        const current=$(selector,panel),replacement=$(selector,next);
+        if(selector==='.drive-main'&&$('.file-list',current)&&$('.file-list',replacement)){
+          for(const child of [...current.children]){
+            if(child===transfer?.el)continue;
+            const incoming=[...replacement.children].find(el=>el.className===child.className);
+            if(incoming)child.replaceChildren(...incoming.childNodes);
+          }
+        }else current.replaceChildren(...replacement.childNodes);
+      }
+      panel.removeAttribute('aria-busy');
+    }else{
+      host.replaceChildren(heading,template.content);inboxController.attach(ctx);
+    }
     const workspace=host.closest('.workspace'),nav=$('.files-view-tabs',host);
     if(workspace&&nav){
-      $('.drive-mobile-tabs',workspace)?.remove();
-      const bottom=nav.cloneNode(true);bottom.className='mobile-app-tabs drive-mobile-tabs';
-      $('[data-files-view=trash]>span',bottom).textContent=tText("files:trash");
-      bottom.querySelectorAll('[data-files-view]').forEach(button=>{button.dataset.mobileFilesView=button.dataset.filesView;button.removeAttribute('data-files-view');});
-      bottom.querySelector('.file-trash-count')?.remove();workspace.append(bottom);
+      const nextBottom=nav.cloneNode(true);nextBottom.className='mobile-app-tabs drive-mobile-tabs';
+      $('[data-files-view=trash]>span',nextBottom).textContent=tText("files:trash");
+      nextBottom.querySelectorAll('[data-files-view]').forEach(button=>{button.dataset.mobileFilesView=button.dataset.filesView;button.removeAttribute('data-files-view');});
+      nextBottom.querySelector('.file-trash-count')?.remove();
+      const bottom=$('.drive-mobile-tabs',workspace);
+      if(bottom)bottom.replaceChildren(...nextBottom.childNodes);else workspace.append(nextBottom);
     }
     if(transfer){const panel=$('.drive-panel',host);if(panel){panel.classList.add('has-transfer');panel.append(transfer.el);}}
   };
-  const load=async()=>{
+  const load=async(request=location)=>{
     if(sequence&&!heading.isConnected)return;
+    const {parent,view}=request;
+    if(loading&&pendingLocation?.parent===parent&&pendingLocation?.view===view)return;
+    pendingLocation={parent,view};loading=true;
     deadlineWatch?.destroy();deadlineWatch=null;
-    const seq=++sequence;ctx.state.fileFolder=parent;ctx.state.fileTrash=view==='trash';ctx.state.fileView=view;
-    vaultController.destroy();
-    show(`<p class=drive-loading>${tHtml("files:uploadingFiles")}</p>`);
+    const seq=++sequence,panel=$('.drive-panel',host);
+    closeDriveMenu();
+    if(panel){
+      busy=true;panel.setAttribute('aria-busy','true');
+      pendingControls??=new Map([...panel.querySelectorAll('button,input,select')].map(el=>[el,el.disabled]));
+      const status=$('[data-file-status]',panel);if(status)status.textContent=tText('files:uploadingFiles');
+      panel.querySelectorAll('button,input,select').forEach(el=>{
+        if(!el.closest('.drive-transfer'))el.disabled=!el.matches('[data-files-view],[data-folder],[data-open-file]')||el.matches('[data-open-file]')&&el.closest('[data-file-kind]')?.dataset.fileKind!=='folder';
+      });
+    }else show(`<p class=drive-loading role=status>${tHtml("files:uploadingFiles")}</p>`);
     try{
       const trash=view==='trash',data=await ctx.api(trash?'/files/trash':'/files?view='+(view==='secret'?'active':view)+(view==='active'&&parent?'&parent_id='+encodeURIComponent(parent):''));
+      if(!heading.isConnected||seq!==sequence)return;
       if(trash){const status=await ctx.api('/secret-vault');data.secret_enabled=status.enabled;}
       if(!heading.isConnected||seq!==sequence)return;busy=false;
+      loading=false;pendingLocation=null;pendingControls=null;renderedSequence=seq;location={parent,view};
+      ctx.state.fileFolder=parent;ctx.state.fileTrash=trash;ctx.state.fileView=view;
+      vaultController.destroy();restoreView=null;
       const selected=new Set(),showError=e=>ctx.toast(e.message),targetParent=view==='active'?parent:null;
       show(driveShell(data,view,parent));
       if(view==='secret'){
         const bottom=host.closest('.workspace')?.querySelector('.drive-mobile-tabs');
-        [...host.querySelectorAll('[data-files-view]'),...(bottom?.querySelectorAll('[data-mobile-files-view]')||[])].forEach(b=>b.onclick=()=>{view=b.dataset.filesView||b.dataset.mobileFilesView;parent=null;load();});
+        [...host.querySelectorAll('[data-files-view]'),...(bottom?.querySelectorAll('[data-mobile-files-view]')||[])].forEach(b=>b.onclick=()=>load({view:b.dataset.filesView||b.dataset.mobileFilesView,parent:null}));
         if(data.secret_enabled)mountVault($('.drive-main',host),ctx,'files');
-        else{view='active';load();}
+        else load({view:'active',parent:null});
         return;
       }
       const panel=$('.drive-panel',host),list=$('.file-list',host),sorting=$('[data-files-sort]',host);
@@ -59,9 +96,9 @@ export async function mountFiles(host,ctx){
       const updateSort=()=>sorting.textContent=sortLabels[sort];updateSort();
       const status=message=>{const el=$('[data-file-status]',host);if(el)el.textContent=message;};
       const bottom=host.closest('.workspace')?.querySelector('.drive-mobile-tabs');
-      const lock=value=>{busy=value;panel.setAttribute('aria-busy',String(value));panel.querySelectorAll('button,input,select').forEach(el=>{if(!el.closest('.drive-transfer'))el.disabled=value;});bottom?.querySelectorAll('button').forEach(el=>el.disabled=value);if(!value){syncSelection();deadlineWatch?.resume();}};
-      const navigate=id=>{if(busy)return;parent=id||null;view='active';load();};
-      [...host.querySelectorAll('[data-files-view]'),...(bottom?.querySelectorAll('[data-mobile-files-view]')||[])].forEach(b=>b.onclick=()=>{if(busy)return;view=b.dataset.filesView||b.dataset.mobileFilesView;parent=null;sort=view==='recent'?'updated':'name';load();});
+      const lock=value=>{if(seq!==renderedSequence)return;busy=value;panel.setAttribute('aria-busy',String(value));panel.querySelectorAll('button,input,select').forEach(el=>{if(!el.closest('.drive-transfer'))el.disabled=value;});bottom?.querySelectorAll('button').forEach(el=>el.disabled=value);if(!value){syncSelection();deadlineWatch?.resume();}};
+      const navigate=id=>{if(busy&&!loading)return;load({parent:id||null,view:'active'});};
+      [...host.querySelectorAll('[data-files-view]'),...(bottom?.querySelectorAll('[data-mobile-files-view]')||[])].forEach(b=>b.onclick=()=>{if(busy&&!loading)return;const view=b.dataset.filesView||b.dataset.mobileFilesView;sort=view==='recent'?'updated':'name';load({view,parent:null});});
       host.querySelectorAll('[data-folder]').forEach(b=>b.onclick=()=>navigate(b.dataset.folder));
       const visibleItems=()=>[...data.items].sort((a,b)=>{
         if(sort==='updated')return b.updated-a.updated||a.name.localeCompare(b.name,locale());
@@ -71,8 +108,8 @@ export async function mountFiles(host,ctx){
       const refreshItems=async(quiet=false)=>{
         let next;
         try{next=await ctx.api(trash?'/files/trash':'/files?view='+view+(view==='active'&&parent?'&parent_id='+encodeURIComponent(parent):''));}
-        catch(error){if(quiet&&error.status===404&&view==='active'&&parent){parent=data.breadcrumbs.at(-2)?.id||null;await load();return;}throw error;}
-        if(seq!==sequence||!list.isConnected||quiet&&(busy||editing))return;
+        catch(error){if(quiet&&error.status===404&&view==='active'&&parent&&seq===renderedSequence&&!loading){await load({view,parent:data.breadcrumbs.at(-2)?.id||null});return;}throw error;}
+        if(seq!==renderedSequence||loading||!list.isConnected||quiet&&(busy||editing))return;
         const previous=new Map(data.items.map(f=>[f.id,f]));
         data.items=next.items.map(f=>Object.assign(previous.get(f.id)||{},{delete_at:null,retention_version:null,retention_blocked:false,shared_until:undefined},f));
         for(const id of selected)if(!next.items.some(f=>f.id===id))selected.delete(id);
@@ -81,7 +118,7 @@ export async function mountFiles(host,ctx){
         const count=$('.file-trash-count',host);if(count)count.textContent=trash?data.items.length:next.trash_count||0;
       };
       const syncSelection=()=>{
-        if(seq!==sequence)return;
+        if(seq!==renderedSequence)return;
         list.querySelectorAll('[data-file-row]').forEach(row=>{const checked=selected.has(row.dataset.fileRow);row.classList.toggle('is-selected',checked);const input=$('[data-select-file]',row);if(input)input.checked=checked;});
         $('[data-file-summary]',host).textContent=tText("files:objects2", {value0:(selected.size?(""+tText("files:selected", {value0:(selected.size)})+" "):''), value1:(visibleItems().length)});
         for(const attr of ['download','delete','share','more','send']){const button=$('[data-'+attr+'-selected]',host);if(button)button.disabled=busy||(['share','more','send'].includes(attr)?selected.size!==1:!selected.size);}
@@ -144,7 +181,7 @@ export async function mountFiles(host,ctx){
           saving=true;lock(true);
           try{
             const result=draft?await ctx.api('/files/folders','POST',{name,parent_id:targetParent}):await ctx.api('/files/'+f.id,'PATCH',{name,version:f.version});
-            if(seq!==sequence||!list.isConnected)return;
+            if(seq!==renderedSequence||!list.isConnected)return;
             const {quota,...item}=result;if(quota){data.quota=quota;$('.drive-storage',host).innerHTML=driveStorage(quota);}
             if(draft)data.items.push(item);else Object.assign(f,item);
             editing=false;render();
@@ -179,7 +216,7 @@ export async function mountFiles(host,ctx){
         row.querySelector('.file-open')?.insertAdjacentHTML('beforeend',driveSharingBadges(f));row.dataset.sharingKey=sharingKey(f);
       };
       const updateSharing=({id,shares,retention})=>{
-        if(seq!==sequence||!list.isConnected)return;
+        if(seq!==renderedSequence||!list.isConnected)return;
         // Reuse the dialog responses; keep the workspace, thumbnails and selection mounted.
         const schedules=new Map(retention.map(f=>[f.id,f]));
         const added=retention.map(f=>f.delete_at).filter(Number.isFinite);if(added.length)data.refresh_at=Math.min(data.refresh_at??Infinity,...added);
@@ -218,7 +255,7 @@ export async function mountFiles(host,ctx){
           const select=()=>{selected.has(f.id)?selected.delete(f.id):selected.add(f.id);syncSelection();};
           $('[data-select-file]',row).onchange=select;
           row.onclick=e=>{if(!busy&&!e.target.closest('button,input')){if(!e.metaKey&&!e.ctrlKey)selected.clear();select();}};
-          $('[data-open-file]',row).onclick=()=>{if(!busy&&!editing)open(f);};
+          $('[data-open-file]',row).onclick=()=>{if((!busy||loading&&f.kind==='folder')&&!editing)open(f);};
           $('[data-file-menu]',row).onclick=e=>{selected.clear();selected.add(f.id);syncSelection();menu(f,e.currentTarget);};
           row.oncontextmenu=e=>{e.preventDefault();selected.clear();selected.add(f.id);syncSelection();menu(f,$('[data-file-menu]',row));};
           row.ondragstart=e=>{
@@ -236,7 +273,11 @@ export async function mountFiles(host,ctx){
         const deadlines=[data.refresh_at,...data.items.flatMap(f=>[f.delete_at,f.shared_until])].filter(Number.isFinite);
         deadlineWatch?.set(deadlines.length?Math.min(...deadlines):null);
       };
-      if(!trash){deadlineWatch=watchFileDeadlines({connected:()=>heading.isConnected&&seq===sequence,blocked:()=>busy||editing,refresh:()=>refreshItems(true)});deadlineWatch.set(data.refresh_at??null,data.server_time);}
+      const startDeadlines=()=>{
+        if(trash)return;
+        deadlineWatch=watchFileDeadlines({connected:()=>heading.isConnected&&seq===renderedSequence,blocked:()=>busy||editing||loading,refresh:()=>refreshItems(true)});deadlineWatch.set(data.refresh_at??null,data.server_time);planRefresh();
+      };
+      restoreView=()=>{syncSelection();startDeadlines();};startDeadlines();
       sorting.onclick=()=>driveMenu(sorting,Object.entries(sortLabels).map(([value,label])=>({label:({name:tText("files:name"),updated:tText("files:date"),size:tText("files:size"),kind:tText("files:type")})[value],icon:({name:'file',updated:'recent',size:'archive',kind:'properties'})[value],checked:sort===value,attr:'data-sort-option='+value,action:()=>{sort=value;updateSort();render();}})),tText("files:sorting"));
       const layoutButton=$('[data-drive-layout]',host);
       const updateLayout=()=>layoutButton.innerHTML=icon(layout==='grid'&&!trash?'grid':'list')+icon('layoutChevron');updateLayout();layoutButton.disabled=trash;
@@ -253,7 +294,7 @@ export async function mountFiles(host,ctx){
       $('[data-more-selected]',host).onclick=e=>{if(selected.size===1)menu(single(),e.currentTarget);};
       $('[data-delete-selected]',host).onclick=()=>remove(data.items.filter(f=>selected.has(f.id)));
       const send=$('[data-send-selected]',host);if(send)send.onclick=()=>{if(selected.size===1)sendFileCopy(single(),ctx);};
-      $('[data-new-folder]',host).onclick=async()=>{if(view!=='active'){parent=null;view='active';await load();$('[data-new-folder]',host)?.click();return;}inlineName();};
+      $('[data-new-folder]',host).onclick=async()=>{if(view!=='active'){await load({parent:null,view:'active'});if(location.view==='active'&&!loading)$('[data-new-folder]',host)?.click();return;}inlineName();};
       const uploadLabel=$('.file-upload-label',host);uploadLabel.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('[data-upload-files]',host).click();}};
       const runUpload=async(plans,target)=>{
         if(busy)return;lock(true);let error;
@@ -270,7 +311,7 @@ export async function mountFiles(host,ctx){
             if(item.folder)await uploadFolder(item.folder,ctx,target,data,transfer);
             else{transfer.start();await withUploadRateRetry(()=>uploadFile('/files/upload?name='+encodeURIComponent(item.file.name)+(target?'&parent_id='+encodeURIComponent(target):''),item.file,{},transfer.progress),transfer);transfer.complete();}
           }
-        }catch(e){if(!(e instanceof UploadStoppedError)){error=e;showError(e);}}finally{transfer?.finish(error);try{if(heading.isConnected&&seq===sequence)await refreshItems();}catch(e){showError(e);}finally{lock(false);}}
+        }catch(e){if(!(e instanceof UploadStoppedError)){error=e;showError(e);}}finally{transfer?.finish(error);try{if(heading.isConnected&&seq===renderedSequence)await refreshItems();}catch(e){showError(e);}finally{lock(false);}}
       };
       const upload=async(captured,target)=>{if(busy)return;lock(true);try{status(tText("files:readingFilesAndFolders"));const plans=await readDrop(captured);lock(false);await runUpload(plans,target);}catch(error){showError(error);lock(false);}};
       $('[data-upload-files]',host).onchange=e=>runUpload([...e.target.files].map(file=>({file})),targetParent);
@@ -300,7 +341,13 @@ export async function mountFiles(host,ctx){
         if(dragged.length){const items=dragged;dragged=[];move(items,target);}
         else{try{const captured=captureDrop(e.dataTransfer);upload(captured,target);}catch(error){showError(error);}}
       };
-    }catch(e){if(host.isConnected&&seq===sequence){if(e.status===404&&view==='active'&&parent){parent=null;await load();return;}show('<p class=drive-loading>'+esc(e.message)+'</p>');}}
+    }catch(e){if(heading.isConnected&&seq===sequence){
+      loading=false;pendingLocation=null;busy=false;
+      if(e.status===404&&view==='active'&&parent){await load({view:'active',parent:null});return;}
+      const panel=$('.drive-panel',host);
+      if(panel){for(const [el,disabled] of pendingControls||[])if(el.isConnected)el.disabled=disabled;pendingControls=null;restoreView?.();panel.removeAttribute('aria-busy');const status=$('[data-file-status]',host);if(status)status.textContent=e.message;ctx.toast(e.message);}
+      else show('<p class=drive-loading role=alert>'+esc(e.message)+'</p>');
+    }}
   };
   await load();
 }

@@ -135,7 +135,9 @@ try{
  await page.locator('[data-file-row]').filter({hasText:'Folder upload'}).locator('[data-open-file]').click();await page.locator('[data-file-row]').filter({hasText:'Nested'}).locator('[data-open-file]').click();await expect(page.locator('.file-list')).toContainText('inside.txt');
  await page.getByRole('navigation',{name:'Путь к папке'}).locator('[data-folder=""]').click();
  await expect(page.locator('.drive-heading h2')).toHaveText('Секретные');await expect(page.locator('[data-upload-files]')).toBeEnabled();await page.locator('[data-upload-files]').setInputFiles('tests/fixtures/blue.png');await expect(page.locator('[data-secret-thumbnail]')).toHaveAttribute('src',/^blob:/);await expect(page.locator('[data-secret-thumbnail]')).toHaveJSProperty('complete',true);await page.locator('[data-upload-close]').click();
- await page.locator('[data-files-view=active]').click();await expect(page.locator('.file-list')).not.toContainText('private.txt');await page.locator('[data-files-view=secret]').click();await expect(page.locator('[data-vault-unlock]')).toHaveCount(0);
+ await page.locator('[data-files-view=active]').click();await expect(page.locator('.drive-panel')).toHaveAttribute('data-drive-view','active');await expect(page.locator('.file-list')).not.toContainText('private.txt');
+ expect((await (await context.request.get('/api/files')).json()).items.some(file=>file.name==='dropped.txt')).toBe(false);
+ await page.locator('[data-files-view=secret]').click();await expect(page.locator('[data-vault-unlock]')).toHaveCount(0);
  await page.reload();await page.locator('[data-files-view=secret]').click();await expect(page.locator('[data-vault-unlock]')).toBeVisible();await page.locator('.modal-close').click();
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:'artifacts/secret-vault-files-mobile.png',fullPage:true});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  // A fresh mobile context must have its own PIN grant and five-minute timer.

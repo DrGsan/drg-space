@@ -1,4 +1,8 @@
 {
+  "release5_2_2Title": "Stable Drive folder navigation",
+  "release5_2_2Change1": "Keep Drive navigation and tools visible while opening folders.",
+  "release5_2_2Change2": "Show folder loading errors without discarding the current view.",
+  "release5_2_2Change3": "Keep the latest folder selected when responses arrive out of order.",
   "release5_2_1Title": "Backup reliability and maintenance",
   "release5_2_1Change1": "The task module name follows English interface settings.",
   "release5_2_1Change2": "Floating navigation stays out of the way while mobile reminder settings are open.",
