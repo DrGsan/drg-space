@@ -25,6 +25,7 @@ try{
     return [{token:'fixture',url:'http://sharing.test/f/fixture',mode:'public',permission:'view',expires:1794484800,used:2,download_limit:5,version:1}];
    }});await window.open();
   });
+  if(!baseline)await page.locator('[data-share-tab=create]').click();
   await page.locator('[name=duration]').fill('2');if(!baseline)await page.locator('[name=download_limit]').fill('3');
   for(const scheme of ['light','dark'])for(const width of [1100,390,320]){
    await page.setViewportSize({width,height:width===1100?1100:844});await page.evaluate(scheme=>document.documentElement.dataset.scheme=scheme,scheme);

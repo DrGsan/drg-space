@@ -1,5 +1,11 @@
 # Updating DrG Space
 
+## 5.2.3-rc.1: easier access to sharing links (preview)
+
+The file/folder sharing dialog opens on existing links when they are present. Each link has a readable address, copy/open/revoke actions, its expiry and the existing download-limit controls. Creating another link uses a separate tab and preserves the draft when switching tabs. An object with neither links nor disposal settings opens directly on the creation form. Clipboard restrictions leave the address selected for manual copying. Loading failures have a local retry; after a successful creation, a failed list refresh does not require resubmitting the form.
+
+Existing permissions, links, download counters and confirmed disposal rules are unchanged, including preservation of later additions to a previously shared folder. No schema, key, storage-format, dependency, environment, port or volume changes are required. No migration or clean database is needed. Rebuild with the existing Compose overlays. Rolling back to 5.2.2 requires no data changes; restrictions for downgrading below 5.2.0 still apply.
+
 ## 5.2.2: stable Drive folder navigation
 
 Drive keeps its navigation and tools mounted while opening folders. The current folder remains visible with a local loading status until the requested folder is ready. Folder navigation remains available while file changes are disabled; an error preserves the current view and restores its controls. Delayed responses cannot replace a more recently selected folder. Folder names, file contents, permissions, layout settings and storage are unchanged.

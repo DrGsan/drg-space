@@ -290,5 +290,11 @@
   "shareRemaining_one": "Осталось {{remaining}} из {{limit}} скачивания",
   "shareRemaining_few": "Осталось {{remaining}} из {{limit}} скачиваний",
   "shareRemaining_many": "Осталось {{remaining}} из {{limit}} скачиваний",
-  "shareRemaining_other": "Осталось {{remaining}} из {{limit}} скачиваний"
+  "shareRemaining_other": "Осталось {{remaining}} из {{limit}} скачиваний",
+  "shareDialogSections": "Управление общим доступом",
+  "shareLoadingLinks": "Загружаем ссылки…",
+  "shareLinkAddress": "Адрес ссылки",
+  "shareNoActiveLinks": "Активных ссылок пока нет.",
+  "shareLinkCreated": "Ссылка создана.",
+  "shareRetryLinks": "Повторить загрузку"
 }

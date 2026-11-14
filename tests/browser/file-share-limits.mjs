@@ -85,7 +85,7 @@ try{
  await form.locator('[type=submit]').click();await expect(page.locator('[data-file-share-list] .share-row')).toHaveCount(1);
  await expectStableWorkspace();await expect(page.locator('[data-file-row="'+root.id+'"] .drive-shared')).toHaveCount(1);
  await expect(page.locator('[data-file-retention-list] .share-row')).toHaveCount(3);
- const shared=await page.locator('[data-file-share-result] input').inputValue(),token=new URL(shared).pathname.split('/').at(-1);
+ const shared=await page.locator(phase==='after'?'[data-file-share-list] [data-share-url]':'[data-file-share-result] input').first().inputValue(),token=new URL(shared).pathname.split('/').at(-1);
  await page.screenshot({path:out+'/owner.png'});
  const englishContext=await browser.newContext({locale:'en-GB',baseURL:origin,viewport:{width:320,height:900},colorScheme:'dark'}),english=await englishContext.newPage();
  await english.goto(shared);await expect(english.locator('[data-download-budget]')).toContainText('Downloads remaining: 1 of 1');
@@ -152,9 +152,11 @@ try{
  await expect(page.locator('[data-revoke-file-share]')).toHaveCount(1);
  await page.evaluate(()=>window.sharingWorkspace=document.querySelector('.drive-panel'));catalogueRequests.length=0;
  // A new unlimited link changes the aggregate date; revoking it restores the finite date.
+ if(phase==='after')await page.locator('[data-share-tab=create]').click();
  await page.locator('[data-file-share-form] [type=submit]').click();await expect(page.locator('[data-file-share-list] .share-row')).toHaveCount(2);
  if(phase==='after')await expect(sharedRow.locator('.drive-expiry')).toContainText('Без срока');
- const unlimited=new URL(await page.locator('[data-file-share-result] input').inputValue()).pathname.split('/').at(-1);
+ const urls=phase==='after'?await page.locator('[data-file-share-list] [data-share-url]').evaluateAll(inputs=>inputs.map(input=>input.value)):[await page.locator('[data-file-share-result] input').inputValue()];
+ const unlimited=new URL(urls.find(url=>url!==shared)).pathname.split('/').at(-1);
  const unlimitedContext=await browser.newContext({locale:'ru-RU',baseURL:origin}),unlimitedGuest=await unlimitedContext.newPage();
  await unlimitedGuest.goto('/f/'+unlimited);await expect(unlimitedGuest.locator('.shared-drive-download')).toBeVisible();
  await expect(unlimitedGuest.locator('[data-download-budget]')).toBeHidden();await expect(unlimitedGuest.locator('[data-download-hint]')).toBeHidden();await unlimitedContext.close();
