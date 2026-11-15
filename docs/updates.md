@@ -1,6 +1,6 @@
 # Updating DrG Space
 
-## 5.2.5-rc.1: more efficient file browsing (preview)
+## 5.2.5: more efficient file browsing
 
 File scope checks load selected entries and their ancestors instead of repeatedly scanning unrelated trees. Empty selections and trash cleanup with no expired entries avoid namespace walks. Note, task and chat attachments remain protected, including moved legacy attachments. PostgreSQL project locks continue to coordinate file access with project deletion.
 
