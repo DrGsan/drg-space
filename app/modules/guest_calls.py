@@ -240,7 +240,7 @@ def create_guest_calls_router(db, ready, rate, now, fail, public_url, *, federat
         s = ready(request)
         if data.transport=='livekit' and not livekit.available():fail(503,localized_message('livekitUnavailable'))
         with db() as c:
-            c.execute('BEGIN IMMEDIATE'); purge_guest_calls(c, now()); calls.purge_calls(c, now())
+            c.execute('BEGIN IMMEDIATE'); purge_guest_calls(c, now()); calls.purge_calls(c, now(), users=(s['user_id'],))
             room = load_room(c, rid=rid)
             if room['owner_id'] != s['user_id']:
                 fail(404, localized_message('callNotFound'))

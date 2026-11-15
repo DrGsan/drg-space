@@ -266,6 +266,13 @@ def create_notifications_router(db,ready,tokens,rate,gate,now,fail,public_url,co
         def message_cursor(uid):
             with db() as c:
                 return c.execute('SELECT COALESCE(MAX(m.id),0) FROM messages m JOIN space_members sm ON sm.space_id=m.space_id WHERE sm.user_id=?',(uid,)).fetchone()[0]
+        def call_cursor(uid):
+            # Only participant-scoped public state, never SDP/device payloads.
+            with db() as c:
+                local=c.execute("SELECT id,status,answered,connected FROM calls WHERE (caller_id=? OR recipient_id=?) AND status IN ('ringing','connecting','active') ORDER BY id",(uid,uid)).fetchall()
+                incoming=c.execute("SELECT id,status,answered,connected FROM federation_calls WHERE recipient_id=? AND status IN ('ringing','connecting','active') ORDER BY id",(uid,)).fetchall()
+                outgoing=c.execute("SELECT id,status FROM federation_call_links WHERE user_id=? AND status IN ('preparing','ringing','connecting','active') ORDER BY id",(uid,)).fetchall()
+                return tuple(tuple(tuple(row) for row in rows) for rows in (local,incoming,outgoing))
         def auth():
             req=SimpleNamespace(cookies=ws.cookies,headers=ws.headers,method='GET',client=ws.client)
             return ready(req),req
@@ -292,7 +299,8 @@ def create_notifications_router(db,ready,tokens,rate,gate,now,fail,public_url,co
                 dirty.clear()
                 initial,next_refresh=await blocking(inbox,s['user_id'],deadline=True)
                 chat_cursor=await blocking(message_cursor,s['user_id'])
-            cursor=initial['cursor'];unread=initial['unread'];cleared=initial['chat_cleared'];reads=initial['message_reads'];await ws.send_json({'type':'ready',**initial})
+                calls_cursor=await blocking(call_cursor,s['user_id'])
+            cursor=initial['cursor'];unread=initial['unread'];cleared=initial['chat_cleared'];reads=initial['message_reads'];await ws.send_json({'type':'ready','call_events':True,**initial})
             receiver=asyncio.create_task(ws.receive_text())
             waker=asyncio.create_task(dirty.wait())
             while True:
@@ -323,8 +331,13 @@ def create_notifications_router(db,ready,tokens,rate,gate,now,fail,public_url,co
                         updates,next_refresh=await blocking(inbox,current['user_id'],cursor,deadline=True)
                         next_refresh=min(next_refresh,now()+interval)
                         latest=await blocking(message_cursor,current['user_id']) if chat_active else chat_cursor
+                        latest_calls=await blocking(call_cursor,current['user_id'])
                 if data and data.get('type')=='activity':await ws.send_json({'type':'activity','chat_active':chat_active})
+                if data and data.get('type')=='ping':await ws.send_json({'type':'pong'})
                 if not refresh:continue
+                if latest_calls!=calls_cursor:
+                    await ws.send_json({'type':'calls_changed'})
+                    calls_cursor=latest_calls
                 if latest!=chat_cursor:
                     await ws.send_json({'type':'chat_changed'})
                     chat_cursor=latest

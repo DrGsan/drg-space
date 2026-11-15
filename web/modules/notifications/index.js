@@ -7,6 +7,7 @@ import {$,esc,date} from '../../core/ui.js';
 import {connectRoom} from '../../core/realtime.js';
 import {renderMarkup} from '../../core/dom.js';
 import {personAvatar,personName} from '../../core/people.js';
+import {registerInboxConnection} from '../../core/inbox-connection.js';
 import {startPresence} from '../../core/presence.js';
 import {pushSupportMessage} from '../../core/push.js';
 import {appBadge} from '../../core/app-badge.js';
@@ -30,7 +31,7 @@ export const inboxController={
   open(){active?.open();},
 };
 function createInbox(initial){
-  let ctx=initial,disposed=false,items=new Map(),initialized=false,unread=0,dialog,timer,cursor=0,filter='unread';
+  let ctx=initial,disposed=false,items=new Map(),initialized=false,unread=0,dialog,timer,cursor=0,filter='unread',callEvents=false;
   const avatars=telegramAvatars();
   const seen=new Set(),cleared=new Map(),reads={};const uid=ctx.state.me.id;
   const prefs=()=>({sound:true,popups:true,...ctx.state.me.settings.notifications});
@@ -111,10 +112,12 @@ function createInbox(initial){
     draw();
   }
   const socket=connectRoom('inbox',ctx,{state:activityState,pingInterval:10000,onMessage:data=>{
-    if(data.type==='ready'){ingest(data,initialized);initialized=true;activity();}
+    if(data.type==='ready'){callEvents=data.call_events===true;ingest(data,initialized);initialized=true;activity();document.dispatchEvent(new Event('drg-incoming-call'));}
     if(data.type==='notifications')ingest(data,true);
+    if(data.type==='calls_changed')document.dispatchEvent(new Event('drg-incoming-call'));
     if(data.type==='chat_changed')document.dispatchEvent(new Event('drg-inbox-change'));
   }});
+  const unregister=registerInboxConnection(uid,()=>callEvents&&socket.online&&Date.now()>=socket.lastMessageAt&&Date.now()-socket.lastMessageAt<15000);
   const namesChanged=()=>{if(dialog?.isConnected)draw();};document.addEventListener('drg-people-names-change',namesChanged);
   const presence=startPresence(()=>ctx);
   const resume=async()=>{if(disposed||document.visibilityState==='hidden')return;try{ingest(await ctx.api('/notifications?after='+cursor),false);if(!disposed)appBadge.set(unread,{force:true});}catch{}};
@@ -123,7 +126,7 @@ function createInbox(initial){
   document.addEventListener('visibilitychange',activity);
   for(const type of ['focus','blur','pageshow','pagehide'])window.addEventListener(type,activity);
   timer=setInterval(async()=>{if(disposed)return;for(const [id,item] of items)if(item.created<Date.now()/1000-7*86400||item.expires&&item.expires<=Date.now()/1000)items.delete(id);try{if(!socket.online){const data=await ctx.api('/notifications?after='+cursor);ingest(data,initialized);initialized=true;}}catch{}badge();draw();},5000);
-  return {uid,open,attach(next){ctx=next;activity();const b=document.querySelector('#open-inbox');if(b)b.onclick=()=>open(b).catch(e=>ctx.toast(e.message));badge();presence.paint();},destroy(){disposed=true;avatars.destroy();dialog?.querySelector('.modal-close')?.click();document.removeEventListener('drg-people-names-change',namesChanged);socket.destroy();presence.destroy();clearInterval(timer);document.removeEventListener('drg-message-read',resume);document.removeEventListener('visibilitychange',resume);document.removeEventListener('visibilitychange',activity);for(const type of ['focus','blur','pageshow','pagehide'])window.removeEventListener(type,activity);appBadge.set(0,{force:true});document.querySelector('#notification-toasts')?.remove();}};
+  return {uid,open,attach(next){ctx=next;activity();const b=document.querySelector('#open-inbox');if(b)b.onclick=()=>open(b).catch(e=>ctx.toast(e.message));badge();presence.paint();},destroy(){disposed=true;unregister();avatars.destroy();dialog?.querySelector('.modal-close')?.click();document.removeEventListener('drg-people-names-change',namesChanged);socket.destroy();presence.destroy();clearInterval(timer);document.removeEventListener('drg-message-read',resume);document.removeEventListener('visibilitychange',resume);document.removeEventListener('visibilitychange',activity);for(const type of ['focus','blur','pageshow','pagehide'])window.removeEventListener(type,activity);appBadge.set(0,{force:true});document.querySelector('#notification-toasts')?.remove();}};
 }
 export function mountNotificationPreferences(host,ctx){
   const p={sound:true,popups:true,...ctx.state.me.settings.notifications};

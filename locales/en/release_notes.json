@@ -45,5 +45,9 @@
   "release5_2_1Change5": "Cancelled downloads release the storage lock even before response headers arrive, so backups can proceed.",
   "release5_2_7Title": "Fewer background Media requests",
   "release5_2_7Change1": "Stop automatic Media conversation and preview refreshes while the page is hidden or after leaving chats.",
-  "release5_2_7Change2": "Skip history requests for known empty Media groups and limit simultaneous preview downloads."
+  "release5_2_7Change2": "Skip history requests for known empty Media groups and limit simultaneous preview downloads.",
+  "release5_2_8_rc_1Title": "More efficient call updates",
+  "release5_2_8_rc_1Change1": "Read the current call without scanning other people's calls or taking an extra write lock during ordinary polling.",
+  "release5_2_8_rc_1Change2": "Receive incoming call changes through the live inbox, with fast fallback when the subscription is unavailable.",
+  "release5_2_8_rc_1Change3": "Keep call expiry and sensitive signaling cleanup under the shared maintenance lease."
 }

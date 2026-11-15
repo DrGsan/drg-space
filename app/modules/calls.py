@@ -53,16 +53,38 @@ class Finish(Model):
 def finish(c,row,status,stamp):
     # Delete IP addresses, SDP and device handles as soon as the call ends.
     c.execute('UPDATE calls SET status=?,ended=?,payload=? WHERE id=?',(status,stamp,'{}',row['id']))
+    c.realtime_dirty=True
     for notice in c.execute("SELECT id,payload FROM notifications WHERE kind='call' AND user_id=? AND read=0",(row['recipient_id'],)).fetchall():
         if json.loads(notice['payload']).get('call_id')==row['id']:c.execute('UPDATE notifications SET read=1 WHERE id=?',(notice['id'],))
 
 
-def purge_calls(c,stamp):
-    for row in c.execute("SELECT * FROM calls WHERE status IN ('ringing','connecting','active')").fetchall():
-        data=json.loads(row['payload'])
-        if row['status']=='ringing' and row['created']<=stamp-60:finish(c,row,'missed',stamp)
-        elif row['status']!='ringing' and (min(data.get('caller_seen',0),data.get('recipient_seen',0))<=stamp-45 or (row['status']=='connecting' and row['answered']<=stamp-40)):finish(c,row,'failed',stamp)
-    c.execute('DELETE FROM calls WHERE created<=?',(cutoff(stamp),))
+def expired_call(row,stamp):
+    if row['status']=='ringing':return 'missed' if row['created']<=stamp-60 else None
+    if row['status'] not in LIVE:return None
+    data=json.loads(row['payload'])
+    if min(data.get('caller_seen',0),data.get('recipient_seen',0))<=stamp-45 or (row['status']=='connecting' and row['answered']<=stamp-40):return 'failed'
+    return None
+
+
+def purge_calls(c,stamp,*,users=None,history=True):
+    # Request paths inspect only their participants. The existing maintenance
+    # lease owns the global sweep, independently of traffic and worker count.
+    scope='';params=()
+    if users is not None:
+        users=tuple(dict.fromkeys(users));slots=','.join('?' for _ in users)
+        if not users:return
+        scope=f' AND (caller_id IN ({slots}) OR recipient_id IN ({slots}))';params=users+users
+    for row in c.execute("SELECT * FROM calls WHERE status IN ('ringing','connecting','active')"+scope,params).fetchall():
+        status=expired_call(row,stamp)
+        if status:finish(c,row,status,stamp)
+    if history:c.execute('DELETE FROM calls WHERE created<=?'+scope,(cutoff(stamp),*params))
+
+
+def cleanup_active_calls(db,stamp):
+    with db() as c:
+        rows=c.execute("SELECT * FROM calls WHERE status IN ('ringing','connecting','active')").fetchall()
+        if any(expired_call(row,stamp) for row in rows):
+            c.execute('BEGIN IMMEDIATE');purge_calls(c,stamp,history=False)
 
 
 def ice_config(subject, stamp, fail, lifetime=14400):
@@ -105,7 +127,7 @@ def create_calls_router(db,ready,rate,now,fail,*,federation_busy=None):
     def history(request:Request,before:str|None=Query(default=None,pattern=DEVICE)):
         s=ready(request);uid=s['user_id']
         with db() as c:
-            c.execute('BEGIN IMMEDIATE');purge_calls(c,now())
+            c.execute('BEGIN IMMEDIATE');purge_calls(c,now(),users=(uid,))
             cursor=access(c,before,uid) if before else None
             before_stamp=cursor['created'] if cursor else None
             rows=c.execute('SELECT id,space_id,caller_id,recipient_id,status,created,answered,connected,ended FROM calls WHERE (caller_id=? OR recipient_id=?) AND space_id IN (SELECT space_id FROM space_members WHERE user_id=?) AND (? IS NULL OR created<? OR (created=? AND id<?)) ORDER BY created DESC,id DESC LIMIT 101',(uid,uid,uid,before_stamp,before_stamp,before_stamp,before)).fetchall()
@@ -114,8 +136,13 @@ def create_calls_router(db,ready,rate,now,fail,*,federation_busy=None):
     def current(request:Request,device:str=Query(pattern=DEVICE),call_id:str|None=Query(default=None,pattern=DEVICE)):
         s=ready(request);uid=s['user_id']
         with db() as c:
-            c.execute('BEGIN IMMEDIATE');purge_calls(c,now())
-            row=access(c,call_id,uid) if call_id else c.execute("SELECT * FROM calls WHERE (caller_id=? OR recipient_id=?) AND status IN ('ringing','connecting','active') ORDER BY created DESC LIMIT 1",(uid,uid)).fetchone()
+            def read():
+                return access(c,call_id,uid) if call_id else c.execute("SELECT * FROM calls WHERE (caller_id=? OR recipient_id=?) AND status IN ('ringing','connecting','active') ORDER BY created DESC LIMIT 1",(uid,uid)).fetchone()
+            row=read();stamp=now()
+            if row and (row['created']<=cutoff(stamp) or expired_call(row,stamp)):
+                # Re-read under the writer lock: a concurrent heartbeat may
+                # have kept this call alive after the initial read.
+                c.execute('BEGIN IMMEDIATE');purge_calls(c,stamp,users=(uid,));row=read()
             if row:
                 space_access(c,row['space_id'],uid,fail)
                 return {'call':serial(c,row,uid,device)}
@@ -126,14 +153,14 @@ def create_calls_router(db,ready,rate,now,fail,*,federation_busy=None):
         if not turn_available():fail(503,localized_message('theCallServerIsUnavailablePleaseTryAgain'))
         rate(request,'call-start',12,period=60,subject=uid)
         with db() as c:
-            c.execute('BEGIN IMMEDIATE');purge_calls(c,now());space=space_access(c,data.space_id,uid,fail)
+            c.execute('BEGIN IMMEDIATE');space=space_access(c,data.space_id,uid,fail);purge_calls(c,now(),users=(uid,))
             existing=c.execute('SELECT * FROM calls WHERE id=?',(data.id,)).fetchone()
             if existing:
                 if existing['caller_id']!=uid or existing['space_id']!=data.space_id:fail(409,localized_message('theCallIdentifierIsAlreadyInUse'))
                 return serial(c,existing,uid,data.device)
             members=[v[0] for v in c.execute('SELECT user_id FROM space_members WHERE space_id=? AND user_id!=?',(data.space_id,uid))]
             if space['kind']!='friends' or len(members)!=1:fail(422,localized_message('aVoiceCallIsAvailableInAPrivate'))
-            peer=members[0];settings=c.execute('SELECT settings FROM users WHERE id=?',(peer,)).fetchone()[0]
+            peer=members[0];purge_calls(c,now(),users=(peer,));settings=c.execute('SELECT settings FROM users WHERE id=?',(peer,)).fetchone()[0]
             from app.modules.guest_calls import purge_guest_calls
             purge_guest_calls(c,now())
             if federation_busy and any(federation_busy(c,person,now()) for person in (uid,peer)):
@@ -143,25 +170,26 @@ def create_calls_router(db,ready,rate,now,fail,*,federation_busy=None):
             if c.execute("SELECT 1 FROM calls WHERE (caller_id IN (?,?) OR recipient_id IN (?,?)) AND status IN ('ringing','connecting','active')",(uid,peer,uid,peer)).fetchone():fail(409,localized_message('youOrTheOtherPartyAreAlreadyParticipating2'))
             payload={'caller_device':data.device,'caller_sdp':data.sdp,'caller_seen':now(),'recipient_seen':now(),'caller_ice':[],'recipient_ice':[]}
             c.execute('INSERT INTO calls(id,space_id,caller_id,recipient_id,status,created,payload) VALUES(?,?,?,?,?,?,?)',(data.id,data.space_id,uid,peer,'ringing',now(),json.dumps(payload)))
+            c.realtime_dirty=True
             notify(c,peer,'call',{'call_id':data.id,'space_id':data.space_id,'actor_id':uid,'actor':actor(c,uid,now())['login']},now())
             return serial(c,access(c,data.id,uid),uid,data.device)
     @r.post('/api/calls/{cid}/accept')
     def accept(cid:str,data:Device,request:Request):
         s=ready(request);uid=s['user_id']
         with db() as c:
-            c.execute('BEGIN IMMEDIATE');purge_calls(c,now());row=access(c,cid,uid);payload=json.loads(row['payload'])
+            c.execute('BEGIN IMMEDIATE');purge_calls(c,now(),users=(uid,));row=access(c,cid,uid);payload=json.loads(row['payload'])
             if row['recipient_id']!=uid:fail(403,localized_message('onlyTheRecipientCanAnswerTheCall'))
             if row['status']!='ringing':
                 if row['status'] in LIVE and payload.get('recipient_device')==data.device:return serial(c,row,uid,data.device)
                 fail(409,localized_message('theCallHasAlreadyBeenEndedOrAccepted'))
-            payload.update(recipient_device=data.device,recipient_seen=now())
+            payload.update(recipient_device=data.device,recipient_seen=now());c.realtime_dirty=True
             c.execute('UPDATE calls SET status=?,answered=?,payload=? WHERE id=?',('connecting',now(),json.dumps(payload),cid))
             return serial(c,access(c,cid,uid),uid,data.device)
     @r.post('/api/calls/{cid}/signal')
     def signal(cid:str,data:Signal,request:Request):
         s=ready(request);uid=s['user_id'];rate(request,'call-signal',240,period=60,subject=uid)
         with db() as c:
-            c.execute('BEGIN IMMEDIATE');purge_calls(c,now());row=access(c,cid,uid);payload=json.loads(row['payload']);side='caller' if row['caller_id']==uid else 'recipient'
+            c.execute('BEGIN IMMEDIATE');purge_calls(c,now(),users=(uid,));row=access(c,cid,uid);payload=json.loads(row['payload']);side='caller' if row['caller_id']==uid else 'recipient'
             if row['status'] not in LIVE:fail(409,localized_message('callEnded'))
             if payload.get(side+'_device')!=data.device:fail(409,localized_message('theCallIsBeingUsedOnAnotherDevice'))
             if data.sdp:
@@ -177,6 +205,7 @@ def create_calls_router(db,ready,rate,now,fail,*,federation_busy=None):
             if data.media is not None:payload[side+'_media']=data.media.model_dump()
             connected=row['connected'];status=row['status']
             if data.connected and row['answered'] and payload.get('recipient_sdp'):status='active';connected=connected or now()
+            if status!=row['status']:c.realtime_dirty=True
             c.execute('UPDATE calls SET status=?,connected=?,payload=? WHERE id=?',(status,connected,json.dumps(payload),cid))
             return serial(c,access(c,cid,uid),uid,data.device)
     @r.post('/api/calls/{cid}/end')
