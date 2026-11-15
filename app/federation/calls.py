@@ -166,7 +166,7 @@ class FederatedCalls:
         # cannot race a federated admission on the same database transaction.
         from app.modules.calls import purge_calls
         from app.modules.guest_calls import purge_guest_calls
-        purge_calls(c, now)
+        purge_calls(c, now, users=(uid,))
         purge_guest_calls(c, now)
         if federated_busy(c, uid, now, exclude):
             return True

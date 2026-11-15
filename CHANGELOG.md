@@ -2,6 +2,15 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.2.8] — 2026-11-15 — More efficient call updates
+
+- Read the current call without scanning other people's calls or taking an extra write lock during ordinary polling.
+- Receive incoming call changes through the live inbox, with fast fallback when the subscription is unavailable.
+- Keep call expiry and sensitive signaling cleanup under the shared maintenance lease.
+
+- **Installation:** Rebuild Space with the existing Compose settings and volumes.
+- **Compatibility:** No schema, key, storage-format, dependency or environment changes; older clients keep their polling fallback.
+
 ## [5.2.7] — 2026-11-15 — Fewer background Media requests
 
 - Stop automatic Media conversation and preview refreshes while the page is hidden or after leaving chats.

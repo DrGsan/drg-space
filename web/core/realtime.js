@@ -1,7 +1,7 @@
 import { csrfCookie } from './auth.js';
 // Same-origin cookie authentication; secrets never appear in socket URLs.
 export function connectRoom(path, ctx, options = {}) {
-  let socket, disposed=false, timer, ping, attempt=0, connected=false;
+  let socket, disposed=false, timer, ping, attempt=0, connected=false, lastMessageAt=0;
   const clientId=options.clientId ?? Math.floor(Math.random()*2**32);
   const start=async()=>{
     if(disposed)return;
@@ -13,7 +13,7 @@ export function connectRoom(path, ctx, options = {}) {
       socket.onopen=()=>socket.send(JSON.stringify({...options.state?.(),type:'auth',csrf:csrfCookie(),client_id:clientId}));
       socket.onmessage=event=>{
         try {
-          const data=JSON.parse(event.data);
+          const data=JSON.parse(event.data);lastMessageAt=Date.now();
           if(['ready','sync','init'].includes(data.type)){
             connected=true;attempt=0;options.onStatus?.('online');
             clearInterval(ping);ping=setInterval(()=>send({...options.state?.(),type:'ping'}),options.pingInterval??20000);
@@ -40,5 +40,5 @@ export function connectRoom(path, ctx, options = {}) {
     socket.send(JSON.stringify(value));return true;
   }
   start();
-  return {send,get online(){return connected;},destroy(){disposed=true;clearTimeout(timer);clearInterval(ping);socket?.close();}};
+  return {send,get online(){return connected;},get lastMessageAt(){return lastMessageAt;},destroy(){disposed=true;clearTimeout(timer);clearInterval(ping);socket?.close();}};
 }

@@ -48,7 +48,7 @@ web_push=WebPush(db,DATA,storage_gate,lambda:now(),PUBLIC_URL,coordinator=proces
 @asynccontextmanager
 async def lifespan(app):
     async def maintenance():
-        lease=None;initialized=False;next_cleanup=0;next_family_poll=0;next_storage_sweep=0;next_media_reconcile=0;next_public_build_cleanup=0
+        lease=None;initialized=False;next_cleanup=0;next_family_poll=0;next_storage_sweep=0;next_media_reconcile=0;next_public_build_cleanup=0;next_call_cleanup=0
         async def jobs(actions):
             success=True
             for name,action in actions:
@@ -71,6 +71,11 @@ async def lifespan(app):
                                 if available:
                                     await jobs(temp_jobs())
                                     initialized=True
+                        if now()>=next_call_cleanup:
+                            from app.modules.calls import cleanup_active_calls
+                            async with storage_gate.shared():
+                                await jobs([('call-expiry',lambda:cleanup_active_calls(db,now()))])
+                            next_call_cleanup=now()+1
                         if now()>=next_cleanup:
                             async with storage_gate.shared():
                                 from app.retention import cleanup

@@ -135,9 +135,13 @@ jobs:
         if: matrix.engine == 'postgres' && matrix.encryption == 'true'
       - run: node tests/browser/bottom-tabs.mjs
         if: matrix.engine == 'postgres' && matrix.encryption == 'true'
-      - name: Media preview request budgets and lifecycle
+      - name: Call and Media request budgets and lifecycle
         if: matrix.engine == 'postgres' && matrix.encryption == 'true'
         run: |
+          node tests/browser/call-idle-requests.mjs
+          DRG_BROWSER_ENGINE=webkit node tests/browser/call-idle-requests.mjs
+          node tests/browser/call-poll-lifecycle.mjs
+          DRG_BROWSER_ENGINE=webkit node tests/browser/call-poll-lifecycle.mjs
           node tests/browser/media-preview-lifecycle.mjs
           DRG_BROWSER_ENGINE=webkit node tests/browser/media-preview-lifecycle.mjs
           node tests/browser/family-photos-refresh.mjs
