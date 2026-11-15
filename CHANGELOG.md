@@ -2,7 +2,7 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.2.8-rc.1] — 2026-11-15 — More efficient call updates
+## [5.2.8] — 2026-11-15 — More efficient call updates
 
 - Read the current call without scanning other people's calls or taking an extra write lock during ordinary polling.
 - Receive incoming call changes through the live inbox, with fast fallback when the subscription is unavailable.

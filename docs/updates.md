@@ -1,6 +1,6 @@
 # Updating DrG Space
 
-## 5.2.8-rc.1 · Preview
+## 5.2.8
 
 Call updates use participant-scoped reads and live inbox events, with the existing fast fallback during connection loss. A shared maintenance lease expires abandoned calls without depending on user traffic. Rebuild with the existing Compose files and volumes; no schema, environment, key, dependency or storage changes are required.
 
