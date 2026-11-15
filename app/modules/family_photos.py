@@ -340,6 +340,9 @@ class FamilyPhotos(FamilyMessaging,FamilyPhotoEvents,FamilyReactionSync):
                     if entry.get('has_audio_preview'):entry['playback_url']=entry['url']+'?audio=1'
             from contextlib import nullcontext
             with (self.db() if session else nullcontext()) as reaction_db:
+                if session:
+                    from .family_photo_page import FamilyPhotoPage
+                    page = FamilyPhotoPage(reaction_db, gid, data.get('items', []), int(time.time()))
                 for item in data.get('items',[]):
                     if 'media' in item:
                         for attachment in item['media']:file(attachment)
@@ -352,11 +355,7 @@ class FamilyPhotos(FamilyMessaging,FamilyPhotoEvents,FamilyReactionSync):
                             if reaction.get('custom_emoji'):
                                 entry=reaction['custom_emoji'];entry['document_id']=reaction['document_id'];emoji(entry)
                         if session:
-                            site_actor=item.get('site_actor_id')
-                            if isinstance(site_actor,str) and re.fullmatch('[a-f0-9]{32}',site_actor):
-                                item['site_profile']=actor(reaction_db,site_actor,int(time.time()))
-                            from app.reactions import payload
-                            item['site_reactions']=payload(reaction_db,'telegram:'+gid,item['id'],int(time.time()))
+                            page.decorate(item)
                     else:file(item)
             return data
 
