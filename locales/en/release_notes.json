@@ -1,4 +1,7 @@
 {
+  "release5_2_5Title": "More efficient file browsing",
+  "release5_2_5Change1": "Open Drive folders and recent files with fewer repeated metadata reads.",
+  "release5_2_5Change2": "Keep private file previews and downloads responsive as collections grow.",
   "release5_2_4Title": "Reactions below photos and albums",
   "release5_2_4Change1": "Show reactions below photos and albums without extending the message background.",
   "release5_2_4Change2": "Keep captions and timestamps inside the message while reactions wrap on narrow screens.",
