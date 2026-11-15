@@ -241,29 +241,54 @@ export async function mountFamilyPhotos(host,ctx){
 }
 
 
-export async function watchTelegramRooms(ctx,onChange){
-  if(!ctx.moduleEnabled('family_photos'))return null;
-  let closed=false,timer=null,lastRooms=[];
+export async function watchTelegramRooms(ctx,onChange,{signal}={}){
+  if(!ctx.moduleEnabled('family_photos')||signal?.aborted)return null;
+  let closed=false,timer=null,lastRooms=[],running=null,controller=null,revision=0,resume=false;
+  const stop=()=>{clearTimeout(timer);timer=null;revision++;controller?.abort();};
+  const destroy=()=>{if(closed)return;closed=true;resume=false;stop();document.removeEventListener('drg-family-read',read);document.removeEventListener('visibilitychange',visible);signal?.removeEventListener('abort',destroy);};
   const read=event=>{if(closed)return;lastRooms=lastRooms.map(room=>room.group_id===event.detail?.group_id?{...room,unread:0}:room);onChange(lastRooms);};
-  document.addEventListener('drg-family-read',read);
-  const refresh=async()=>{
-    try{
-      const data=await ctx.api('/family-photos/groups');if(closed)return;
-      const items=await Promise.all(data.items.map(async group=>{
-        try{
-          const history=await ctx.api(base(group.id)+'/messages?limit=1');
-          const latest=history.items.at(-1);
-          return {id:'telegram:'+group.id,group_id:group.id,name:group.title,avatar_url:group.avatar_url,kind:'family',
+  const refresh=()=>{
+    if(closed||document.hidden)return Promise.resolve();
+    clearTimeout(timer);timer=null;
+    if(running){if(controller?.signal.aborted)resume=true;return running;}
+    resume=false;
+    const abort=new AbortController(),current=++revision;controller=abort;
+    const valid=()=>!closed&&!document.hidden&&!abort.signal.aborted&&current===revision;
+    const request=path=>ctx.api(path,'GET',undefined,true,{}, {signal:abort.signal});
+    running=(async()=>{
+      try{
+        const data=await request('/family-photos/groups');if(!valid())return;
+        const items=new Array(data.items.length);let next=0;
+        const worker=async()=>{while(valid()){
+          const index=next++;if(index>=data.items.length)return;
+          const group=data.items[index];
+          try{
+            // Only an explicit authoritative zero proves an empty history.
+            const history=group.latest_message_id===0?null:await request(base(group.id)+'/messages?limit=1');
+            if(!valid())return;
+            const latest=history?.items.at(-1);
+            items[index]={id:'telegram:'+group.id,group_id:group.id,name:group.title,avatar_url:group.avatar_url,kind:'family',
             members:[],unread:group.unread||0,mute_until:group.mute_until||0,pinned:false,favorite:false,
             last_message:latest?{id:latest.id,created:latest.created,body:latest.content_type==='voice'?tText("family_photos:audioMessage"):latest.text,sender:latest.sender,
               attachments:(latest.media||[]).map(file=>({kind:file.kind==='photo'?'image':file.kind,name:file.name}))}:null};
-        }catch{return null;}
-      }));
-      if(!closed){lastRooms=items.filter(Boolean);onChange(lastRooms);}
-    }catch{if(!closed)onChange([]);}
-    finally{if(!closed)timer=setTimeout(refresh,15000);}
+          }catch{if(!valid())return;items[index]=null;}
+        }};
+        await Promise.all(Array.from({length:Math.min(4,data.items.length)},worker));
+        if(valid()){lastRooms=items.filter(Boolean);onChange(lastRooms);}
+      }catch{if(valid())onChange([]);}
+    })().finally(()=>{
+      running=null;if(controller===abort)controller=null;
+      if(closed||document.hidden)return;
+      if(resume){resume=false;void refresh();}
+      else if(valid())timer=setTimeout(refresh,15000);
+    });
+    return running;
   };
-  await refresh();return {destroy(){closed=true;clearTimeout(timer);document.removeEventListener('drg-family-read',read);}};
+  const visible=()=>{if(document.hidden){resume=false;stop();}else void refresh();};
+  document.addEventListener('drg-family-read',read);
+  document.addEventListener('visibilitychange',visible);
+  signal?.addEventListener('abort',destroy,{once:true});
+  await refresh();return {destroy};
 }
 
 export function mountTelegramChat(host,ctx,gid,onBack){

@@ -72,7 +72,7 @@ class ChatWorkspace {
       // The optional archive must not delay opening an ordinary conversation.
       watchTelegramRooms(this.ctx,items=>{
         if(this.disposed)return;this.telegramSpaces=items;this.drawRooms();
-      }).then(watcher=>{if(this.disposed)watcher?.destroy();else this.telegramRooms=watcher;});
+      },{signal:this.mediaAbort.signal}).then(watcher=>{if(this.disposed)watcher?.destroy();else this.telegramRooms=watcher;});
     }catch(e){if(!this.disposed){this.host.innerHTML=`<div class="chat-shell"><div class="chat-welcome"><h2>${tHtml("chat:failedToLoadChats")}</h2><p>${esc(e.message)}</p><button class="secondary" data-chat-retry>${tHtml("chat:retry")}</button><button class="text-link" id="chat-main-menu">${tHtml("chat:mainMenu")}</button></div></div>`;$('[data-chat-retry]',this.host).onclick=()=>mountChat(this.host,this.ctx,{listOnly:this.listOnly});$('#chat-main-menu',this.host).onclick=()=>this.ctx.navigate('home');}}
   }
   stopAudio(){this.host.querySelectorAll("audio").forEach(audio=>{audio.pause();audio.removeAttribute("src");audio.load();});}

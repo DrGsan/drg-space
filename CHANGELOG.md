@@ -2,6 +2,14 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.2.7-rc.1] — 2026-11-15 — Fewer background Media requests
+
+- Stop refreshing Media conversation previews while the page is hidden or after leaving chats.
+- Skip history requests for known empty Media groups and limit simultaneous preview downloads.
+
+- **Installation:** Rebuild Space with the existing Compose settings and volumes.
+- **Compatibility:** No schema, key, storage-format, dependency or environment changes; no migration or Media update is required.
+
 ## [5.2.6] — 2026-11-15 — More efficient Media conversations
 
 - Open Media conversations with fewer repeated reads for reactions and author profiles.

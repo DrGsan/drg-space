@@ -135,6 +135,11 @@ jobs:
         if: matrix.engine == 'postgres' && matrix.encryption == 'true'
       - run: node tests/browser/bottom-tabs.mjs
         if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+      - name: Media preview request budgets and lifecycle
+        if: matrix.engine == 'postgres' && matrix.encryption == 'true'
+        run: |
+          node tests/browser/media-preview-lifecycle.mjs
+          DRG_BROWSER_ENGINE=webkit node tests/browser/media-preview-lifecycle.mjs
       - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
