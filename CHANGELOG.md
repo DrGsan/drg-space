@@ -2,6 +2,14 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.2.6-rc.1] — 2026-11-15 — More efficient Media conversations
+
+- Open Media conversations with fewer repeated reads for reactions and author profiles.
+- Keep reaction visibility and profile presence up to date when access changes.
+
+- **Installation:** Rebuild Space with the existing Compose settings and volumes.
+- **Compatibility:** No schema, key, storage-format, dependency or environment changes; no migration or Media update is required. This is a preview release.
+
 ## [5.2.5] — 2026-11-15 — More efficient file browsing
 
 - Open Drive folders and recent files with fewer repeated metadata reads.

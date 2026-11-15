@@ -1,5 +1,11 @@
 # Updating DrG Space
 
+## 5.2.6-rc.1: more efficient Media conversations (preview)
+
+Space batches local reactions, current reactor permissions and unique author profiles for the selected Media history page. The same request-local loading applies to a single message, including deleted-user fallbacks and current presence. No profile or access data is retained between requests. Message order, album boundaries, Telegram attribution, reaction controls and access checks are unchanged.
+
+There are no schema, key, storage-format, dependency, environment, port or volume changes. No migration, clean database, replacement configuration or Media update is required. Rebuild Space with the existing Compose overlays. Rolling back to 5.2.5 requires no data changes; restrictions for downgrading below 5.2.0 still apply.
+
 ## 5.2.5: more efficient file browsing
 
 File scope checks load selected entries and their ancestors instead of repeatedly scanning unrelated trees. Empty selections and trash cleanup with no expired entries avoid namespace walks. Note, task and chat attachments remain protected, including moved legacy attachments. PostgreSQL project locks continue to coordinate file access with project deletion.
