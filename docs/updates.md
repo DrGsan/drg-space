@@ -1,6 +1,6 @@
 # Updating DrG Space
 
-## 5.2.6-rc.1: more efficient Media conversations (preview)
+## 5.2.6: more efficient Media conversations
 
 Space batches local reactions, current reactor permissions and unique author profiles for the selected Media history page. The same request-local loading applies to a single message, including deleted-user fallbacks and current presence. No profile or access data is retained between requests. Message order, album boundaries, Telegram attribution, reaction controls and access checks are unchanged.
 
