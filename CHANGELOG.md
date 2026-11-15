@@ -4,7 +4,7 @@ User-facing release history. Preview changes are consolidated into their stable 
 
 ## [5.2.7-rc.1] — 2026-11-15 — Fewer background Media requests
 
-- Stop refreshing Media conversation previews while the page is hidden or after leaving chats.
+- Stop automatic Media conversation and preview refreshes while the page is hidden or after leaving chats.
 - Skip history requests for known empty Media groups and limit simultaneous preview downloads.
 
 - **Installation:** Rebuild Space with the existing Compose settings and volumes.

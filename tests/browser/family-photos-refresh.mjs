@@ -135,13 +135,16 @@ try{
   assert(await chat.page.evaluate(()=>albumImage===document.querySelector('.chat-media-tile img')&&albumImage.isConnected),'album polling preserves its image node');
   assert.equal(chat.requests(),albumRequests,'album polling does not refetch media');
   assert.deepEqual(await chat.page.evaluate(()=>fixtureState.reads),[2],'visible initial chat sends one read receipt');
-  await chat.page.evaluate(()=>Object.defineProperty(document,'hidden',{configurable:true,get:()=>true}));
+  await chat.page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});document.dispatchEvent(new Event('visibilitychange'));});
+  const hiddenChatCalls=await chat.page.evaluate(()=>fixtureState.calls);
   await chat.page.evaluate(()=>fixtureState.messages.push({id:3,created:1700000002,sender:'Иван',text:'Новое сообщение',media:[]}));
   await chat.page.clock.runFor(6000);
-  assert.equal(await chat.page.locator('.fp-chat-message').count(),2,'new messages still appear');
+  assert.equal(await chat.page.evaluate(()=>fixtureState.calls),hiddenChatCalls,'hidden conversation stops automatic catalog, history and delivery polling');
+  assert.equal(await chat.page.locator('.fp-chat-message').count(),1,'hidden conversation keeps its current snapshot');
   assert.deepEqual(await chat.page.evaluate(()=>fixtureState.reads),[2],'hidden chat does not read arriving messages');
   await chat.page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});document.dispatchEvent(new Event('visibilitychange'));});
   await chat.page.clock.runFor(100);
+  assert.equal(await chat.page.locator('.fp-chat-message').count(),2,'returning to the conversation immediately loads new messages');
   assert.deepEqual(await chat.page.evaluate(()=>fixtureState.reads),[2,3],'returning to the visible chat advances the read cursor');
   assert(await chat.page.evaluate(()=>albumImage.isConnected&&kept.message===document.querySelector('.fp-chat-message')),
     'appending messages preserves older articles');

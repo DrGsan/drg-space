@@ -44,6 +44,6 @@
   "release5_2_1Change4": "Note and image imports preserve their behavior while unused maintenance code is removed.",
   "release5_2_1Change5": "Cancelled downloads release the storage lock even before response headers arrive, so backups can proceed.",
   "release5_2_7_rc_1Title": "Fewer background Media requests",
-  "release5_2_7_rc_1Change1": "Stop refreshing Media conversation previews while the page is hidden or after leaving chats.",
+  "release5_2_7_rc_1Change1": "Stop automatic Media conversation and preview refreshes while the page is hidden or after leaving chats.",
   "release5_2_7_rc_1Change2": "Skip history requests for known empty Media groups and limit simultaneous preview downloads."
 }

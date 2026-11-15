@@ -2,7 +2,7 @@
 
 ## 5.2.7-rc.1: fewer background Media requests
 
-Media conversation previews stop polling while the page is hidden and cancel their active requests when chats are left. Returning to the page starts one fresh update. Known empty groups remain visible without loading their empty history; previews load with at most four history requests in flight. Missing metadata from an older Media service keeps the compatible history path.
+Media conversations and their previews stop automatic polling while the page is hidden and cancel their active reads when chats are left. Hiding a page does not cancel user-initiated sends or delivery jobs. Returning to the page starts one fresh update. Known empty groups remain visible without loading their empty history; previews load with at most four history requests in flight. Missing metadata from an older Media service keeps the compatible history path.
 
 There are no schema, key, storage-format, dependency, environment, port or volume changes. No migration, clean database, replacement configuration or Media update is required. Rebuild Space with the existing Compose overlays. Rolling back to 5.2.6 requires no data changes; restrictions for downgrading below 5.2.0 still apply.
 
