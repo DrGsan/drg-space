@@ -1,6 +1,6 @@
 # Updating DrG Space
 
-## 5.2.4-rc.1: reactions below media (preview)
+## 5.2.4: reactions below media
 
 Photo and album reactions use a separate strip below the message background in built-in chats and Media history, including the installed Web App. Captions, quoted replies, documents and timestamps remain in the content bubble. Empty reaction strips reserve no space; multiple reactions wrap without overlapping the next message. Existing reaction actions, participants, permissions and synchronization are unchanged.
 
