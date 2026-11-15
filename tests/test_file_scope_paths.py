@@ -61,6 +61,7 @@ def test_ancestor_cycles_and_multiple_query_chunks_preserve_every_visible_row(da
         for number in range(520):file(c,uid,f'visible-{number}')
         selected=list(c.execute('SELECT * FROM files'))
         assert {row['id'] for row in file_module_rows(c,selected,uid)}=={row['id'] for row in selected}
+        assert not is_tracker_file(c,next(row for row in selected if row['id']=='cycle-a'))
 
 
 def test_empty_folder_work_does_not_grow_with_unrelated_owners(monkeypatch):

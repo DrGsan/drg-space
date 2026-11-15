@@ -7,14 +7,23 @@ NOTE_PREFIX = 'application/x-drg-note;space='
 TRACKER_PREFIX = 'application/x-drg-tracker;project='
 
 
-def ancestors(c, selected):
+def ancestors(c, selected, *, reuse=False):
     """Read only selected objects and their ancestors, including legacy roots.
 
     UNION terminates malformed cycles. Do not filter ancestors by owner: a
     legacy linked attachment may have moved across an ordinary folder boundary.
     """
-    identities = sorted({row['id'] for row in selected})
+    selected = list(selected)
     rows = {}
+    fields = ('id','parent_id','kind','mime')
+    # A SQLite transaction pins the rows just read by the listing. Reuse those
+    # values, then fetch only missing ancestors. PostgreSQL retains fresh reads
+    # before project locks; ID-only selections also always read their metadata.
+    if reuse and getattr(getattr(c,'backend',None),'kind',None)=='sqlite' and c.raw.in_transaction:
+        rows = {row['id']:{key:row[key] for key in fields} for row in selected if set(fields).issubset(row.keys())}
+    needed = {row['id'] for row in selected} - rows.keys()
+    needed.update(row['parent_id'] for row in rows.values() if row['parent_id'] and row['parent_id'] not in rows)
+    identities = sorted(needed)
     for start in range(0, len(identities), 256):
         batch = identities[start:start+256]
         query = ('WITH RECURSIVE ancestors(id) AS ('
@@ -100,7 +109,7 @@ def file_module_rows(c, rows, uid=None):
     rows = list(rows)
     if not rows:
         return []
-    scoped = ancestors(c, rows)
+    scoped = ancestors(c, rows, reuse=True)
     links = tracker_links(c, scoped)
     lock_projects(c, scoped, links)
     hidden = protected_ids(scoped, (NOTE_PREFIX, TRACKER_PREFIX), links)
