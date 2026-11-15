@@ -42,5 +42,8 @@
   "release5_0_2Change2": "Existing data volumes can be pinned as external volumes when changing the Compose project.",
   "release5_0_2Change3": "Downloaded backups use the DrG Space filename; existing backup formats and tokens stay compatible.",
   "release5_2_1Change4": "Note and image imports preserve their behavior while unused maintenance code is removed.",
-  "release5_2_1Change5": "Cancelled downloads release the storage lock even before response headers arrive, so backups can proceed."
+  "release5_2_1Change5": "Cancelled downloads release the storage lock even before response headers arrive, so backups can proceed.",
+  "release5_2_7Title": "Fewer background Media requests",
+  "release5_2_7Change1": "Stop automatic Media conversation and preview refreshes while the page is hidden or after leaving chats.",
+  "release5_2_7Change2": "Skip history requests for known empty Media groups and limit simultaneous preview downloads."
 }

@@ -1,5 +1,11 @@
 # Updating DrG Space
 
+## 5.2.7: fewer background Media requests
+
+Media conversations and their previews stop automatic polling while the page is hidden and cancel their active reads when chats are left. Hiding a page does not cancel user-initiated sends or delivery jobs. Returning to the page starts one fresh update. Known empty groups remain visible without loading their empty history; previews load with at most four history requests in flight. Missing metadata from an older Media service keeps the compatible history path.
+
+There are no schema, key, storage-format, dependency, environment, port or volume changes. No migration, clean database, replacement configuration or Media update is required. Rebuild Space with the existing Compose overlays. Rolling back to 5.2.6 requires no data changes; restrictions for downgrading below 5.2.0 still apply.
+
 ## 5.2.6: more efficient Media conversations
 
 Space batches local reactions, current reactor permissions and unique author profiles for the selected Media history page. The same request-local loading applies to a single message, including deleted-user fallbacks and current presence. No profile or access data is retained between requests. Message order, album boundaries, Telegram attribution, reaction controls and access checks are unchanged.
