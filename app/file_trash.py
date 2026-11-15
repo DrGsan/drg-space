@@ -29,5 +29,8 @@ def purge_file_trash(c, stamp, uid=None):
         query += ' AND user_id=?'
         params += (uid,)
     from app.file_scopes import note_attachment_ids
-    hidden = note_attachment_ids(c, uid)
-    purge_file_rows(c, (row['id'] for row in c.execute(query, params) if row['id'] not in hidden), stamp)
+    expired = list(c.execute(query, params))
+    if not expired:
+        return
+    hidden = note_attachment_ids(c, uid, selected=expired)
+    purge_file_rows(c, (row['id'] for row in expired if row['id'] not in hidden), stamp)

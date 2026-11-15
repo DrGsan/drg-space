@@ -1,5 +1,11 @@
 # Updating DrG Space
 
+## 5.2.5-rc.1: more efficient file browsing (preview)
+
+File scope checks load selected entries and their ancestors instead of repeatedly scanning unrelated trees. Empty selections and trash cleanup with no expired entries avoid namespace walks. Note, task and chat attachments remain protected, including moved legacy attachments. PostgreSQL project locks continue to coordinate file access with project deletion.
+
+There are no schema, key, storage-format, dependency, environment, port or volume changes. No migration or clean database is required. Rebuild with the existing Compose overlays. Rolling back to 5.2.4 requires no data changes; restrictions for downgrading below 5.2.0 still apply.
+
 ## 5.2.4: reactions below media
 
 Photo and album reactions use a separate strip below the message background in built-in chats and Media history, including the installed Web App. Captions, quoted replies, documents and timestamps remain in the content bubble. Empty reaction strips reserve no space; multiple reactions wrap without overlapping the next message. Existing reaction actions, participants, permissions and synchronization are unchanged.
