@@ -1,6 +1,6 @@
 # Updating DrG Space
 
-## 5.2.7-rc.1: fewer background Media requests
+## 5.2.7: fewer background Media requests
 
 Media conversations and their previews stop automatic polling while the page is hidden and cancel their active reads when chats are left. Hiding a page does not cancel user-initiated sends or delivery jobs. Returning to the page starts one fresh update. Known empty groups remain visible without loading their empty history; previews load with at most four history requests in flight. Missing metadata from an older Media service keeps the compatible history path.
 
