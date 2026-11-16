@@ -12,6 +12,7 @@ export function videoPoster(file){
 }
 export function prepareVideos(host){
   host.querySelectorAll('video').forEach(video=>{
+    if(video.closest('.chat-media-tile')?.querySelector('[data-video-poster]'))return;
     const paint=poster=>{
       if(!poster)return;
       if(!video.poster)video.poster=poster;
@@ -46,14 +47,14 @@ export function albumRows(files){
   for(let offset=0;offset<files.length;offset+=10){let start=offset;for(const count of layouts[Math.min(10,files.length-offset)]){result.push(files.slice(start,start+count));start+=count;}}
   return result;
 }
-export function albumMarkup(files,attribute){
+export function albumMarkup(files,attribute,{imagePosters=false}={}){
   if(!files.length)return '';
   if(!['data-chat-media-id','data-fp-chat-file'].includes(attribute))throw Error('Invalid media attribute');
   return `<div class="chat-media-album ${files.length===1?'is-single':''}" role="group" aria-label="${files.length>1?tText("common:albumFiles", {count:(files.length)}):tText("chat:media")}">${albumRows(files).map((row,index)=>`<div class="chat-media-row" data-media-row="${index}">${row.map(file=>{
     const animation=file.kind==='animation',video=file.kind==='video'||animationVideo(file),ready=!file.state||file.state==='ready';
-    const preview=file.thumbnail_url||(!video?file.url:null),label=animation?'GIF':video?tText("chat:video2"):tText("chat:photo2");
-    const content=video?`<video ${animation?'data-animation-preview':'data-video-preview'} muted loop playsinline preload="${preview?'none':'metadata'}" ${preview?`poster="${esc(preview)}"`:''} src="${esc(animation?file.url:videoSource(file.url))}" aria-label="${animation?'GIF':tText("chat:videoPreview")}"></video>`:`<img src="${esc(animation?file.url:preview)}" alt="${animation?'GIF':tText("chat:photo")}" loading="lazy">`;
-    return `<button type="button" class="chat-media-tile ${animation?'is-animation':''} ${file.state==='paused'?'is-unavailable':''}" data-chat-attachment-id="${esc(file.id)}" ${attribute}="${esc(file.id)}" aria-label="${tHtml("chat:open", {value0:(label)})}">${ready?content:`<span class="chat-media-wait">${file.state==='paused'?(animation?tText("chat:thisGifIsNotAvailableInTg"):video?tText("chat:thisVideoIsNotAvailableInTg"):tText("chat:thisPhotoIsNotAvailableInTg")):file.state==='failed'?tText("chat:waitingForReUpload"):tText("chat:uploading")}</span>`}${ready?(animation?'<span class="chat-video-timer chat-gif-mark">GIF</span>':video?'<span class="chat-video-timer" data-video-remaining></span><span class="chat-video-progress"><i data-video-progress></i></span><span class="chat-media-play" aria-hidden="true">▶</span>':''):''}</button>`;
+    const preview=file.thumbnail_url||(!video?file.url:null),imagePoster=imagePosters&&video&&preview,label=animation?'GIF':video?tText("chat:video2"):tText("chat:photo2");
+    const content=video?`${imagePoster?`<img data-video-poster src="${esc(preview)}" alt="" loading="lazy">`:''}<video ${animation?'data-animation-preview':'data-video-preview'} muted loop playsinline preload="${preview?'none':'metadata'}" ${preview&&!imagePoster?`poster="${esc(preview)}"`:''} src="${esc(animation?file.url:videoSource(file.url))}" aria-label="${animation?'GIF':tText("chat:videoPreview")}"></video>`:`<img src="${esc(animation?file.url:preview)}" alt="${animation?'GIF':tText("chat:photo")}" loading="lazy">`;
+    return `<button type="button" class="chat-media-tile ${animation?'is-animation':''} ${imagePoster?'has-image-poster':''} ${file.state==='paused'?'is-unavailable':''}" data-chat-attachment-id="${esc(file.id)}" ${attribute}="${esc(file.id)}" aria-label="${tHtml("chat:open", {value0:(label)})}">${ready?content:`<span class="chat-media-wait">${file.state==='paused'?(animation?tText("chat:thisGifIsNotAvailableInTg"):video?tText("chat:thisVideoIsNotAvailableInTg"):tText("chat:thisPhotoIsNotAvailableInTg")):file.state==='failed'?tText("chat:waitingForReUpload"):tText("chat:uploading")}</span>`}${ready?(animation?'<span class="chat-video-timer chat-gif-mark">GIF</span>':video?'<span class="chat-video-timer" data-video-remaining></span><span class="chat-video-progress"><i data-video-progress></i></span><span class="chat-media-play" aria-hidden="true">▶</span>':''):''}</button>`;
   }).join('')}</div>`).join('')}</div>`;
 }
 export function telegramAlbums(messages){

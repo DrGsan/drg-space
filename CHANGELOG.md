@@ -2,9 +2,9 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.2.9-rc.1] — 2026-11-16 — Steadier Media history
+## [5.2.9-rc.2] — 2026-11-16 — Steadier Media history
 
-- Keep visible photo placeholders steady while images load.
+- Fit photos and video posters to their natural proportions as soon as previews load, while preserving the reading position.
 - Preserve the message being read when older Media history is added above it.
 - Avoid repeating history layout when background updates contain no changes.
 

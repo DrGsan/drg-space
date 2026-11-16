@@ -93,4 +93,6 @@
 
 /* Manual message anchors own scroll restoration through history/media updates. */
 .fp-chat-history.fp-stable-history{overflow-anchor:none;scroll-behavior:auto}
-.fp-chat-history .chat-media-album.is-provisional .chat-media-tile>img,.fp-chat-history .chat-media-album.is-provisional .chat-media-tile>video{object-fit:contain}
+.fp-chat-history .chat-media-tile.has-image-poster>video{position:absolute;inset:0;visibility:hidden}
+.fp-chat-history .chat-media-tile.has-image-poster.is-preview-playing>video{visibility:visible}
+.fp-chat-history .chat-media-tile.has-image-poster.is-preview-playing>[data-video-poster]{visibility:hidden}
