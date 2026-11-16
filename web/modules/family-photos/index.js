@@ -377,7 +377,7 @@ export function mountTelegramChat(host,ctx,gid,onBack){
     })().finally(()=>{loadingOlder=null;});
     return loadingOlder;
   };
-  const pagination=edgePagination(history,{root:history,rootMargin:'1200px 0px 0px',canLoad:()=>!closed&&!loadingOlder&&more&&before>0&&!context,load:loadOlder,onError:denied});
+  const pagination=edgePagination(history,{root:history,canLoad:()=>!closed&&!loadingOlder&&more&&before>0&&!context,load:loadOlder,onError:denied});
   const jump=async id=>{
     let tries=0;while(!items.some(m=>m.id===id)&&more&&tries++<20&&!closed)await loadOlder();
     if(closed)return;

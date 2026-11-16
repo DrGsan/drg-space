@@ -8,6 +8,8 @@ export function stableAlbumLayout(host,beforeLayout,signal,motion){
       const tiles=[...row.children],ratios=tiles.map(tile=>{
         // A late or failed thumbnail must not resize any cell or its neighbours.
         if(!single)return 1;
+        const knownW=Number(tile.dataset.mediaWidth),knownH=Number(tile.dataset.mediaHeight);
+        if(knownW>0&&knownH>0)return knownW/knownH;
         const image=tile.querySelector('img'),video=tile.querySelector('video'),w=image?.naturalWidth||video?.videoWidth,h=image?.naturalHeight||video?.videoHeight;
         return w&&h?w/h:1;
       });return {row,tiles,ratios,total:ratios.reduce((a,b)=>a+b,0)||1};
@@ -45,7 +47,7 @@ export function stableAlbumLayout(host,beforeLayout,signal,motion){
       let entry=entries.get(album);if(!entry){entry={album};entries.set(album,entry);}
       entry.selected=geometry(album);dirty.delete(entry);
       // Album geometry is complete before any preview loads.
-      if(!album.classList.contains('is-single'))continue;
+      if(!album.classList.contains('is-single')||album.querySelector('[data-media-width][data-media-height]'))continue;
       album.querySelectorAll('img,video').forEach(m=>{
         if(bound.has(m))return;bound.add(m);
         m.addEventListener(m.tagName==='VIDEO'?'loadedmetadata':'load',()=>{if(!closed&&host.contains(album))schedule(entries.get(album));},{signal:events.signal});

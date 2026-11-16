@@ -50,8 +50,8 @@
   "release5_2_8Change1": "Read the current call without scanning other people's calls or taking an extra write lock during ordinary polling.",
   "release5_2_8Change2": "Receive incoming call changes through the live inbox, with fast fallback when the subscription is unavailable.",
   "release5_2_8Change3": "Keep call expiry and sensitive signaling cleanup under the shared maintenance lease.",
-  "release5_2_9_rc_4Title": "Steadier Media history",
-  "release5_2_9_rc_4Change1": "Reserve album layouts before previews load, while keeping single-photo and video proportions.",
-  "release5_2_9_rc_4Change2": "Keep active scrolling uninterrupted by applying Media preview sizing and older messages once the gesture settles.",
-  "release5_2_9_rc_4Change3": "Avoid repeating history layout when background updates contain no changes."
+  "release5_2_9_rc_5Title": "Steadier Media history",
+  "release5_2_9_rc_5Change1": "Reserve album layouts and use stored single-photo and video dimensions before previews load.",
+  "release5_2_9_rc_5Change2": "Keep active scrolling uninterrupted by applying Media preview sizing and older messages once the gesture settles.",
+  "release5_2_9_rc_5Change3": "Avoid repeating history layout when background updates contain no changes."
 }

@@ -1,10 +1,10 @@
 # Updating DrG Space
 
-## 5.2.9-rc.4 · Preview
+## 5.2.9-rc.5 · Preview
 
-Media albums reserve a fixed mosaic from their file count before any preview loads. Images can arrive individually without resizing the album, neighbouring messages or other tiles. Mosaic previews use cover cropping; full-size originals remain available in the viewer. Single photos and video posters keep their natural proportions, with batched layout and scroll-position restoration; videos obtain dimensions without downloading their originals. Older history is fetched ahead of the viewport; while wheel, touch or keyboard scrolling continues, single-preview sizing and page insertion wait. Ready updates are applied shortly after the gesture settles. Unchanged background responses skip repeated layout work.
+Media albums reserve a fixed mosaic from their file count before any preview loads. Images can arrive individually without resizing the album, neighbouring messages or other tiles. Mosaic previews use cover cropping; full-size originals remain available in the viewer. Single photos and video posters reserve natural frames from stored Media dimensions before thumbnail bytes arrive. This requires Media 1.14.4 or newer and its one-time preparation of old archive metadata. Older Media remains compatible through the previous geometry fallback. Full-size originals are unchanged. Older history uses the established near-edge pagination threshold, avoiding an extra page request on opening; while wheel, touch or keyboard scrolling continues, single-preview sizing and page insertion wait. Ready updates are applied shortly after the gesture settles. Unchanged background responses skip repeated layout work.
 
-Rebuild Space with the existing Compose files and volumes. No schema, key, storage-format, dependency or environment changes are required; Media and existing clients remain compatible.
+Rebuild Space with the existing Compose files and volumes. Space needs no schema, key, storage-format, dependency or environment changes. Update and prepare Media first to obtain stable single-preview geometry; follow its update guide, preserving the existing archive and session.
 
 ## 5.2.8
 
