@@ -2,6 +2,15 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.2.9-rc.1] — 2026-11-16 — Steadier Media history
+
+- Keep visible photo placeholders steady while images load.
+- Preserve the message being read when older Media history is added above it.
+- Avoid repeating history layout when background updates contain no changes.
+
+- **Installation:** Rebuild Space with the existing Compose settings and volumes.
+- **Compatibility:** No schema, key, storage-format, dependency or environment changes; no migration or Media update is required.
+
 ## [5.2.8] — 2026-11-15 — More efficient call updates
 
 - Read the current call without scanning other people's calls or taking an extra write lock during ordinary polling.

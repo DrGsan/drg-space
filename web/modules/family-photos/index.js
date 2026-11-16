@@ -19,10 +19,12 @@ import {chatIcon} from '../chat/icons.js';
 import {chatComposerMarkup} from '../chat/composer.js';
 import {bindMessagePress,messageMenu} from '../chat/message-menu.js';
 import {renderMarkup} from '../../core/dom.js';
+import {historyPosition} from './history-position.js';
+import {stableAlbumLayout} from './album-layout.js';
 import {edgePagination} from '../../core/edge-pagination.js';
 import './family-photos.css';
 import '../chat/media.css';
-import {animationVideo,albumMarkup,mediaFrame,telegramAlbums,fitAlbums,videoPoster,prepareVideos,visualMedia} from '../chat/media.js';
+import {animationVideo,albumMarkup,mediaFrame,telegramAlbums,videoPoster,prepareVideos,visualMedia} from '../chat/media.js';
 
 let active;
 export const familyPhotosController={destroy(){active?.destroy();active=null;},async flush(){return true;}};
@@ -292,7 +294,7 @@ export async function watchTelegramRooms(ctx,onChange,{signal}={}){
 }
 
 export function mountTelegramChat(host,ctx,gid,onBack){
-  let closed=false,timer=null,viewer=null,seq=0,items=[],more=false,before=0,context=null,contextId=null,loadingOlder=null,revision=0,pollAbort=null,loaded=false;
+  let closed=false,timer=null,viewer=null,seq=0,items=[],more=false,before=0,context=null,contextId=null,loadingOlder=null,revision=0,pollAbort=null,loaded=false,drawKey=null;
   const abort=new AbortController(),request=(path,method='GET',body)=>ctx.api(path,method,body,true,{}, {signal:abort.signal});
   const pending=new Map();
   host.innerHTML=`<div class="fp-chat"><header class="chat-header"><button class="chat-back" aria-label="${tHtml("family_photos:toChatList")}" data-fp-back>${chatIcon('back')}</button><div class="chat-header-identity" data-fp-identity><h2 data-fp-title>${tHtml("family_photos:uploadingConversation")}</h2></div><div class="chat-header-actions"><button type="button" aria-label="${tHtml("family_photos:disableNotifications")}" title="${tHtml("family_photos:disableNotifications")}" data-fp-notifications aria-pressed="false" disabled>${chatIcon('bell')}</button><button aria-label="${tHtml("family_photos:photos")}" title="${tHtml("family_photos:photos")}" data-fp-gallery>${chatIcon('image')}</button></div></header><div class="chat-retention chat-retention-inline fp-chat-status" data-fp-chat-status role="status">${tHtml("family_photos:connecting")}</div><div class="chat-messages fp-chat-history" data-fp-history role="log" aria-label="${tHtml("family_photos:telegramConversation")}"></div>${chatComposerMarkup({formId:'fp-send-message',textareaId:'fp-message',telegram:true})}</div>`;
@@ -301,6 +303,8 @@ export function mountTelegramChat(host,ctx,gid,onBack){
   const drawNotifications=()=>{const muted=roomMuted({mute_until:muteUntil});notificationButton.innerHTML=chatIcon(muted?'bellOff':'bell');notificationButton.setAttribute('aria-pressed',String(muted));notificationButton.title=muted?tText("family_photos:enableNotifications"):tText("family_photos:disableNotifications");notificationButton.setAttribute('aria-label',notificationButton.title);notificationButton.disabled=savingNotifications;};
   notificationButton.onclick=async()=>{if(savingNotifications)return;savingNotifications=true;notificationRevision++;drawNotifications();try{const data=await request(`/chat/telegram:${gid}/notifications`,'PUT',{seconds:roomMuted({mute_until:muteUntil})?0:-1});if(closed)return;notificationRevision++;muteUntil=data.mute_until;document.dispatchEvent(new CustomEvent('drg-chat-notifications',{detail:{id:'telegram:'+gid,mute_until:muteUntil}}));ctx.toast(muteUntil?tText("family_photos:notificationsAreDisabledUnreadMessagesArePreserved"):tText("family_photos:notificationsEnabled"));}catch(error){if(!closed)ctx.toast(error.message);}finally{savingNotifications=false;if(!closed)drawNotifications();}};
   const history=$('[data-fp-history]',host),form=$('form',host),notice=$('[data-fp-chat-status]',host);
+  history.classList.add('fp-stable-history');
+  const layout=stableAlbumLayout(history,()=>historyPosition(history,{pinBottom:!context}),abort.signal);
   const stopAudio=()=>history.querySelectorAll('audio').forEach(audio=>{audio.pause();audio.removeAttribute('src');audio.load();});
   const stickers=stickerPlayers(history,ctx,abort.signal),previews=inlineVideos(history),avatars=telegramAvatars(abort.signal);
   let reactionMirror=false;
@@ -332,31 +336,31 @@ export function mountTelegramChat(host,ctx,gid,onBack){
     contextId=message.id;context=messageMenu({article,x,y,touch,actions,reactions:reactions.menu(message,article),footer:day(message.created)+' · '+time(message.created),onClose:()=>{context=null;contextId=null;}});
   });
   $('[data-fp-back]',host).onclick=()=>{closeMenu();onBack();};$('[data-fp-gallery]',host).onclick=()=>{closeMenu();ctx.navigate('family_photos');};
-  const denied=error=>{if(closed)return;closeMenu();viewer?.destroy();if(blocked(error)){stopAudio();items=[];history.replaceChildren();stickers.sync();form.hidden=true;}notice.hidden=false;renderMarkup(notice,esc(error.message));};
+  const denied=error=>{if(closed)return;closeMenu();viewer?.destroy();if(blocked(error)){stopAudio();items=[];drawKey=null;renderMarkup(history,'');layout.sync();stickers.sync();form.hidden=true;}notice.hidden=false;renderMarkup(notice,esc(error.message));};
   const draw=(follow=false,preserve=false)=>{
-    const rect=history.getBoundingClientRect(),anchor=preserve?[...history.querySelectorAll('[data-fp-message-id]')].find(el=>el.getBoundingClientRect().bottom>rect.top):null;
-    const anchorId=anchor?.dataset.fpMessageId,offset=anchor?anchor.getBoundingClientRect().top-rect.top:0;
-    const top=history.scrollTop,height=history.scrollHeight,atEnd=!preserve&&!context&&top+history.clientHeight>=height-100;
+    const key=JSON.stringify([items,[...pending],more,form.hidden,ctx.state.me.id,ctx.state.me.people_names,locale(),new Date().toDateString()]);
+    if(key===drawKey&&!follow){pagination.update();return;}
+    const restore=historyPosition(history,{follow,pinBottom:!preserve&&!context});
+    const sources=new Map(items.map(message=>[message.id,message]));
     if(contextId&&!items.some(m=>m.id===contextId))closeMenu();
     const audioPlayers=[...history.querySelectorAll('audio')];
     let lastDay='';
     const changed=renderMarkup(history,`${more?'<div class="page-edge" data-page-edge role="status"></div>':''}`+telegramAlbums(items).map((message,index,albums)=>{
       const grouped=sameMessageGroup(albums[index-1],message),groupEnd=!sameMessageGroup(message,albums[index+1]);
       const stamp=day(message.created),separator=stamp!==lastDay?`<div class="chat-day fp-chat-day" data-fp-day="${esc(stamp)}"><time>${esc(chatDayLabel(message.created))}</time></div>`:'';lastDay=stamp;
-      const source=items.find(m=>m.id===message.reply_to);
+      const source=sources.get(message.reply_to);
       const sticker=message.content_type==='sticker'||message.media.some(file=>file.kind==='sticker'),visual=message.media.some(visualMedia),documents=message.media.filter(file=>file.kind==='file'),mine=message.site_actor_id===ctx.state.me.id,footer=messageFooter(message,mine);
       return `${separator}<article class="chat-message fp-chat-message ${mine?'mine':''} ${message.media.length===1&&message.media[0].kind==='video_note'&&!message.text?'is-circle-only':''} ${grouped?'grouped':''} ${groupEnd?'group-end':''} ${sticker?'fp-sticker-message':''} ${message.custom_emoji?'fp-emoji-message':''} ${visual?'has-visual-media':''} ${visual&&!message.text&&!documents.length&&!message.reply_to?'media-only':''}" data-fp-message-id="${message.id}" tabindex="0" aria-haspopup="menu">${message.sources.slice(1).map(source=>`<span class="chat-media-anchor" data-fp-source-message-id="${source.id}"></span>`).join('')}${mine?'':senderAvatar(message)}${visual?'<div class="chat-media-bubble">':''}${mine?'':`<div class="chat-message-meta"><strong>${esc(message.site_profile?personName(message.site_profile):message.sender)}</strong></div>`}${message.reply_to?`<button class="chat-reply-quote" data-fp-jump="${message.reply_to}" aria-label="${tHtml("family_photos:toOriginalMessage")}"><strong>${esc(source?.sender||tText("family_photos:originalMessage"))}</strong><span>${esc(source?.text?.slice(0,240)|| (source?.media?.[0]?.kind==='animation'?'GIF':source?.media?.length?tText("family_photos:attachment"):tText("family_photos:goToMessage")))}</span></button>`:''}${(visual||sticker)&&!message.text&&!documents.length?mediaFrame(sticker?stickerMarkup(message):albumMarkup(message.media.filter(visualMedia),'data-fp-chat-file'),footer):sticker?stickerMarkup(message):albumMarkup(message.media.filter(visualMedia),'data-fp-chat-file')}${voiceMarkup(message)}${message.text?`<p class="chat-message-text">${telegramText(message)}${!visual&&!documents.length&&!hasReactions(message)?footer:''}</p>`:''}${documents.length?`<div class="chat-attachments">${documents.map(attachmentMarkup).join('')}</div>`:''}${visual?`${message.text||documents.length?footer:''}</div>${reactionsMarkup(message,ctx.state.me?.id,{readOnly:form.hidden})}`:(sticker&&!message.text)?reactionsMarkup(message,ctx.state.me?.id,{readOnly:form.hidden}):hasReactions(message)?reactionFooter(message,ctx.state.me?.id,footer,{readOnly:form.hidden}):documents.length||!message.text?footer:''}${botReactionNotice(message)}${mine&&message.site_edit_state&&['edit_queued','editing','edit_failed','uncertain','failed'].includes(message.site_edit_state)?`<small class="fp-delivery-status" role="status">${['edit_queued','editing'].includes(message.site_edit_state)?tText("family_photos:sending2"):message.site_edit_state==='edit_failed'?tText("family_photos:couldNotChangeMessageYouCanTryAgain"):tText("family_photos:sendWasNotFullyConfirmedPleaseCheckTelegram")}</small>`:''}</article>`;
     }).join('')+[...pending].filter(([id])=>!items.some(message=>message.site_send_id===id)).map(([id,p])=>`<article class="chat-message mine group-end fp-pending-message ${(p.media||[]).some(visualMedia)?'has-visual-media':''}" data-fp-pending="${esc(id)}">${(p.media||[]).some(visualMedia)?'<div class="chat-media-bubble">':''}${albumMarkup((p.media||[]).filter(visualMedia),'data-fp-chat-file')}${p.text?`<p class="chat-message-text">${esc(p.text)}</p>`:''}${(p.media||[]).filter(file=>!visualMedia(file)).map(attachmentMarkup).join('')}${p.created?messageFooter(p,false):''}<small class="fp-delivery-status" role="status">${esc(p.label)}</small>${['failed','uncertain','queued'].includes(p.state)?`<button type="button" class="text-link" data-fp-cancel-send="${esc(id)}">${tHtml("family_photos:cancelSend")}</button>`:''}${(p.media||[]).some(visualMedia)?'</div>':''}</article>`).join(''));
     audioPlayers.filter(audio=>!audio.isConnected).forEach(audio=>{audio.pause();audio.removeAttribute('src');audio.load();});
-    stickers.sync();previews.sync();avatars.hydrate(history);
-    fitAlbums(history,()=>{const follow=history.scrollHeight-history.scrollTop-history.clientHeight<100;return()=>{if(follow)history.scrollTop=history.scrollHeight;};});
-    if(!changed&&!follow){pagination.update();return;}
+    layout.sync();prepareVideos(history);stickers.sync();previews.sync();avatars.hydrate(history);
+    drawKey=key;
+    if(!changed&&!follow){restore();pagination.update();return;}
     history.querySelectorAll('[data-fp-cancel-send]').forEach(button=>button.onclick=async()=>{button.disabled=true;try{await request(base(gid)+'/site-sends/'+button.dataset.fpCancelSend+'/cancel','POST',{});pending.delete(button.dataset.fpCancelSend);draw(false,true);}catch(error){ctx.toast(error.message);button.disabled=false;}});
     history.querySelectorAll('[data-fp-reply]').forEach(b=>b.onclick=()=>setReply(Number(b.dataset.fpReply)));
     history.querySelectorAll('[data-fp-chat-file]').forEach(b=>b.onclick=()=>openMedia(b.dataset.fpChatFile));
     history.querySelectorAll('[data-fp-jump]').forEach(b=>b.onclick=()=>jump(Number(b.dataset.fpJump)));
-    history.scrollTop=follow||atEnd?history.scrollHeight:top;
-    if(preserve){const target=history.querySelector(`[data-fp-message-id="${anchorId}"]`);history.scrollTop+=target?target.getBoundingClientRect().top-rect.top-offset:history.scrollHeight-height;}
+    restore();
     pagination.update();
   };
   const loadOlder=()=>{
@@ -424,5 +428,5 @@ export function mountTelegramChat(host,ctx,gid,onBack){
   const visible=()=>{if(document.hidden){clearTimeout(timer);seq++;pollAbort?.abort();}else if(!pollAbort||pollAbort.signal.aborted)void refresh(!loaded);};
   document.addEventListener('visibilitychange',visible);
   refresh(true);
-  return {destroy(){closed=true;pollAbort?.abort();stopAudio();composer.destroy();pagination.destroy();stickers.destroy();previews.destroy();avatars.destroy();reactions.destroy();closeMenu();press();abort.abort();clearTimeout(timer);viewer?.destroy();history.removeEventListener('scroll',markRead);document.removeEventListener('visibilitychange',markRead);document.removeEventListener('visibilitychange',visible);window.removeEventListener('focus',markRead);},async flush(){return composer.flush();}};
+  return {destroy(){closed=true;layout.destroy();pollAbort?.abort();stopAudio();composer.destroy();pagination.destroy();stickers.destroy();previews.destroy();avatars.destroy();reactions.destroy();closeMenu();press();abort.abort();clearTimeout(timer);viewer?.destroy();history.removeEventListener('scroll',markRead);document.removeEventListener('visibilitychange',markRead);document.removeEventListener('visibilitychange',visible);window.removeEventListener('focus',markRead);items=[];pending.clear();drawKey=null;},async flush(){return composer.flush();}};
 }

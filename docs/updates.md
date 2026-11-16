@@ -1,5 +1,11 @@
 # Updating DrG Space
 
+## 5.2.9-rc.1 · Preview
+
+Visible Media previews retain their reserved frames while intrinsic dimensions arrive. Natural proportions are applied outside the viewport with scroll-position restoration; originals and the full-size viewer are unchanged. Older history preserves the visible message content and unchanged background responses skip repeated layout work.
+
+Rebuild Space with the existing Compose files and volumes. No schema, key, storage-format, dependency or environment changes are required; Media and existing clients remain compatible.
+
 ## 5.2.8
 
 Call updates use participant-scoped reads and live inbox events, with the existing fast fallback during connection loss. A shared maintenance lease expires abandoned calls without depending on user traffic. Rebuild with the existing Compose files and volumes; no schema, environment, key, dependency or storage changes are required.

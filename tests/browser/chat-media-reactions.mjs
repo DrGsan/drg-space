@@ -6,7 +6,7 @@ import {chromium,webkit} from 'playwright';
 import {expect} from '@playwright/test';
 import {readAppStyles} from './fixtures.mjs';
 const baselineRevision=process.env.DRG_MEDIA_REACTIONS_BASELINE,baseline=Boolean(baselineRevision),engine=process.env.DRG_BROWSER_ENGINE||'chromium';
-const output=`artifacts/chat-media-reactions/${baseline?'before':'after'}-${engine}`;await mkdir(output,{recursive:true});
+const output=process.env.DRG_MEDIA_REACTIONS_REVIEW_OUT||`artifacts/chat-media-reactions/${baseline?'before':'after'}-${engine}`;await mkdir(output,{recursive:true});
 const plugins=baseline?[{name:'accepted-source',setup(api){api.onLoad({filter:/web\/modules\/(chat|family-photos)\/index\.js$/},args=>({contents:execFileSync('git',['show',baselineRevision+':'+args.path.slice(process.cwd().length+1)],{encoding:'utf8'}),loader:'js'}));}}]:[];
 const bundle=await build({stdin:{contents:`import {inboxController} from './web/modules/notifications/index.js';inboxController.attach=()=>{};export {mountChat,chatController} from './web/modules/chat/index.js';export {modal} from './web/core/modal.js';`,resolveDir:process.cwd()},bundle:true,format:'iife',globalName:'MediaReactions',write:false,loader:{'.css':'empty'},plugins});
 const css=(baseline?await readFile(process.env.DRG_MEDIA_REACTIONS_BASELINE_CSS,'utf8'):await readAppStyles()).replace(/@font-face\s*\{[^}]*\}/g,'');
