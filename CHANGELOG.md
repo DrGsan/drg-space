@@ -7,7 +7,7 @@ User-facing release history. Preview changes are consolidated into their stable 
 - Reserve album layouts and use stored single-photo and video dimensions before previews load.
 - Keep active scrolling uninterrupted by applying Media preview sizing and older messages once the gesture settles.
 - Avoid repeating history layout when background updates contain no changes.
-- Show native and Media conversations together, loading room previews in one catalog request.
+- Show regular and family conversations together when opening chats.
 
 - **Installation:** Rebuild Space with the existing Compose settings and volumes.
 - **Compatibility:** Space schema, keys, dependencies and environment are unchanged. Stable single-preview frames use dimensions from Media 1.14.4 or newer; prepare older Media archives as described in its update guide. Older Media remains readable with the legacy geometry fallback.

@@ -54,5 +54,5 @@
   "release5_2_9_rc_6Change1": "Reserve album layouts and use stored single-photo and video dimensions before previews load.",
   "release5_2_9_rc_6Change2": "Keep active scrolling uninterrupted by applying Media preview sizing and older messages once the gesture settles.",
   "release5_2_9_rc_6Change3": "Avoid repeating history layout when background updates contain no changes.",
-  "release5_2_9_rc_6Change4": "Show native and Media conversations together, loading room previews in one catalog request."
+  "release5_2_9_rc_6Change4": "Show regular and family conversations together when opening chats."
 }
