@@ -1,8 +1,8 @@
 # Updating DrG Space
 
-## 5.2.9-rc.7 · Preview
+## 5.2.9
 
-While scrolling, a video poster remains above the inline player until the first playback frame is presented. Pending or failed autoplay, seeking and scrolling away keep or restore the poster; this prevents a black flash while the original loads. Existing media geometry, autoplay limits, sources and request budgets are preserved. This adjustment is frontend-only; Media 1.14.4-rc.2 and the prepared archive remain unchanged.
+While scrolling, a video poster remains above the inline player until the first playback frame is presented. Pending or failed autoplay, seeking and scrolling away keep or restore the poster; this prevents a black flash while the original loads. Existing media geometry, autoplay limits, sources and request budgets are preserved. The poster handoff is frontend-only; it requires no additional Media changes once the archive is prepared for Media 1.14.4.
 
 Media albums reserve a fixed mosaic from their file count before any preview loads. Images can arrive individually without resizing the album, neighbouring messages or other tiles. Mosaic previews use cover cropping; full-size originals remain available in the viewer. Single photos and video posters reserve natural frames from stored Media dimensions before thumbnail bytes arrive. This requires Media 1.14.4 or newer and its one-time preparation of old archive metadata. Older Media remains compatible through the previous geometry fallback. Full-size originals are unchanged. Older history uses the established near-edge pagination threshold, avoiding an extra page request on opening; while wheel, touch or keyboard scrolling continues, single-preview sizing and page insertion wait. Ready updates are applied shortly after the gesture settles. Unchanged background responses skip repeated layout work.
 
