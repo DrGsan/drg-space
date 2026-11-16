@@ -44,7 +44,7 @@ async function fixture(mode,versions=false){
         state.calls++;
         state.paths.push(path);
         if(path.endsWith('/read')){state.reads.push(body.message_id);return {ok:true};}
-        if(path==='/family-photos/groups')return structuredClone({items:state.groups,status:{can_send:true,bot_messaging:true,worker_online:true,gallery_versions:versions}});
+        if(path.split('?')[0]==='/family-photos/groups')return structuredClone({items:state.groups,status:{can_send:true,bot_messaging:true,worker_online:true,gallery_versions:versions}});
         if(path.endsWith('/sync'))return {state:'idle',history_complete:true,pending:0};
         if(path.includes('/media-version'))return {version:String(state.version)};
         if(path.includes('/media'))return structuredClone({items:state.files,more:false});

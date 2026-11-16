@@ -1,5 +1,15 @@
 # Updating DrG Space
 
+## 5.2.9
+
+While scrolling, a video poster remains above the inline player until the first playback frame is presented. Pending or failed autoplay, seeking and scrolling away keep or restore the poster; this prevents a black flash while the original loads. Existing media geometry, autoplay limits, sources and request budgets are preserved. The poster handoff is frontend-only; it requires no additional Media changes once the archive is prepared for Media 1.14.4.
+
+Media albums reserve a fixed mosaic from their file count before any preview loads. Images can arrive individually without resizing the album, neighbouring messages or other tiles. Mosaic previews use cover cropping; full-size originals remain available in the viewer. Single photos and video posters reserve natural frames from stored Media dimensions before thumbnail bytes arrive. This requires Media 1.14.4 or newer and its one-time preparation of old archive metadata. Older Media remains compatible through the previous geometry fallback. Full-size originals are unchanged. Older history uses the established near-edge pagination threshold, avoiding an extra page request on opening; while wheel, touch or keyboard scrolling continues, single-preview sizing and page insertion wait. Ready updates are applied shortly after the gesture settles. Unchanged background responses skip repeated layout work.
+
+The initial conversation list waits for parallel native and Media catalogs, so family conversations do not appear in a later wave. Media 1.14.4 supplies optional last-message previews in its catalog with bounded cross-group metadata queries; older services retain the per-history fallback. An unavailable Media service leaves native conversations usable.
+
+Rebuild Space with the existing Compose files and volumes. Space needs no schema, key, storage-format, dependency or environment changes. Update and prepare Media first to obtain stable single-preview geometry; follow its update guide, preserving the existing archive and session.
+
 ## 5.2.8
 
 Call updates use participant-scoped reads and live inbox events, with the existing fast fallback during connection loss. A shared maintenance lease expires abandoned calls without depending on user traffic. Rebuild with the existing Compose files and volumes; no schema, environment, key, dependency or storage changes are required.

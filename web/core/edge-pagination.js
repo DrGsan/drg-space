@@ -1,7 +1,7 @@
 import {tText} from "./i18n.js";
 // The viewport observer also respects clipping by nested iOS scroll containers.
 // Re-observe after a page arrives to fill short lists, one request at a time.
-export function edgePagination(container,{root=null,canLoad,load,onError}){
+export function edgePagination(container,{root=null,canLoad,load,onError,rootMargin='120px 0px'}){
   let target=null,busy=false,closed=false,failed=false;
   const paint=()=>{if(target){target.textContent=busy?tText("common:loading"):'';target.setAttribute('aria-busy',String(busy));}};
   const observe=()=>{if(target&&!closed){observer.unobserve(target);observer.observe(target);}};
@@ -11,7 +11,7 @@ export function edgePagination(container,{root=null,canLoad,load,onError}){
     try{await load();}
     catch(error){failed=true;if(!closed)onError(error);}
     finally{busy=false;paint();if(!failed)observe();}
-  },{root,rootMargin:'120px 0px'});
+  },{root,rootMargin});
   const retry=()=>{if(failed){failed=false;observe();}};
   // A failed page waits for another scroll/connection rather than a retry loop.
   const scrollTarget=root||document;

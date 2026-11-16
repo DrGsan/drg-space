@@ -263,8 +263,9 @@ class FamilyPhotos(FamilyMessaging,FamilyPhotoEvents,FamilyReactionSync):
 
         @router.get('/api/family-photos/groups')
         def list_groups(request:Request):
-            s=self.gate(request)
-            data=self.fetch('v1/groups')
+            previews=request.args.get('previews')=='1'
+            s=self.gate(request,chat=previews)
+            data=self.fetch('v1/groups'+('?previews=1' if previews else ''))
             data['items']=[g for g in data['items'] if self.allowed(s,g['id'])]
             # Older archive versions remain readable during a rolling update.
             counts=self.family_counts(s,data['items']) if all('latest_message_id' in g for g in data['items']) else {}

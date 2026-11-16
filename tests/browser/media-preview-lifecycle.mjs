@@ -24,7 +24,7 @@ try{
      signal?.addEventListener('abort',cancel,{once:true});state.pending.push(end);
      if(signal?.aborted)cancel();
     });
-    if(path==='/family-photos/groups')return {items:structuredClone(state.groups)};
+    if(path.split('?')[0]==='/family-photos/groups')return {items:structuredClone(state.groups)};
     const id=path.split('/')[3],group=state.groups.find(g=>g.id===id);
     if(group.denied)throw Object.assign(new Error('Denied'),{status:403});
     return {items:group.latest_message_id===0?[]:[{id:group.latest_message_id||10,created:1700000000,sender:'Synthetic',text:'Message',media:[]}]};

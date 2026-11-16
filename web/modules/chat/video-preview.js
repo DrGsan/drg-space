@@ -3,13 +3,39 @@ import {recordingPlayers} from './recording-playback.js';
 export function inlineVideos(host){
  const recordings=recordingPlayers(host);
  const entries=new Set(),starting=new Set(),events=new AbortController(),signal=events.signal,reduced=matchMedia('(prefers-reduced-motion: reduce)');
+ const presented=new WeakSet(),frameRequests=new Map();
  let desired=new Set(),suspended=false,recordingActive=false,capturing=false,closed=false;
  const animation=video=>video.hasAttribute('data-animation-preview');
  const clock=seconds=>{seconds=Math.max(0,Math.ceil(seconds||0));return Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');};
- const pause=video=>{video.pause();video.closest('.chat-media-tile')?.classList.remove('is-preview-playing');};
+ function clearFrame(video){
+   const request=frameRequests.get(video);frameRequests.delete(video);presented.delete(video);
+   if(request?.kind==='video')video.cancelVideoFrameCallback(request.id);
+   else if(request)cancelAnimationFrame(request.id);
+ }
+ function awaitFrame(video){
+   if(closed||video.paused||video.seeking||video.error||presented.has(video)||frameRequests.has(video))return;
+   const request={kind:typeof video.requestVideoFrameCallback==='function'?'video':'raf',id:0};
+   const finish=()=>{
+     if(frameRequests.get(video)!==request)return;
+     frameRequests.delete(video);
+     if(closed||!host.contains(video)||video.paused||video.seeking||video.error||video.readyState<2)return;
+     presented.add(video);update(video);
+   };
+   if(request.kind==='video'){
+     frameRequests.set(video,request);request.id=video.requestVideoFrameCallback(finish);
+   }else if(video.readyState>=2){
+     // Older engines: keep the image through the first rendering opportunity.
+     frameRequests.set(video,request);request.id=requestAnimationFrame(()=>{
+       if(frameRequests.get(video)===request)request.id=requestAnimationFrame(finish);
+     });
+   }
+ }
+ const pause=video=>{clearFrame(video);video.pause();video.closest('.chat-media-tile')?.classList.remove('is-preview-playing');};
  function update(video){
    const tile=video.closest('.chat-media-tile');if(!tile)return;
-   tile.classList.toggle('is-preview-playing',!video.paused||starting.has(video));
+   const imagePoster=tile.querySelector('[data-video-poster]');
+   if(imagePoster)awaitFrame(video);
+   tile.classList.toggle('is-preview-playing',!video.paused&&(!imagePoster||presented.has(video)));
    if(animation(video))return;
    const timer=tile.querySelector('[data-video-remaining]');if(timer&&Number.isFinite(video.duration))timer.textContent=clock(video.duration-video.currentTime);
    const progress=tile.querySelector('[data-video-progress]');if(progress&&video.duration)progress.style.width=100*video.currentTime/video.duration+'%';
@@ -46,7 +72,9 @@ export function inlineVideos(host){
    host.querySelectorAll('.chat-media-tile>video[data-video-preview],.chat-media-tile>video[data-animation-preview]').forEach(video=>{
      if(entries.has(video)){update(video);return;}
      entries.add(video);video.loop=true;video.muted=true;
-     for(const type of ['loadedmetadata','timeupdate','play','pause','ended'])video.addEventListener(type,()=>update(video),{signal});
+     for(const type of ['loadedmetadata','loadeddata','playing','timeupdate','play','seeked'])video.addEventListener(type,()=>update(video),{signal});
+     for(const type of ['pause','ended','seeking','emptied','abort','error'])video.addEventListener(type,()=>{clearFrame(video);update(video);},{signal});
+     video.addEventListener('waiting',()=>{if(video.readyState<2)clearFrame(video);update(video);},{signal});
      observer.observe(video);update(video);
    });select();
  },destroy(){closed=true;recordings.destroy();desired.clear();events.abort();observer.disconnect();for(const video of entries)pause(video);entries.clear();}};

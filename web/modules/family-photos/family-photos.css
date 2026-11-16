@@ -90,3 +90,15 @@
 @media(max-width:760px){.fp-timeline-toolbar{gap:8px;margin-bottom:18px}.fp-timeline-toolbar>[data-fp-state]{max-width:none;width:100%}.fp-sync-popover{right:auto;left:0}.fp-timeline-layout{gap:0}.fp-date-rail{display:none}.fp-group-picker{flex:1;max-width:calc(100% - 160px)}.fp-group-picker select{max-width:100%;min-height:44px}.fp-open-chat{min-height:44px}.fp-gallery-search{max-width:none;flex-basis:100%;order:2;margin-left:0}.fp-gallery-search input{font-size:16px;min-height:44px}.fp-timeline-toolbar>[data-fp-state]{order:3}.fp-sync-disclosure>summary{min-height:32px;padding:2px 0}.fp-timeline .fp-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.fp-day-heading h2{font-size:16px}.fp-day-section{margin-bottom:24px}}
 @media(prefers-reduced-motion:reduce){.fp-timeline .fp-tile-label{transition:none}}
 @media(max-width:760px){.fp-gallery{padding:12px;border-radius:12px}.fp-group-picker{max-width:calc(100% - 140px)}.fp-open-chat{padding-inline:10px}}
+
+/* Manual message anchors own scroll restoration through history/media updates. */
+.fp-chat-history.fp-stable-history{overflow-anchor:none;scroll-behavior:auto}
+.fp-chat-history .chat-media-tile.has-image-poster{isolation:isolate}
+.fp-chat-history .chat-media-tile.has-image-poster>video{position:absolute;inset:0;visibility:visible}
+.fp-chat-history .chat-media-tile.has-image-poster>[data-video-poster]{position:relative;z-index:1}
+.fp-chat-history .chat-media-tile.has-image-poster>:is(.chat-media-play,.chat-video-timer,.chat-video-progress){z-index:2}
+.fp-chat-history .chat-media-tile.has-image-poster.is-preview-playing>video{visibility:visible}
+.fp-chat-history .chat-media-tile.has-image-poster.is-preview-playing>[data-video-poster]{visibility:hidden}
+
+/* Album cells reserve their mosaic before lazy previews decode. */
+.fp-chat-history .chat-media-album:not(.is-single) .chat-media-row{flex:none;min-height:0}

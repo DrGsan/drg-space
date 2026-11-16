@@ -144,6 +144,22 @@ jobs:
           DRG_BROWSER_ENGINE=webkit node tests/browser/call-poll-lifecycle.mjs
           node tests/browser/media-preview-lifecycle.mjs
           DRG_BROWSER_ENGINE=webkit node tests/browser/media-preview-lifecycle.mjs
+          node tests/browser/chat-room-startup.mjs
+          DRG_BROWSER_ENGINE=webkit node tests/browser/chat-room-startup.mjs
+          node tests/browser/media-history-request-budget.mjs
+          DRG_BROWSER_ENGINE=webkit node tests/browser/media-history-request-budget.mjs
+          node tests/browser/media-single-reservation.mjs
+          DRG_BROWSER_ENGINE=webkit node tests/browser/media-single-reservation.mjs
+          node tests/browser/video-preview-scroll.mjs
+          DRG_BROWSER_ENGINE=webkit node tests/browser/video-preview-scroll.mjs
+          node tests/browser/media-album-progressive.mjs
+          DRG_BROWSER_ENGINE=webkit node tests/browser/media-album-progressive.mjs
+          node tests/browser/media-history-scroll.mjs
+          DRG_BROWSER_ENGINE=webkit node tests/browser/media-history-scroll.mjs
+          node tests/browser/media-history-proportions.mjs
+          DRG_BROWSER_ENGINE=webkit node tests/browser/media-history-proportions.mjs
+          node tests/browser/media-history-layout.mjs
+          DRG_BROWSER_ENGINE=webkit node tests/browser/media-history-layout.mjs
           node tests/browser/family-photos-refresh.mjs
           DRG_BROWSER_ENGINE=webkit node tests/browser/family-photos-refresh.mjs
       - uses: actions/upload-artifact@v7.0.2

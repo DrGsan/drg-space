@@ -47,6 +47,32 @@ def enable(c):
     assert response.status_code==200,response.text
 
 
+def test_room_catalog_previews_require_chat_and_keep_group_grants(connected, monkeypatch):
+    bridge,_=connected
+    c,_,_=owner();guest,_=member(c);uid=guest.get('/api/me').json()['id']
+    assert grant(c,uid,[G1]).status_code==200
+    enable(guest)
+    previous=bridge.fetch;seen=[]
+    def fetch(path,*args,**kwargs):
+        seen.append(path)
+        if path=='v1/groups?previews=1':
+            return {'items':[{'id':gid,'title':gid,'latest_message_id':1,
+                'last_message':{'id':1,'text':'Private '+gid,'created':1,'sender':'Synthetic','media':[]}}
+                for gid in (G1,G2)]}
+        return previous(path,*args,**kwargs)
+    monkeypatch.setattr(bridge,'fetch',fetch)
+    response=guest.get('/api/family-photos/groups?previews=1')
+    assert response.status_code==200,response.text
+    assert [g['id'] for g in response.json()['items']]==[G1]
+    assert G2 not in response.text and 'Private '+G1 in response.text
+    assert seen.count('v1/groups?previews=1')==1
+    assert guest.put('/api/modules',json={'enabled':{'chat':False}}).status_code==200
+    assert guest.get('/api/family-photos/groups?previews=1').status_code==403
+    assert guest.get('/api/family-photos/groups').status_code==200
+    assert grant(c,uid,[],False).status_code==200
+    assert guest.get('/api/family-photos/groups?previews=1').status_code==403
+
+
 def grant(c,uid,groups,enabled=True):
     return c.put('/api/family-photos/admin/users/'+uid,json={'admin_password':'Owner-password-123','enabled':enabled,'groups':groups})
 
