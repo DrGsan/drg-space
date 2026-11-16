@@ -144,6 +144,8 @@ jobs:
           DRG_BROWSER_ENGINE=webkit node tests/browser/call-poll-lifecycle.mjs
           node tests/browser/media-preview-lifecycle.mjs
           DRG_BROWSER_ENGINE=webkit node tests/browser/media-preview-lifecycle.mjs
+          node tests/browser/chat-room-startup.mjs
+          DRG_BROWSER_ENGINE=webkit node tests/browser/chat-room-startup.mjs
           node tests/browser/media-history-request-budget.mjs
           DRG_BROWSER_ENGINE=webkit node tests/browser/media-history-request-budget.mjs
           node tests/browser/media-single-reservation.mjs

@@ -257,19 +257,20 @@ export async function watchTelegramRooms(ctx,onChange,{signal}={}){
     resume=false;
     const abort=new AbortController(),current=++revision;controller=abort;
     const valid=()=>!closed&&!document.hidden&&!abort.signal.aborted&&current===revision;
-    const request=path=>ctx.api(path,'GET',undefined,true,{}, {signal:abort.signal});
+    const request=path=>ctx.api(path,'GET',undefined,true,{}, {signal:abort.signal,timeoutMs:10000});
     running=(async()=>{
       try{
-        const data=await request('/family-photos/groups');if(!valid())return;
+        const data=await request('/family-photos/groups?previews=1');if(!valid())return;
         const items=new Array(data.items.length);let next=0;
         const worker=async()=>{while(valid()){
           const index=next++;if(index>=data.items.length)return;
           const group=data.items[index];
           try{
             // Only an explicit authoritative zero proves an empty history.
-            const history=group.latest_message_id===0?null:await request(base(group.id)+'/messages?limit=1');
+            const bundled=Object.hasOwn(group,'last_message');
+            const history=bundled||group.latest_message_id===0?null:await request(base(group.id)+'/messages?limit=1');
             if(!valid())return;
-            const latest=history?.items.at(-1);
+            const latest=bundled?group.last_message:history?.items.at(-1);
             items[index]={id:'telegram:'+group.id,group_id:group.id,name:group.title,avatar_url:group.avatar_url,kind:'family',
             members:[],unread:group.unread||0,mute_until:group.mute_until||0,pinned:false,favorite:false,
             last_message:latest?{id:latest.id,created:latest.created,body:latest.content_type==='voice'?tText("family_photos:audioMessage"):latest.text,sender:latest.sender,

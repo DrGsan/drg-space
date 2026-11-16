@@ -2,11 +2,12 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.2.9-rc.5] — 2026-11-16 — Steadier Media history
+## [5.2.9-rc.6] — 2026-11-16 — Steadier Media history
 
 - Reserve album layouts and use stored single-photo and video dimensions before previews load.
 - Keep active scrolling uninterrupted by applying Media preview sizing and older messages once the gesture settles.
 - Avoid repeating history layout when background updates contain no changes.
+- Show native and Media conversations together, loading room previews in one catalog request.
 
 - **Installation:** Rebuild Space with the existing Compose settings and volumes.
 - **Compatibility:** Space schema, keys, dependencies and environment are unchanged. Stable single-preview frames use dimensions from Media 1.14.4 or newer; prepare older Media archives as described in its update guide. Older Media remains readable with the legacy geometry fallback.
