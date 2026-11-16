@@ -20,6 +20,7 @@ import {chatComposerMarkup} from '../chat/composer.js';
 import {bindMessagePress,messageMenu} from '../chat/message-menu.js';
 import {renderMarkup} from '../../core/dom.js';
 import {historyPosition} from './history-position.js';
+import {historyMotion} from './history-motion.js';
 import {stableAlbumLayout} from './album-layout.js';
 import {edgePagination} from '../../core/edge-pagination.js';
 import './family-photos.css';
@@ -294,7 +295,7 @@ export async function watchTelegramRooms(ctx,onChange,{signal}={}){
 }
 
 export function mountTelegramChat(host,ctx,gid,onBack){
-  let closed=false,timer=null,viewer=null,seq=0,items=[],more=false,before=0,context=null,contextId=null,loadingOlder=null,revision=0,pollAbort=null,loaded=false,drawKey=null;
+  let closed=false,timer=null,viewer=null,seq=0,items=[],more=false,before=0,context=null,contextId=null,loadingOlder=null,revision=0,pollAbort=null,loaded=false,drawKey=null,accessEpoch=0;
   const abort=new AbortController(),request=(path,method='GET',body)=>ctx.api(path,method,body,true,{}, {signal:abort.signal});
   const pending=new Map();
   host.innerHTML=`<div class="fp-chat"><header class="chat-header"><button class="chat-back" aria-label="${tHtml("family_photos:toChatList")}" data-fp-back>${chatIcon('back')}</button><div class="chat-header-identity" data-fp-identity><h2 data-fp-title>${tHtml("family_photos:uploadingConversation")}</h2></div><div class="chat-header-actions"><button type="button" aria-label="${tHtml("family_photos:disableNotifications")}" title="${tHtml("family_photos:disableNotifications")}" data-fp-notifications aria-pressed="false" disabled>${chatIcon('bell')}</button><button aria-label="${tHtml("family_photos:photos")}" title="${tHtml("family_photos:photos")}" data-fp-gallery>${chatIcon('image')}</button></div></header><div class="chat-retention chat-retention-inline fp-chat-status" data-fp-chat-status role="status">${tHtml("family_photos:connecting")}</div><div class="chat-messages fp-chat-history" data-fp-history role="log" aria-label="${tHtml("family_photos:telegramConversation")}"></div>${chatComposerMarkup({formId:'fp-send-message',textareaId:'fp-message',telegram:true})}</div>`;
@@ -304,14 +305,15 @@ export function mountTelegramChat(host,ctx,gid,onBack){
   notificationButton.onclick=async()=>{if(savingNotifications)return;savingNotifications=true;notificationRevision++;drawNotifications();try{const data=await request(`/chat/telegram:${gid}/notifications`,'PUT',{seconds:roomMuted({mute_until:muteUntil})?0:-1});if(closed)return;notificationRevision++;muteUntil=data.mute_until;document.dispatchEvent(new CustomEvent('drg-chat-notifications',{detail:{id:'telegram:'+gid,mute_until:muteUntil}}));ctx.toast(muteUntil?tText("family_photos:notificationsAreDisabledUnreadMessagesArePreserved"):tText("family_photos:notificationsEnabled"));}catch(error){if(!closed)ctx.toast(error.message);}finally{savingNotifications=false;if(!closed)drawNotifications();}};
   const history=$('[data-fp-history]',host),form=$('form',host),notice=$('[data-fp-chat-status]',host);
   history.classList.add('fp-stable-history');
-  const layout=stableAlbumLayout(history,()=>historyPosition(history,{pinBottom:!context}),abort.signal);
+  const motion=historyMotion(history,()=>markRead(),abort.signal);
+  const layout=stableAlbumLayout(history,()=>historyPosition(history,{pinBottom:!context}),abort.signal,motion);
   const stopAudio=()=>history.querySelectorAll('audio').forEach(audio=>{audio.pause();audio.removeAttribute('src');audio.load();});
   const stickers=stickerPlayers(history,ctx,abort.signal),previews=inlineVideos(history),avatars=telegramAvatars(abort.signal);
   let reactionMirror=false;
   const reactions=bindReactions(history,ctx,{telegramMirror:()=>reactionMirror,canReact:()=>!form.hidden,getMessage:id=>telegramAlbums(items).find(m=>m.id===id),endpoint:id=>base(gid)+'/messages/'+id+'/reactions',onChange:(id,data)=>{items=items.map(m=>m.id===id?{...m,site_reactions:data.reactions,bot_reaction_sync:data.bot_reaction_sync}:m);draw(false,true);},onPeople:dialog=>avatars.hydrate(dialog)});
   let readSent=0,readPending=false;
   const markRead=async()=>{
-    if(closed||readPending||document.hidden||!document.hasFocus()||ctx.state.chatSpace!=='telegram:'+gid)return;
+    if(closed||motion.active||readPending||document.hidden||!document.hasFocus()||ctx.state.chatSpace!=='telegram:'+gid)return;
     if(history.scrollTop+history.clientHeight<history.scrollHeight-100)return;
     const latest=items.at(-1)?.id;if(!latest||latest<=readSent)return;
     readPending=true;
@@ -336,8 +338,10 @@ export function mountTelegramChat(host,ctx,gid,onBack){
     contextId=message.id;context=messageMenu({article,x,y,touch,actions,reactions:reactions.menu(message,article),footer:day(message.created)+' · '+time(message.created),onClose:()=>{context=null;contextId=null;}});
   });
   $('[data-fp-back]',host).onclick=()=>{closeMenu();onBack();};$('[data-fp-gallery]',host).onclick=()=>{closeMenu();ctx.navigate('family_photos');};
-  const denied=error=>{if(closed)return;closeMenu();viewer?.destroy();if(blocked(error)){stopAudio();items=[];drawKey=null;renderMarkup(history,'');layout.sync();stickers.sync();form.hidden=true;}notice.hidden=false;renderMarkup(notice,esc(error.message));};
+  const denied=error=>{if(closed)return;closeMenu();viewer?.destroy();if(blocked(error)){accessEpoch++;stopAudio();items=[];drawKey=null;renderMarkup(history,'');layout.sync();stickers.sync();form.hidden=true;}notice.hidden=false;renderMarkup(notice,esc(error.message));};
   const draw=(follow=false,preserve=false)=>{
+    if(closed)return;
+    if(!follow&&(motion.active||document.hidden)){motion.defer('history-draw',()=>draw(false,true));return;}
     const key=JSON.stringify([items,[...pending],more,form.hidden,ctx.state.me.id,ctx.state.me.people_names,locale(),new Date().toDateString()]);
     if(key===drawKey&&!follow){pagination.update();return;}
     const restore=historyPosition(history,{follow,pinBottom:!preserve&&!context});
@@ -368,12 +372,12 @@ export function mountTelegramChat(host,ctx,gid,onBack){
     if(!more||!before||closed)return;
     revision++;
     loadingOlder=(async()=>{
-      const cursor=before,result=await request(base(gid)+'/messages?before='+cursor);if(closed)return;
+      const cursor=before,epoch=accessEpoch,result=await request(base(gid)+'/messages?before='+cursor);if(closed||!await motion.whenIdle()||epoch!==accessEpoch)return;
       const known=new Set(items.map(m=>m.id));items=[...result.items.filter(m=>!known.has(m.id)),...items];more=result.more&&result.items.some(m=>m.id<cursor);before=items[0]?.id||0;draw(false,true);
     })().finally(()=>{loadingOlder=null;});
     return loadingOlder;
   };
-  const pagination=edgePagination(history,{root:history,canLoad:()=>!closed&&!loadingOlder&&more&&before>0&&!context,load:loadOlder,onError:denied});
+  const pagination=edgePagination(history,{root:history,rootMargin:'1200px 0px 0px',canLoad:()=>!closed&&!loadingOlder&&more&&before>0&&!context,load:loadOlder,onError:denied});
   const jump=async id=>{
     let tries=0;while(!items.some(m=>m.id===id)&&more&&tries++<20&&!closed)await loadOlder();
     if(closed)return;
@@ -428,5 +432,5 @@ export function mountTelegramChat(host,ctx,gid,onBack){
   const visible=()=>{if(document.hidden){clearTimeout(timer);seq++;pollAbort?.abort();}else if(!pollAbort||pollAbort.signal.aborted)void refresh(!loaded);};
   document.addEventListener('visibilitychange',visible);
   refresh(true);
-  return {destroy(){closed=true;layout.destroy();pollAbort?.abort();stopAudio();composer.destroy();pagination.destroy();stickers.destroy();previews.destroy();avatars.destroy();reactions.destroy();closeMenu();press();abort.abort();clearTimeout(timer);viewer?.destroy();history.removeEventListener('scroll',markRead);document.removeEventListener('visibilitychange',markRead);document.removeEventListener('visibilitychange',visible);window.removeEventListener('focus',markRead);items=[];pending.clear();drawKey=null;},async flush(){return composer.flush();}};
+  return {destroy(){closed=true;motion.destroy();layout.destroy();pollAbort?.abort();stopAudio();composer.destroy();pagination.destroy();stickers.destroy();previews.destroy();avatars.destroy();reactions.destroy();closeMenu();press();abort.abort();clearTimeout(timer);viewer?.destroy();history.removeEventListener('scroll',markRead);document.removeEventListener('visibilitychange',markRead);document.removeEventListener('visibilitychange',visible);window.removeEventListener('focus',markRead);items=[];pending.clear();drawKey=null;},async flush(){return composer.flush();}};
 }

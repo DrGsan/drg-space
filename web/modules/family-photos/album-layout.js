@@ -1,6 +1,6 @@
 // Apply decoded preview proportions in one frame, preserving the reader's place.
 // Video posters supply dimensions without fetching the original video.
-export function stableAlbumLayout(host,beforeLayout,signal){
+export function stableAlbumLayout(host,beforeLayout,signal,motion){
   const entries=new Map(),bound=new WeakSet(),dirty=new Set(),events=new AbortController();let frame=0,closed=false;
   function geometry(album){
     const single=album.classList.contains('is-single');let firstRatio=0,first=true;
@@ -25,6 +25,7 @@ export function stableAlbumLayout(host,beforeLayout,signal){
   }
   function flush(){
     frame=0;if(closed||document.hidden)return;
+    if(motion?.active){motion.defer('media-layout',()=>schedule());return;}
     const changed=[];
     for(const entry of dirty){
       if(!host.contains(entry.album))continue;
