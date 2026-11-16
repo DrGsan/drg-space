@@ -150,6 +150,8 @@ jobs:
           DRG_BROWSER_ENGINE=webkit node tests/browser/media-history-request-budget.mjs
           node tests/browser/media-single-reservation.mjs
           DRG_BROWSER_ENGINE=webkit node tests/browser/media-single-reservation.mjs
+          node tests/browser/video-preview-scroll.mjs
+          DRG_BROWSER_ENGINE=webkit node tests/browser/video-preview-scroll.mjs
           node tests/browser/media-album-progressive.mjs
           DRG_BROWSER_ENGINE=webkit node tests/browser/media-album-progressive.mjs
           node tests/browser/media-history-scroll.mjs

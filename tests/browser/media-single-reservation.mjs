@@ -39,7 +39,7 @@ try{
   assert.equal(requests.filter(r=>r.original).length,0,'video proportions must use small posters, never original video downloads');
   // The poster layer must yield to actual playback, then return when paused.
   playVideo=true;await page.evaluate(()=>show('video','portrait'));await page.emulateMedia({reducedMotion:'no-preference'});
-  await page.waitForFunction(()=>{const v=document.querySelector('.chat-media-tile>video');return v&&!v.paused&&v.readyState>=2;});
+  await page.waitForFunction(()=>{const v=document.querySelector('.chat-media-tile>video'),poster=document.querySelector('[data-video-poster]');return v&&!v.paused&&v.readyState>=2&&getComputedStyle(poster).visibility==='hidden';});
   assert.equal(await page.locator('.chat-media-tile>video').evaluate(v=>getComputedStyle(v).visibility),'visible');
   assert.equal(await page.locator('[data-video-poster]').evaluate(i=>getComputedStyle(i).visibility),'hidden');
   await page.emulateMedia({reducedMotion:'reduce'});await page.waitForFunction(()=>document.querySelector('.chat-media-tile>video').paused);

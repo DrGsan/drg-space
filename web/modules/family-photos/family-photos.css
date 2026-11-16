@@ -93,7 +93,10 @@
 
 /* Manual message anchors own scroll restoration through history/media updates. */
 .fp-chat-history.fp-stable-history{overflow-anchor:none;scroll-behavior:auto}
-.fp-chat-history .chat-media-tile.has-image-poster>video{position:absolute;inset:0;visibility:hidden}
+.fp-chat-history .chat-media-tile.has-image-poster{isolation:isolate}
+.fp-chat-history .chat-media-tile.has-image-poster>video{position:absolute;inset:0;visibility:visible}
+.fp-chat-history .chat-media-tile.has-image-poster>[data-video-poster]{position:relative;z-index:1}
+.fp-chat-history .chat-media-tile.has-image-poster>:is(.chat-media-play,.chat-video-timer,.chat-video-progress){z-index:2}
 .fp-chat-history .chat-media-tile.has-image-poster.is-preview-playing>video{visibility:visible}
 .fp-chat-history .chat-media-tile.has-image-poster.is-preview-playing>[data-video-poster]{visibility:hidden}
 
