@@ -2,9 +2,9 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.2.9-rc.3] — 2026-11-16 — Steadier Media history
+## [5.2.9-rc.4] — 2026-11-16 — Steadier Media history
 
-- Fit photos and video posters to their natural proportions as soon as previews load, while preserving the reading position.
+- Reserve album layouts before previews load, while keeping single-photo and video proportions.
 - Keep active scrolling uninterrupted by applying Media preview sizing and older messages once the gesture settles.
 - Avoid repeating history layout when background updates contain no changes.
 

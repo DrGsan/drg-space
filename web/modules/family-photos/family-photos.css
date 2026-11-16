@@ -96,3 +96,6 @@
 .fp-chat-history .chat-media-tile.has-image-poster>video{position:absolute;inset:0;visibility:hidden}
 .fp-chat-history .chat-media-tile.has-image-poster.is-preview-playing>video{visibility:visible}
 .fp-chat-history .chat-media-tile.has-image-poster.is-preview-playing>[data-video-poster]{visibility:hidden}
+
+/* Album cells reserve their mosaic before lazy previews decode. */
+.fp-chat-history .chat-media-album:not(.is-single) .chat-media-row{flex:none;min-height:0}

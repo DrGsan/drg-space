@@ -1,18 +1,19 @@
-// Apply decoded preview proportions in one frame, preserving the reader's place.
+// Singles use decoded proportions; albums reserve a count-based mosaic up front.
 // Video posters supply dimensions without fetching the original video.
 export function stableAlbumLayout(host,beforeLayout,signal,motion){
   const entries=new Map(),bound=new WeakSet(),dirty=new Set(),events=new AbortController();let frame=0,closed=false;
   function geometry(album){
-    const single=album.classList.contains('is-single');let firstRatio=0,first=true;
+    const single=album.classList.contains('is-single');
     const layout=[...album.querySelectorAll('.chat-media-row')].map(row=>{
       const tiles=[...row.children],ratios=tiles.map(tile=>{
+        // A late or failed thumbnail must not resize any cell or its neighbours.
+        if(!single)return 1;
         const image=tile.querySelector('img'),video=tile.querySelector('video'),w=image?.naturalWidth||video?.videoWidth,h=image?.naturalHeight||video?.videoHeight;
-        const raw=w&&h?w/h:1;if(first){firstRatio=w&&h?raw:0;first=false;}
-        return single?raw:Math.max(.45,Math.min(2,raw));
+        return w&&h?w/h:1;
       });return {row,tiles,ratios,total:ratios.reduce((a,b)=>a+b,0)||1};
     });
-    const count=layout.reduce((n,row)=>n+row.tiles.length,0),stacked=[3,4].includes(count)&&firstRatio>0&&firstRatio<.85;
-    const stackRatio=firstRatio*(count===4?4/3:3/2),width=Math.round(Math.min(360,(layout[0]?.total||1)*420));
+    const count=layout.reduce((n,row)=>n+row.tiles.length,0),stacked=[3,4].includes(count);
+    const stackRatio=count===4?4/3:3/2,width=Math.round(Math.min(360,(layout[0]?.total||1)*420));
     return {layout,single,stacked,stackRatio,width,key:JSON.stringify([layout.map(g=>g.ratios),stacked,stackRatio,width])};
   }
   function apply(album,g){
@@ -43,6 +44,8 @@ export function stableAlbumLayout(host,beforeLayout,signal,motion){
     for(const album of albums){
       let entry=entries.get(album);if(!entry){entry={album};entries.set(album,entry);}
       entry.selected=geometry(album);dirty.delete(entry);
+      // Album geometry is complete before any preview loads.
+      if(!album.classList.contains('is-single'))continue;
       album.querySelectorAll('img,video').forEach(m=>{
         if(bound.has(m))return;bound.add(m);
         m.addEventListener(m.tagName==='VIDEO'?'loadedmetadata':'load',()=>{if(!closed&&host.contains(album))schedule(entries.get(album));},{signal:events.signal});

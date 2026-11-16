@@ -1,8 +1,8 @@
 # Updating DrG Space
 
-## 5.2.9-rc.3 · Preview
+## 5.2.9-rc.4 · Preview
 
-Media photos and video posters receive their natural proportions as soon as preview dimensions arrive, with batched layout and scroll-position restoration. Video posters provide dimensions without downloading the original video. This replaces the previous preview’s indefinite provisional frames; originals and the full-size viewer are unchanged. Older history is fetched ahead of the viewport; while wheel, touch or keyboard scrolling continues, preview sizing and page insertion wait. Ready updates are applied shortly after the gesture settles, preserving visible message content. Unchanged background responses skip repeated layout work.
+Media albums reserve a fixed mosaic from their file count before any preview loads. Images can arrive individually without resizing the album, neighbouring messages or other tiles. Mosaic previews use cover cropping; full-size originals remain available in the viewer. Single photos and video posters keep their natural proportions, with batched layout and scroll-position restoration; videos obtain dimensions without downloading their originals. Older history is fetched ahead of the viewport; while wheel, touch or keyboard scrolling continues, single-preview sizing and page insertion wait. Ready updates are applied shortly after the gesture settles. Unchanged background responses skip repeated layout work.
 
 Rebuild Space with the existing Compose files and volumes. No schema, key, storage-format, dependency or environment changes are required; Media and existing clients remain compatible.
 
