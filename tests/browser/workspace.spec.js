@@ -287,7 +287,9 @@ test("complete account, notes, sharing, tasks, invitations and mobile flow", asy
   const pageUrl = page.url();
   await appSection(page, 'Главная');
   await page.getByRole('button',{name:'Разблокировать расположение виджетов'}).click();
+  await expect(page.locator('#dashboard-lock')).toHaveAttribute('aria-pressed','true');
   await page.locator('[data-widget=calendar] [data-move-widget]').press('ArrowUp');
+  await expect(page.locator('[data-widget]').nth(1)).toHaveAttribute('data-widget','calendar');
   await page.locator('[data-widget=calendar] [data-move-widget]').press('ArrowUp');
   await expect(page.locator('[data-layout-status]')).toHaveText('Порядок сохранён');
   await expect(page.locator("[data-widget=weather]")).toHaveCount(0);
