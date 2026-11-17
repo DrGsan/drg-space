@@ -1,6 +1,6 @@
 # Updating DrG Space
 
-## 5.2.11-rc.1 · Preview
+## 5.2.11
 
 The pinned ASN.1 runtime is updated to pyasn1 0.6.5. Existing authentication, data encryption, client APIs and object storage formats are unchanged. Rebuild Space with the existing Compose files, environment and volumes. No schema migration, new keys or configuration changes are required. Browser regression checks now wait for completed navigation, permission responses and stable geometry; these test changes do not alter the interface.
 
