@@ -1,6 +1,6 @@
 # Updating DrG Space
 
-## 5.2.10-rc.1 · Preview
+## 5.2.10
 
 Drive reuses completed 256-pixel WebP thumbnails for immutable source objects. The cache uses the existing storage cipher and is local to the shared data volume, including when originals use S3. Every private or shared response still checks current access before and after obtaining the thumbnail; responses keep `Cache-Control: no-store`. Original bytes, file API and user storage accounting are unchanged.
 

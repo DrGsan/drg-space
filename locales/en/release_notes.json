@@ -56,8 +56,8 @@
   "release5_2_9Change3": "Avoid repeating history layout when background updates contain no changes.",
   "release5_2_9Change4": "Show regular and family conversations together when opening chats.",
   "release5_2_9Change5": "Keep video preview images visible while scrolling until the first playback frame is ready.",
-  "release5_2_10_rc_1Title": "Faster Drive thumbnails",
-  "release5_2_10_rc_1Change1": "Reuse generated Drive thumbnails instead of repeatedly processing the full photograph.",
-  "release5_2_10_rc_1Change2": "Keep previews private and clean up old thumbnails when their source is replaced or permanently deleted.",
-  "release5_2_10_rc_1Change3": "Limit temporary thumbnail storage without changing original files or their storage quota."
+  "release5_2_10Title": "Faster Drive thumbnails",
+  "release5_2_10Change1": "Reuse generated Drive thumbnails instead of repeatedly processing the full photograph.",
+  "release5_2_10Change2": "Keep previews private and clean up old thumbnails when their source is replaced or permanently deleted.",
+  "release5_2_10Change3": "Limit temporary thumbnail storage without changing original files or their storage quota."
 }
