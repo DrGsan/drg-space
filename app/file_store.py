@@ -88,6 +88,7 @@ class ObjectWriter:
     def abort(self):self.buffer.clear();self.sink.abort()
 
 class FileStore:
+    thumbnail_derivatives=True
     def __init__(self,root,cipher,backend=None,client=None,bucket=None,prefix=None,bind=True):
         self.base=Path(root);self.namespace='files'
         self.root=self.base/self.namespace;self.root.mkdir(mode=0o700,parents=True,exist_ok=True);self.cipher=cipher
@@ -145,7 +146,14 @@ class FileStore:
         except Exception:raise StorageError('Could not create private file object.') from None
         return ObjectWriter(sink,self.cipher,identity)
     def delete(self,identity):
-        for location in self.locations():location.delete_here(identity)
+        if not self.thumbnail_derivatives:
+            for location in self.locations():location.delete_here(identity)
+            return
+        from app.file_thumbnail_cache import ThumbnailCache
+        cache=ThumbnailCache(self)
+        with cache.lock(identity):
+            cache.discard_locked(identity)
+            for location in self.locations():location.delete_here(identity)
     def delete_here(self,identity):
         if self.backend=='local':(self.root/object_id(identity)).unlink(missing_ok=True)
         else:

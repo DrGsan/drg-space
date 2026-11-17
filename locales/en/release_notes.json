@@ -55,5 +55,9 @@
   "release5_2_9Change2": "Keep active scrolling uninterrupted by applying Media preview sizing and older messages once the gesture settles.",
   "release5_2_9Change3": "Avoid repeating history layout when background updates contain no changes.",
   "release5_2_9Change4": "Show regular and family conversations together when opening chats.",
-  "release5_2_9Change5": "Keep video preview images visible while scrolling until the first playback frame is ready."
+  "release5_2_9Change5": "Keep video preview images visible while scrolling until the first playback frame is ready.",
+  "release5_2_10Title": "Faster Drive thumbnails",
+  "release5_2_10Change1": "Reuse generated Drive thumbnails instead of repeatedly processing the full photograph.",
+  "release5_2_10Change2": "Keep previews private and clean up old thumbnails when their source is replaced or permanently deleted.",
+  "release5_2_10Change3": "Limit temporary thumbnail storage without changing original files or their storage quota."
 }

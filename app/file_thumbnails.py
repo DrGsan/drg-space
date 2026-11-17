@@ -1,4 +1,4 @@
-"""Bounded thumbnails with no disk cache, shared by private file namespaces."""
+"""Bounded thumbnail renderer shared by private file namespaces."""
 from app.i18n import message as localized_message
 import io
 from PIL import Image,ImageOps,UnidentifiedImageError

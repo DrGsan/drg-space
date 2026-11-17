@@ -410,10 +410,12 @@ def create_files_router(db,ready,guard,tokens,protection,now,fail,data_dir,publi
         return response(row,lambda:private_check(request,s['user_id'],fid))
     def thumbnail_response(row,authorize=None):
         from app.file_thumbnails import thumbnail
+        from app.file_thumbnail_cache import ThumbnailCache
         limit=32*1024*1024
         if row['kind']!='file' or not (row['mime'] or '').startswith('image/') or row['size']>limit:fail(415,localized_message('thumbnailIsNotAvailableForThisFile'))
-        body=store.read(row['object_id'],limit)
-        rendered=thumbnail(body,fail)
+        build=lambda:thumbnail(store.read(row['object_id'],limit),fail)
+        try:rendered=ThumbnailCache(store).get(row['object_id'],build)
+        except OSError:rendered=build()  # A disposable cache must not make an original unreadable.
         if authorize:authorize()
         return Response(rendered,media_type='image/webp',headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"sandbox; default-src 'none'"})
     @r.get('/api/files/{fid}/thumbnail')
@@ -752,6 +754,8 @@ def create_files_router(db,ready,guard,tokens,protection,now,fail,data_dir,publi
                     c.execute('UPDATE blob_gc SET created=? WHERE id=? AND kind=?',(max(now(),last+1),row['id'],row['kind']))
                 import logging
                 logging.getLogger(__name__).warning('Private object deletion failed; queued for retry.')
+        from app.file_thumbnail_cache import ThumbnailCache
+        ThumbnailCache(store).prune()
     r.cleanup=cleanup
     r.store=store
     return r
