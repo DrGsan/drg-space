@@ -2,6 +2,13 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.2.11-rc.1] — 2026-11-17 — Runtime security update
+
+- Update a security dependency while preserving saved data, settings and client compatibility.
+
+- **Installation:** Rebuild Space with the existing Compose settings and volumes.
+- **Compatibility:** Database schema, object formats, encryption keys, environment and APIs are unchanged. No migration is required.
+
 ## [5.2.10] — 2026-11-17 — Faster Drive thumbnails
 
 - Reuse generated Drive thumbnails instead of repeatedly processing the full photograph.

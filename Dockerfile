@@ -18,6 +18,7 @@ RUN --mount=type=secret,id=system_ca \
 COPY --chown=appuser:appuser app ./app
 COPY --chown=appuser:appuser locales ./locales
 COPY --chown=appuser:appuser VERSION CHANGELOG.md LICENSE NOTICE ./
+COPY --chown=appuser:appuser licenses/python ./licenses/python
 COPY --chown=appuser:appuser gunicorn.conf.py ./
 COPY --chown=appuser:appuser scripts/backup.py scripts/security.py scripts/storage_audit.py ./scripts/
 COPY --from=frontend --chown=appuser:appuser /build/app/static ./app/static

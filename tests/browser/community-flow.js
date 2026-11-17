@@ -13,6 +13,8 @@ export async function communityFlow(page,browser){
  await appSection(page, 'Файлы');
  await page.locator('[data-new-folder]').click();await page.getByLabel('Название папки',{exact:true}).fill('Browser documents');await page.getByLabel('Название папки',{exact:true}).press('Enter');
  await page.locator('.file-open').filter({hasText:'Browser documents'}).click();
+ await expect(page.locator('.drive-heading h2')).toHaveText('Browser documents');
+ await expect(page.locator('[data-upload-files]')).toBeEnabled();
  await page.locator('[data-upload-files]').setInputFiles({name:'browser.md',mimeType:'text/markdown',buffer:Buffer.from('Original browser text')});
  await expect(page.locator('.file-list .file-open').filter({hasText:'browser.md'})).toBeVisible();
  // Browser directory input sends real local files and preserves relative paths.

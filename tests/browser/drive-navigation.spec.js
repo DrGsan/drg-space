@@ -52,6 +52,7 @@ for(const width of [1280,390])for(const theme of ['light','dark']){
       await expect(page.locator('.drive-panel')).toHaveAttribute('aria-busy','true');
       await expect(page.locator('[data-file-status]')).toContainText('Загружаем');
       await expect(page.locator('[data-new-folder]')).toBeDisabled();
+      await expect(page.locator('[data-upload-files]')).toBeDisabled();
       await expect(open(b.id)).toBeEnabled();await expect(root()).toBeEnabled();
       expect(await page.locator('.drive-panel').boundingBox()).toEqual(before);
       for(const part of parts)expect(await part.evaluate(el=>el.isConnected)).toBe(true);
@@ -59,6 +60,7 @@ for(const width of [1280,390])for(const theme of ['light','dark']){
       await page.screenshot({path:info.outputPath('pending.png'),fullPage:true});
     }finally{gate.resolve();}
     await expect(title).toHaveText('Documents');expect(requests).toBe(1);
+    await expect(page.locator('[data-upload-files]')).toBeEnabled();
     for(const part of parts)expect(await part.evaluate(el=>el.isConnected)).toBe(true);
     await expect(page.locator('.drive-panel')).toHaveAttribute('data-layout','grid');
     await expect(page.locator('[data-files-sort]')).toHaveText('по дате');
