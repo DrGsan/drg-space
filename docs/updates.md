@@ -1,5 +1,13 @@
 # Updating DrG Space
 
+## 5.2.10-rc.1 · Preview
+
+Drive reuses completed 256-pixel WebP thumbnails for immutable source objects. The cache uses the existing storage cipher and is local to the shared data volume, including when originals use S3. Every private or shared response still checks current access before and after obtaining the thumbnail; responses keep `Cache-Control: no-store`. Original bytes, file API and user storage accounting are unchanged.
+
+Only derived image data is cached: at most 256 MiB / 4096 entries, with a 256 KiB per-thumbnail limit and seven days since last use. At most two cold builds run across processes; requests for the same source share a completed result. Versioned format keys prevent reuse after renderer changes. Replacement creates a new immutable source identity; existing object garbage collection removes all cached variants with the retired source. Normal maintenance expires old entries, and full storage reconciliation removes cache-only orphans. Interrupted writes use atomic encrypted publication and a recoverable bounded index; a full/read-only cache falls back to authorized generation.
+
+The disposable `file-thumbnails` directory inside `DATA_DIR` is excluded from portable backups and is not needed for restore or rollback. It can be rebuilt from original objects. Existing file-store binding, database schema, encryption keys, source object paths, dependencies, Compose settings and environment are unchanged. Rebuild with the same files and volumes; no migration is required. Media does not need an update for this release.
+
 ## 5.2.9
 
 While scrolling, a video poster remains above the inline player until the first playback frame is presented. Pending or failed autoplay, seeking and scrolling away keep or restore the poster; this prevents a black flash while the original loads. Existing media geometry, autoplay limits, sources and request budgets are preserved. The poster handoff is frontend-only; it requires no additional Media changes once the archive is prepared for Media 1.14.4.

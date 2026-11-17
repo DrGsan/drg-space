@@ -104,6 +104,8 @@ def reconcile(db,objects,media,stamp):
                 failures+=1
                 with db() as c:c.execute('INSERT OR IGNORE INTO blob_gc VALUES(?,?,?)',(identity,kind,stamp))
         report[kind]['removed_records']=len(lost[kind])
+    from app.file_thumbnail_cache import ThumbnailCache
+    ThumbnailCache(objects).prune(referenced=set(items['file'][0])-lost['file'])
     if pending or any(lost.values()) or failures:
         logger.warning('Storage reconciliation: %d missing objects pending, %d lost records retired, %d object deletions queued.',len(pending),sum(map(len,lost.values())),failures)
     return report

@@ -20,15 +20,29 @@ def test_budget_refresh_confirms_real_download_and_preserves_publication_access(
  after=ok(g.get(path,params={'download_grant':ticket}));assert after['used']==1 and after['started']
  other=link(c,root,download_limit=1)
  assert not ok(g.get('/api/shared-files/'+other['token']+'/budget',params={'download_grant':ticket}))['started']
- # A large folder never expands its children or reads file bodies for this counter.
+ # Ancestor validation is required. Its recursive SQL is not catalogue expansion:
+ # bound actual decrypt/row work while the folder's children grow instead.
  from app.database import Connection
- execute=Connection.execute;queries=[]
+ from app.data_crypto import DataCipher
+ import secrets
+ execute=Connection.execute;queries=[];decode=DataCipher.decode;decoded=[]
  def count(db,query,*args,**kwargs):queries.append(query);return execute(db,query,*args,**kwargs)
+ def decrypted(cipher,value,*args,**kwargs):decoded.append(1);return decode(cipher,value,*args,**kwargs)
  monkeypatch.setattr(Connection,'execute',count)
+ monkeypatch.setattr(DataCipher,'decode',decrypted)
  assert ok(g.get(path))['used']==1
- assert not any('parent_id=' in query or 'RECURSIVE' in query for query in queries)
- assert len(queries)<20
+ baseline=len(decoded);assert len(queries)<20
+ with m.db() as db:
+  source=dict(db.execute('SELECT * FROM files WHERE id=?',(f['id'],)).fetchone())
+  for index in range(100):
+   db.execute('INSERT INTO files(id,user_id,parent_id,kind,name,mime,size,object_id,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?)',
+    (secrets.token_urlsafe(12),source['user_id'],root['id'],'file',f'Extra {index}',source['mime'],source['size'],secrets.token_hex(16),m.now(),m.now()))
+ queries.clear();decoded.clear()
+ monkeypatch.setattr(m.files_router.store,'read',lambda *args,**kwargs:(_ for _ in ()).throw(AssertionError('Budget must not read file bodies')))
+ assert ok(g.get(path))['used']==1
+ assert len(queries)<20 and len(decoded)==baseline
  monkeypatch.setattr(Connection,'execute',execute)
+ monkeypatch.setattr(DataCipher,'decode',decode)
  member(c)
  for mode,options,status in [('password',{'password':'Password-123'},423),('authenticated',{},401),('users',{'allowed':['friend']},401)]:
   restricted=link(c,root,mode=mode,**options)

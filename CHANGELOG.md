@@ -2,6 +2,15 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.2.10-rc.1] — 2026-11-17 — Faster Drive thumbnails
+
+- Reuse generated Drive thumbnails instead of repeatedly processing the full photograph.
+- Keep previews private and clean up old thumbnails when their source is replaced or permanently deleted.
+- Limit temporary thumbnail storage without changing original files or their storage quota.
+
+- **Installation:** Rebuild Space with the existing Compose settings and volumes.
+- **Compatibility:** Database schema, original object format, keys, environment and dependencies are unchanged. A bounded disposable thumbnail cache is stored encrypted when storage encryption is enabled; it is rebuilt automatically and excluded from portable backups. No migration or new configuration is required.
+
 ## [5.2.9] — 2026-11-16 — Steadier Media history
 
 - Reserve album layouts and use stored single-photo and video dimensions before previews load.

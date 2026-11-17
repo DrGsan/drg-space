@@ -131,6 +131,7 @@ class VaultWriter:
 
 
 class VaultObjects(FileStore):
+    thumbnail_derivatives=False  # Locked vaults never use ordinary Drive derivatives.
     def __init__(self, root, uid, value, base):
         self.uid=uid
         self.vault_prefix = '/'.join(filter(None, (base.prefix, base.storage_id, 'secret', uid)))
