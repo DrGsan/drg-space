@@ -39,7 +39,13 @@ test('owner can schedule project deletion and restore its complete contents',asy
  await page.locator('[data-tracker-settings]').click();await page.locator('[data-tracker-delete-project]').scrollIntoViewIfNeeded();await page.screenshot({path:directory+'/after-webapp-settings.png'});await page.locator('[data-tracker-delete-project]').click();await page.locator('[name=confirmation]').fill(project.name);await page.screenshot({path:directory+'/after-webapp-confirm.png'});
  await page.locator('[data-cancel-project-delete]').click();expect((await request('/tracker/projects/'+project.id,'GET')).name).toBe(project.name);
  await page.setViewportSize({width:1280,height:900});
- await page.route('**/api/tracker/projects/'+project.id+'/issues?*',async route=>{const response=await route.fetch();const body=await response.json();body.project.role='manager';body.project.can_delete=false;await route.fulfill({response,json:body});});
- await page.locator('[data-tracker-refresh]').click();await page.locator('[data-tracker-settings]').click();await expect(page.locator('[data-tracker-delete-project]')).toHaveCount(0);
+ let releaseRefresh,refreshRequested;
+ const gate=new Promise(resolve=>releaseRefresh=resolve),requested=new Promise(resolve=>refreshRequested=resolve);
+ await page.route('**/api/tracker/projects/'+project.id+'/issues?*',async route=>{const response=await route.fetch();const body=await response.json();body.project.role='manager';body.project.can_delete=false;refreshRequested();await gate;await route.fulfill({response,json:body});});
+ const refreshed=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/tracker/projects/'+project.id+'/issues'&&response.status()===200);
+ await page.locator('[data-tracker-refresh]').click();
+ try{await requested;await expect(page.locator('.tracker-loading')).toBeVisible();}finally{releaseRefresh();}
+ await (await refreshed).finished();await expect(page.locator('.tracker-loading')).toHaveCount(0);
+ await page.locator('[data-tracker-settings]').click();await expect(page.locator('[data-tracker-delete-project]')).toHaveCount(0);
 
 });

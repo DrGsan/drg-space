@@ -41,7 +41,7 @@ psycopg==3.3.6
 psycopg-binary==3.3.6
 psycopg-pool==3.3.3
 py-vapid==1.9.4
-pyasn1==0.6.4
+pyasn1==0.6.5
 pyasn1_modules==0.4.2
 pyOpenSSL==26.4.0
 pycparser==3.11

@@ -59,5 +59,7 @@
   "release5_2_10Title": "Faster Drive thumbnails",
   "release5_2_10Change1": "Reuse generated Drive thumbnails instead of repeatedly processing the full photograph.",
   "release5_2_10Change2": "Keep previews private and clean up old thumbnails when their source is replaced or permanently deleted.",
-  "release5_2_10Change3": "Limit temporary thumbnail storage without changing original files or their storage quota."
+  "release5_2_10Change3": "Limit temporary thumbnail storage without changing original files or their storage quota.",
+  "release5_2_11Title": "Runtime security update",
+  "release5_2_11Change1": "Update a security dependency while preserving saved data, settings and client compatibility."
 }

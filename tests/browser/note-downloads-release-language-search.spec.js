@@ -48,7 +48,16 @@ test('read-only file downloads, localized releases and independent search cleari
  await appSection(page,'Задачи');await page.locator('[data-tracker-project="'+project.id+'"]').click();await page.locator('[data-tracker-unfinished]').click();await page.locator('[data-tracker-search]').fill('github');await expect(page.locator('.tracker-card')).toHaveCount(1);await page.screenshot({path:directory+'/search-'+phase+'-desktop.png'});
  if(!before){
   const search=page.locator('[data-tracker-search]'),clear=page.locator('[data-tracker-search-clear]');
-  const centered=async()=>{await expect(search).toBeVisible();await expect(clear).toBeVisible();const input=await search.boundingBox(),button=await clear.boundingBox();expect(Math.abs(input.y+input.height/2-button.y-button.height/2)).toBeLessThan(1.1);expect(input.x+input.width).toBeLessThanOrEqual(button.x+1);};
+  const centered=async()=>{
+   await expect(async()=>{
+    await expect(search).toBeVisible();await expect(clear).toBeVisible();
+    const input=await search.boundingBox(),button=await clear.boundingBox();
+    expect(input,'search remains attached while measuring').not.toBeNull();
+    expect(button,'clear remains attached while measuring').not.toBeNull();
+    expect(Math.abs(input.y+input.height/2-button.y-button.height/2)).toBeLessThan(1.1);
+    expect(input.x+input.width).toBeLessThanOrEqual(button.x+1);
+   }).toPass({timeout:5000});
+  };
   await centered();await clear.focus();await page.keyboard.press('Enter');await expect(search).toHaveValue('');await expect(search).toBeFocused();await expect(clear).toBeHidden();
   // Clearing search retains the independent unfinished filter.
   await expect(page.locator('.tracker-card')).toHaveCount(1);await page.locator('[data-tracker-unfinished]').click();await expect(page.locator('.tracker-card')).toHaveCount(2);

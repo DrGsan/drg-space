@@ -29,3 +29,4 @@ zipstream-ng>=1.9.3,<2
 pywebpush>=2.5.0,<3
 
 webauthn>=3.0.1,<4
+pyasn1>=0.6.5,<0.7

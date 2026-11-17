@@ -1,5 +1,9 @@
 # Updating DrG Space
 
+## 5.2.11
+
+The pinned ASN.1 runtime is updated to pyasn1 0.6.5. Existing authentication, data encryption, client APIs and object storage formats are unchanged. Rebuild Space with the existing Compose files, environment and volumes. No schema migration, new keys or configuration changes are required. Browser regression checks now wait for completed navigation, permission responses and stable geometry; these test changes do not alter the interface.
+
 ## 5.2.10
 
 Drive reuses completed 256-pixel WebP thumbnails for immutable source objects. The cache uses the existing storage cipher and is local to the shared data volume, including when originals use S3. Every private or shared response still checks current access before and after obtaining the thumbnail; responses keep `Cache-Control: no-store`. Original bytes, file API and user storage accounting are unchanged.
