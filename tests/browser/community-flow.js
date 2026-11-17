@@ -45,8 +45,12 @@ export async function communityFlow(page,browser){
  await page.getByRole('dialog').getByLabel('Содержимое файла').fill('Changed in browser');await page.getByRole('dialog').getByRole('button',{name:'Сохранить файл'}).click();
  await expect(page.locator('[data-file-save-status]')).toHaveText('Файл сохранён');await page.getByRole('dialog').locator('.modal-close').click();
  await page.locator('.file-row').filter({hasText:'browser.md'}).locator('[data-file-menu]').click();await page.locator('[data-file-share]').click();
- await page.getByRole('dialog').getByLabel('Права доступа').selectOption('edit');await page.getByRole('dialog').getByLabel('Срок',{exact:true}).fill('13');await page.getByRole('dialog').getByLabel('Единица').selectOption('minutes');await page.getByRole('dialog').getByRole('button',{name:'Создать ссылку'}).click();
- const url=await page.getByLabel('Ссылка на файл').inputValue();await page.getByRole('dialog').locator('.modal-close').click();
+ await page.getByRole('dialog').getByLabel('Права доступа').selectOption('edit');await page.getByRole('dialog').getByLabel('Срок',{exact:true}).fill('13');await page.getByRole('dialog').getByLabel('Единица').selectOption('minutes');
+ const createdLink=page.waitForResponse(response=>response.request().method()==='POST'&&/\/api\/files\/[^/]+\/shares$/.test(new URL(response.url()).pathname));
+ await page.getByRole('dialog').getByRole('button',{name:'Создать ссылку'}).click();
+ const created=await (await createdLink).json(),address=page.getByRole('dialog').locator(`[data-share-id="${created.token}"] [data-share-url]`);
+ await expect(address).toHaveValue(created.url);await expect(page.locator('[data-share-tab=links]')).toHaveAttribute('aria-selected','true');
+ const url=await address.inputValue();await page.getByRole('dialog').locator('.modal-close').click();
  const context=await browser.newContext(),publicPage=await context.newPage();const errors=[];publicPage.on('pageerror',e=>errors.push(e.message));
  // Slow grants must not expose a clickable file before its handler is ready.
  let releaseGrant,grantStarted,grantForwarded;
