@@ -23,3 +23,22 @@ test('ambiguous failures and invalid Retry-After never repeat a POST',async()=>{
   await assert.rejects(withUploadRateRetry(async()=>{calls++;throw error;},transfer),e=>e===error);assert.equal(calls,1);
  }
 });
+
+test('a confirmed S3 outage retries only when the user chooses to continue',async()=>{
+ const outage=Object.assign(Error('Storage unavailable'),{status:503,code:'fileStorageTemporarilyUnavailable'});
+ for(const proceed of [false,true]){
+  let calls=0,resumed=0,choose;
+  const transfer={isStopped:()=>false,resume:()=>resumed++,waitForStorage:message=>{
+   assert.equal(message,outage.message);
+   return new Promise(resolve=>{choose=resolve;});
+  }};
+  const operation=withUploadRateRetry(async()=>{if(++calls===1)throw outage;return 'saved';},transfer);
+  await Promise.resolve();
+  assert.equal(calls,1);
+  choose(proceed);
+  if(proceed)assert.equal(await operation,'saved');
+  else await assert.rejects(operation,UploadStoppedError);
+  assert.equal(calls,proceed?2:1);
+  assert.equal(resumed,proceed?1:0);
+ }
+});

@@ -34,6 +34,7 @@ cipher = Fernet(base64.urlsafe_b64encode(hashlib.sha256(APP_SECRET.encode()).dig
 from app.modules.social import create_social_router, publication_access
 from app.database import Database
 from app.data_crypto import DataCipher, StorageError
+from app.file_store import FileStorageUnavailable
 data_cipher = DataCipher.from_env()
 database = Database(DATA, cipher=data_cipher)
 from app.storage import StorageGate,StorageMiddleware,blocking
@@ -162,6 +163,9 @@ app = Application(__name__, lifespan=lifespan)
 
 @app.exception_handler(StorageError)
 async def storage_error(request,error):
+    if isinstance(error, FileStorageUnavailable):
+        return JSONResponse({'detail': localized_message('fileStorageTemporarilyUnavailable')},
+                            status_code=503, headers={'Retry-After':'5','X-DrG-Error-Code':'fileStorageTemporarilyUnavailable'})
     return JSONResponse({'detail':'Не удалось проверить защищённые данные хранилища. Обратитесь к администратору.'},status_code=503)
 
 app.add_middleware(StorageMiddleware,gate=storage_gate)
@@ -172,7 +176,7 @@ def fail(code, message, headers=None): raise HTTPError(code, message, headers=he
 tokens = AuthTokens(db, lambda: now(), fail, APP_SECRET, SECURE)
 protection = Protection(db, lambda: now())
 from app.security_monitor import SecurityMonitor
-from app.security_policy import SecurityPolicy
+from app.security_policy import HEALTH_PROBES, SecurityPolicy
 security_monitor = SecurityMonitor(db, lambda: now(), protection)
 security_policy = SecurityPolicy(security_monitor, tokens)
 protection.monitor = tokens.monitor = security_monitor
@@ -216,7 +220,7 @@ async def security(request: Request, call_next):
         if storage_gate.exclusive_pending and document_navigation(request):
             response=unavailable(request,HTTPError(503,localized_message('operationWithDataIsInProgressRetryLater')))
         else:response = JSONResponse({'detail': 'Не удалось проверить режим доступа. Повторите позже.'}, status_code=503)
-    if response is None and request.url.path != '/api/health' and not request.url.path.startswith('/assets/'):
+    if response is None and request.url.path not in HEALTH_PROBES and not request.url.path.startswith('/assets/'):
         try:
             await blocking(protection.check, request)
         except HTTPError as error:
@@ -311,7 +315,7 @@ def audit_http_result(request, response):
     tokens.flush_activity(request)
     if getattr(request, '_security_csrf_rejected', False):
         security_monitor.record(request, 'csrf_rejected', outcome='blocked', details={'status': status})
-    if path == '/api/health' or path.startswith('/api/admin/security') and status < 400:
+    if path in HEALTH_PROBES or path.startswith('/api/admin/security') and status < 400:
         return
     if status in (401, 403, 404, 413, 422, 429) and not getattr(request, '_security_recorded', False):
         if status == 404:
@@ -856,6 +860,29 @@ async def edit_shared(token:str,data:SharedEdit,request:Request):
 
 @app.get('/api/health')
 def health(): return {'ok':True}
+
+readiness_task = None
+
+async def check_readiness():
+    try:
+        # The task may outlive an HTTP timeout. Keep its own lease until the
+        # read finishes so a concurrent restore still has exclusive access.
+        async with storage_gate.shared():
+            await blocking(database.check_readiness)
+        return True
+    except Exception:
+        return False
+
+@app.get('/api/ready')
+async def readiness():
+    global readiness_task
+    if readiness_task is None or readiness_task.done():
+        readiness_task = asyncio.create_task(check_readiness())
+    try:
+        ready = await asyncio.wait_for(asyncio.shield(readiness_task), timeout=2)
+    except TimeoutError:
+        ready = False
+    return JSONResponse({'ok':ready}, status_code=200 if ready else 503)
 
 from app.modules.expenses import create_expenses_router
 expenses_router=create_expenses_router(db,module_guard("expenses"),lambda:now(),fail,expiry,PUBLIC_URL,protection,DATA)

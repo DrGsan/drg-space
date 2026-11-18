@@ -880,6 +880,7 @@
   "storageIsDisabledOrWaitingForDeletionTo": "Хранилище выключено или ожидает завершения удаления.",
   "storageIsDisabled": "Хранилище не включено.",
   "storageIsUnavailable": "Хранилище недоступно.",
+  "fileStorageTemporarilyUnavailable": "Хранилище файлов временно недоступно.",
   "incorrectAccountPassword": "Неверный пароль аккаунта.",
   "noteHasBeenModifiedOpenItAgainBefore": "Заметка изменилась. Откройте её заново перед редактированием.",
   "cannotMoveTheFolderIntoItselfOrIts": "Нельзя переместить папку в себя или потомка.",

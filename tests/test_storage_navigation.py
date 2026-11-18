@@ -1,7 +1,36 @@
 import re
+import threading
 import pytest
-from tests.test_security import reset,owner
+from tests.test_security import reset,owner,client
 from app import main as m
+
+
+def test_database_readiness_reports_failure_and_recovers(monkeypatch):
+    c=client()
+    assert c.get('/api/ready').json()=={'ok':True}
+    with m.storage_gate.exclusive_sync():
+        assert c.get('/api/ready').status_code==503
+        assert c.get('/api/health').json()=={'ok':True}
+
+    release=threading.Event()
+    def stalled_probe():
+        assert release.wait(5)
+        raise OSError('Test database unavailable')
+    try:
+        with monkeypatch.context() as outage:
+            outage.setattr(m.database,'check_readiness',stalled_probe)
+            response=c.get('/api/ready')
+            assert response.status_code==503
+            assert response.json()=={'ok':False}
+            assert response.headers['cache-control']=='no-store'
+            assert c.get('/api/health').json()=={'ok':True}
+    finally:
+        release.set()
+    # Wait for the bounded request's in-flight read to finish before probing again.
+    async def finish_probe():
+        await m.readiness_task
+    m.app.runtime.run(finish_probe())
+    assert c.get('/api/ready').json()=={'ok':True}
 
 
 @pytest.mark.parametrize('language,heading',[('ru','Выполняется операция с данными'),('en','A data operation is in progress')])

@@ -362,6 +362,13 @@ class Database:
         with self._pool_lock:
             if self._pool is not None:self._pool.drain()
 
+    def check_readiness(self):
+        """Check the configured service schema through the ordinary pool."""
+        pool=self._pool
+        connection=pool.connection(timeout=.5) if pool is not None else self._raw_connection()
+        with connection as raw:
+            raw.execute('SELECT 1 FROM app_settings LIMIT 1').fetchone()
+
     @contextmanager
     def _raw_connection(self):
         pool=self._pool

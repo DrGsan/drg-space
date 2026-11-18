@@ -37,6 +37,32 @@ def test_download_head_checks_permissions_without_reading_file_bytes(monkeypatch
     assert c.delete('/api/file-shares/'+shared['token']).status_code==200
     assert c.head(paths[2]).status_code==404
 
+def test_storage_outage_is_reported_before_drive_download_and_upload(monkeypatch):
+    from app.file_store import FileStore, FileStorageUnavailable, ObjectWriter
+
+    c,_,_=owner()
+    saved=upload(c)
+    path='/api/files/'+saved['id']+'/content'
+    archive='/api/files/download.zip?ids='+saved['id']
+    def offline(*args):
+        raise FileStorageUnavailable('Private backend error')
+    with monkeypatch.context() as outage:
+        outage.setattr(FileStore,'iter_read',offline)
+        outage.setattr(FileStore,'probe_download',offline)
+        outage.setattr(ObjectWriter,'finish',offline)
+        for receive,url in ((c.head,path),(c.get,path),(c.head,archive),(c.get,archive)):
+            response=receive(url)
+            assert response.status_code==503
+            assert response.headers['X-DrG-Error-Code']=='fileStorageTemporarilyUnavailable'
+            assert 'Content-Disposition' not in response.headers
+        rejected=c.post('/api/files/upload?name=retry.txt',content=b'retry')
+        assert rejected.status_code==503
+        assert rejected.json()['code']=='fileStorageTemporarilyUnavailable'
+        assert [f['id'] for f in c.get('/api/files').json()['items']]==[saved['id']]
+    assert c.get(path).content==b'hello'
+    retried=upload(c,'retry.txt',b'retry')
+    assert [f['id'] for f in c.get('/api/files').json()['items'] if f['name']=='retry.txt']==[retried['id']]
+
 def test_invitation_in_global_inbox_without_opening_social():
     c,_,_=owner();g,_=member(c)
     q=c.post('/api/social/friends',json={'login':'friend'});assert q.status_code==200,q.text

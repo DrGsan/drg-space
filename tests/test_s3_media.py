@@ -1,8 +1,9 @@
 import io
 import pytest
+from botocore.exceptions import ConnectionClosedError
 from tests.test_security import reset
 from app.data_crypto import DataCipher,MediaStore,StorageError
-from app.file_store import FileStore
+from app.file_store import FileStore, FileStorageUnavailable
 from tests.test_storage_encryption import databases,seed,backup_service
 
 
@@ -21,6 +22,22 @@ class S3:
                 if name=='list_multipart_uploads':yield {'Uploads':[u for u in client.uploads if u['Key'].startswith(kw['Prefix'])]}
                 else:yield {'Contents':[{'Key':key,'Size':len(client.objects[key])} for key in client.objects if key.startswith(kw['Prefix'])]}
         return Pages()
+
+def test_failed_acknowledgement_removes_new_unreferenced_s3_object(tmp_path):
+    class LostAcknowledgement(S3):
+        def put_object(self, **kwargs):
+            super().put_object(**kwargs)
+            raise ConnectionClosedError(endpoint_url='http://127.0.0.1')
+
+    client=LostAcknowledgement()
+    store=FileStore(tmp_path,DataCipher.ephemeral(),backend='s3',client=client,bucket='private',bind=False)
+    writer=store.writer('a'*32,new_object=True)
+    writer.write(b'private file')
+    with pytest.raises(FileStorageUnavailable):
+        writer.finish()
+    assert list(client.objects)==[store.key('a'*32)]
+    writer.abort()
+    assert not client.objects
 
 
 def test_s3_media_transfer_verifies_readback_retries_and_deletes(tmp_path):

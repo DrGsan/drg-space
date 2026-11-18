@@ -11,11 +11,28 @@ import secrets
 import struct
 import stat
 from pathlib import Path
+from botocore.exceptions import ClientError, ConnectionError as S3ConnectionError, HTTPClientError, IncompleteReadError
 from app.data_crypto import DataCipher,StorageError
 
 MAGIC=b'DRG-FILE-01\0'
 CHUNK=1024*1024
 NAMESPACES=('files','tracker-attachments')
+
+class FileStorageUnavailable(StorageError):
+    """S3 could not complete an operation because the backend was unavailable."""
+
+
+def s3_call(call, *args, **kwargs):
+    try:
+        return call(*args, **kwargs)
+    except (S3ConnectionError, HTTPClientError, IncompleteReadError) as error:
+        raise FileStorageUnavailable('Private file storage is temporarily unavailable.') from error
+    except ClientError as error:
+        status=error.response.get('ResponseMetadata',{}).get('HTTPStatusCode',0)
+        if status in (408,429) or 500<=status<600:
+            raise FileStorageUnavailable('Private file storage is temporarily unavailable.') from error
+        raise
+
 
 def object_id(value):
     if not isinstance(value,str) or not re.fullmatch(r'[a-f0-9]{32}',value):raise StorageError('Invalid object identity.')
@@ -29,7 +46,8 @@ def local_exists(path):
     return True
 
 def remote_exists(client,bucket,key):
-    try:client.head_object(Bucket=bucket,Key=key);return True
+    try:s3_call(client.head_object,Bucket=bucket,Key=key);return True
+    except FileStorageUnavailable:raise
     except Exception as error:
         response=getattr(error,'response',{})
         if response.get('ResponseMetadata',{}).get('HTTPStatusCode')==404 and response.get('Error',{}).get('Code') in ('404','NoSuchKey','NotFound'):return False
@@ -46,12 +64,13 @@ class LocalWriter:
         self.path.unlink(missing_ok=True)
 
 class S3Writer:
-    def __init__(self,client,bucket,key):
-        self.client,self.bucket,self.key=client,bucket,key;self.buffer=bytearray();self.parts=[];self.upload=None;self.finished=False
+    def __init__(self,client,bucket,key,*,new_object=False):
+        self.client,self.bucket,self.key=client,bucket,key;self.buffer=bytearray();self.parts=[];self.upload=None;self.publishing=False;self.finished=False
+        self.new_object=new_object
     def part(self,body):
-        if self.upload is None:self.upload=self.client.create_multipart_upload(Bucket=self.bucket,Key=self.key,ContentType='application/octet-stream')['UploadId']
+        if self.upload is None:self.upload=s3_call(self.client.create_multipart_upload,Bucket=self.bucket,Key=self.key,ContentType='application/octet-stream')['UploadId']
         number=len(self.parts)+1
-        result=self.client.upload_part(Bucket=self.bucket,Key=self.key,UploadId=self.upload,PartNumber=number,Body=body)
+        result=s3_call(self.client.upload_part,Bucket=self.bucket,Key=self.key,UploadId=self.upload,PartNumber=number,Body=body)
         self.parts.append({'ETag':result['ETag'],'PartNumber':number})
     def write(self,body):
         self.buffer.extend(body)
@@ -60,13 +79,20 @@ class S3Writer:
     def finish(self):
         if self.upload:
             if self.buffer:self.part(bytes(self.buffer))
-            self.client.complete_multipart_upload(Bucket=self.bucket,Key=self.key,UploadId=self.upload,MultipartUpload={'Parts':self.parts})
-        else:self.client.put_object(Bucket=self.bucket,Key=self.key,Body=bytes(self.buffer),ContentType='application/octet-stream')
+            self.publishing=True
+            s3_call(self.client.complete_multipart_upload,Bucket=self.bucket,Key=self.key,UploadId=self.upload,MultipartUpload={'Parts':self.parts})
+        else:
+            self.publishing=True
+            s3_call(self.client.put_object,Bucket=self.bucket,Key=self.key,Body=bytes(self.buffer),ContentType='application/octet-stream')
         self.buffer.clear();self.finished=True
     def abort(self):
-        if self.upload and not self.finished:self.client.abort_multipart_upload(Bucket=self.bucket,Key=self.key,UploadId=self.upload)
-        if self.finished:self.client.delete_object(Bucket=self.bucket,Key=self.key)
         self.buffer.clear()
+        try:
+            if self.upload and not self.finished:self.client.abort_multipart_upload(Bucket=self.bucket,Key=self.key,UploadId=self.upload)
+        finally:
+            # A failed response from Put/Complete can still leave a published object.
+            if self.finished or self.new_object and self.publishing:
+                self.client.delete_object(Bucket=self.bucket,Key=self.key)
 
 class ObjectWriter:
     def __init__(self,sink,cipher,identity):
@@ -140,9 +166,12 @@ class FileStore:
         return local_exists(self.root/identity) if self.backend=='local' else remote_exists(self.client,self.bucket,self.key(identity))
     def exists(self,identity):
         return any(location.exists_here(identity) for location in self.locations())
-    def writer(self,identity):
+    def probe_download(self,identity):
+        if self.backend=='s3' and not self.exists(identity):
+            raise StorageError('Could not open private file object.')
+    def writer(self,identity,*,new_object=False):
         object_id(identity)
-        try:sink=LocalWriter(self.root/identity) if self.backend=='local' else S3Writer(self.client,self.bucket,self.key(identity))
+        try:sink=LocalWriter(self.root/identity) if self.backend=='local' else S3Writer(self.client,self.bucket,self.key(identity),new_object=new_object)
         except Exception:raise StorageError('Could not create private file object.') from None
         return ObjectWriter(sink,self.cipher,identity)
     def delete(self,identity):
@@ -217,8 +246,9 @@ class FileStore:
         stream=None
         for location in self.locations() if fallback else (self,):
             try:
-                stream=open(location.root/identity,'rb') if self.backend=='local' else self.client.get_object(Bucket=self.bucket,Key=location.key(identity))['Body']
+                stream=open(location.root/identity,'rb') if self.backend=='local' else s3_call(self.client.get_object,Bucket=self.bucket,Key=location.key(identity))['Body']
                 break
+            except FileStorageUnavailable:raise
             except FileNotFoundError:
                 if self.backend!='local':raise StorageError('Could not open private file object.') from None
             except Exception as error:
@@ -226,10 +256,12 @@ class FileStore:
                 if self.backend=='s3' and response.get('ResponseMetadata',{}).get('HTTPStatusCode')==404 and response.get('Error',{}).get('Code') in ('404','NoSuchKey','NotFound'):continue
                 raise StorageError('Could not open private file object.') from None
         if stream is None:raise StorageError('Could not open private file object.')
+        def read(length):
+            return stream.read(length) if self.backend=='local' else s3_call(stream.read,length)
         def read_exact(size):
             output=bytearray()
             while len(output)<size:
-                chunk=stream.read(size-len(output))
+                chunk=read(size-len(output))
                 if not chunk:raise StorageError('File object is truncated.')
                 output.extend(chunk)
             return bytes(output)
@@ -242,7 +274,7 @@ class FileStore:
                     footer_size=struct.unpack('>I',read_exact(4))[0]
                     if footer_size>256:raise StorageError('Invalid file terminator.')
                     footer=self.cipher.open(read_exact(footer_size),f'file:{identity}:end')
-                    if footer!=struct.pack('>QQ',index,size)+checksum.digest() or stream.read(1):raise StorageError('File integrity check failed.')
+                    if footer!=struct.pack('>QQ',index,size)+checksum.digest() or read(1):raise StorageError('File integrity check failed.')
                     break
                 if length>CHUNK+128:raise StorageError('Invalid encrypted file chunk.')
                 body=self.cipher.open(read_exact(length),f'file:{identity}:{index}');index+=1;size+=len(body);checksum.update(body);yield body
@@ -272,18 +304,21 @@ class FileStore:
         stream=None;location=None
         for candidate in self.locations():
             try:
-                stream=open(candidate.root/identity,'rb') if self.backend=='local' else self.client.get_object(Bucket=self.bucket,Key=candidate.key(identity),Range=f'bytes=0-{len(MAGIC)-1}')['Body']
+                stream=open(candidate.root/identity,'rb') if self.backend=='local' else s3_call(self.client.get_object,Bucket=self.bucket,Key=candidate.key(identity),Range=f'bytes=0-{len(MAGIC)-1}')['Body']
                 location=candidate;break
+            except FileStorageUnavailable:raise
             except FileNotFoundError:continue
             except Exception as error:
                 response=getattr(error,'response',{})
                 if response.get('ResponseMetadata',{}).get('HTTPStatusCode')==404 and response.get('Error',{}).get('Code') in ('404','NoSuchKey','NotFound'):continue
                 raise StorageError('Could not open private file object.') from None
         if stream is None:raise StorageError('Could not open private file object.')
+        def read(length):
+            return stream.read(length) if self.backend=='local' else s3_call(stream.read,length)
         def exact(length):
             out=bytearray()
             while len(out)<length:
-                part=stream.read(length-len(out))
+                part=read(length-len(out))
                 if not part:raise StorageError('File object is truncated.')
                 out.extend(part)
             return bytes(out)
@@ -291,13 +326,13 @@ class FileStore:
             if exact(len(MAGIC))!=MAGIC:raise StorageError('Invalid file object format.')
             if self.backend=='local':stream.seek(footer_offset)
             else:
-                stream.close();stream=self.client.get_object(Bucket=self.bucket,Key=location.key(identity),Range=f'bytes={footer_offset}-')['Body']
+                stream.close();stream=s3_call(self.client.get_object,Bucket=self.bucket,Key=location.key(identity),Range=f'bytes={footer_offset}-')['Body']
             if exact(4)!=b'\x00'*4 or struct.unpack('>I',exact(4))[0]!=48+overhead:raise StorageError('Invalid file terminator.')
             footer=self.cipher.open(exact(48+overhead),f'file:{identity}:end')
-            if footer[:16]!=struct.pack('>QQ',count,size) or stream.read(1):raise StorageError('File integrity check failed.')
+            if footer[:16]!=struct.pack('>QQ',count,size) or read(1):raise StorageError('File integrity check failed.')
             if self.backend=='local':stream.seek(begin)
             else:
-                stream.close();stream=self.client.get_object(Bucket=self.bucket,Key=location.key(identity),Range=f'bytes={begin}-{finish-1}')['Body']
+                stream.close();stream=s3_call(self.client.get_object,Bucket=self.bucket,Key=location.key(identity),Range=f'bytes={begin}-{finish-1}')['Body']
             for index in range(first_index,last_index+1):
                 length=struct.unpack('>I',exact(4))[0]
                 if length!=min(CHUNK,size-index*CHUNK)+overhead:raise StorageError('Invalid encrypted file frame.')
