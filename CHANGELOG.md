@@ -2,11 +2,16 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.2.12-rc.1] — 2026-11-18 — Drive recovery and database readiness
+## [5.2.12] — 2026-11-18 — Drive transfer recovery
 
+- Resume an interrupted private Drive download from the last received byte when the file is unchanged.
+- Start a fresh download if the file was replaced during an interruption.
 - Retry an interrupted Drive upload when file storage returns without resending files already saved.
 - Show when file storage is temporarily unavailable before a download starts.
 - Check database readiness independently of the application process.
+
+- **Installation:** Rebuild Space with the existing Compose files and volumes.
+- **Compatibility:** The database schema, storage format, environment and encryption keys are unchanged. No migration is required.
 
 ## [5.2.11] — 2026-11-17 — Runtime security update
 
