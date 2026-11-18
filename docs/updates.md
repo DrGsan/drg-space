@@ -1,5 +1,15 @@
 # Updating DrG Space
 
+## 5.2.12
+
+Drive resumes a private download from the requested byte range when the file is unchanged. If the file was replaced, the current copy is downloaded in full. During an S3 outage, Drive shows a retry action for the affected transfer. The new `GET /api/ready` endpoint checks database readiness separately from the existing `GET /api/health` process check.
+
+Rebuild Space using the existing Compose files, environment, encryption keys and volumes. No migration, new settings or Media update is required. Keep any Compose overrides already used on the installation. For the base installation:
+
+```sh
+docker compose up -d --build --no-deps app
+```
+
 ## 5.2.11
 
 The pinned ASN.1 runtime is updated to pyasn1 0.6.5. Existing authentication, data encryption, client APIs and object storage formats are unchanged. Rebuild Space with the existing Compose files, environment and volumes. No schema migration, new keys or configuration changes are required. Browser regression checks now wait for completed navigation, permission responses and stable geometry; these test changes do not alter the interface.
