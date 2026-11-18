@@ -14,6 +14,7 @@ LOGIN_PATHS = {
     '/api/2fa/confirm', '/api/2fa/activate',
 }
 PUBLIC_ASSETS = {'/favicon.ico', '/manifest.webmanifest', '/push-sw.js'}
+HEALTH_PROBES = {'/api/health', '/api/ready'}
 
 
 class SecurityPolicy:
@@ -58,7 +59,7 @@ class SecurityPolicy:
         route = getattr(getattr(request, 'source', None), 'url_rule', None)
         if isinstance(request, WebSocket) or getattr(route, 'websocket', False):
             self.monitor.protection.check(request)
-        if path == '/api/health':
+        if path in HEALTH_PROBES:
             return
         state = self.monitor.get_mode()
         mode = state['mode']

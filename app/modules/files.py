@@ -7,12 +7,14 @@ import calendar
 import json
 import mimetypes
 import os
+import re
 import secrets
 from datetime import datetime,timezone
 from urllib.parse import quote
-from contextlib import suppress
+from contextlib import closing,suppress
 from app.http import Router,Request,Response,HTTPError,Query
 from app.http import StreamingResponse
+from werkzeug.http import parse_etags
 from pydantic import BaseModel,ConfigDict,Field
 from app.file_store import file_store
 from app.chat_storage import attachment_room
@@ -142,7 +144,7 @@ def create_files_router(db,ready,guard,tokens,protection,now,fail,data_dir,publi
         identity=secrets.token_hex(16);writer=None;retired=None
         async with uploads:
             try:
-                writer=await blocking(store.writer,identity)
+                writer=await blocking(store.writer,identity,new_object=True)
                 async for chunk in request.stream():
                     if writer.size+len(chunk)>MAX_FILE_SIZE:fail(413,size_error)
                     await blocking(writer.write,chunk)
@@ -179,7 +181,7 @@ def create_files_router(db,ready,guard,tokens,protection,now,fail,data_dir,publi
     def save_text(fid,uid,data,authorize=None):
         body=data.text.encode()
         if len(body)>TEXT_LIMIT:fail(413,localized_message('textFileMustBeNoMoreThan2'))
-        identity=secrets.token_hex(16);writer=store.writer(identity);old_id=None
+        identity=secrets.token_hex(16);writer=store.writer(identity,new_object=True);old_id=None
         try:
             writer.write(body);writer.finish()
             with db() as c:
@@ -194,34 +196,53 @@ def create_files_router(db,ready,guard,tokens,protection,now,fail,data_dir,publi
         if old_id:
             with suppress(Exception):collect_blob(old_id,'file')
         return saved
-    def response(row,check=lambda:None,request=None,begin=None,extra=None):
+    def response(row,check,request,begin=None,extra=None,*,private=False):
         if row['kind']!='file':fail(422,localized_message('forTheFolderChooseToDownloadZip'))
+        range_header=request.headers.get('Range')
+        headers={'Content-Disposition':download_header(row['name']),'Cache-Control':'no-store','Accept-Ranges':'bytes',**(extra or {})}
+        if private:
+            # Object identities are immutable and change on replacement, even
+            # when the old and new objects have the same byte length.
+            identity=hashlib.sha256(f"drive:{row['id']}:{row['object_id']}".encode()).hexdigest()
+            etag=f'"{identity}"'
+            headers['ETag']=etag
+            condition=request.headers.get('If-Match')
+            if condition is not None and not parse_etags(condition).contains(identity):
+                raise HTTPError(412,localized_message('fileHasBeenModifiedOpenItAgain'),headers={'ETag':etag})
+            if_range=request.headers.get('If-Range')
+            if request.method!='GET' or if_range is not None and if_range.strip()!=etag:
+                range_header=None
+            elif range_header and '=' in range_header and range_header.split('=',1)[0].lower()!='bytes':
+                range_header=None
         start,end=0,row['size']-1;partial=False
-        if request and request.headers.get('range'):
-            import re
-            match=re.fullmatch(r'bytes=(\d*)-(\d*)',request.headers['range'])
+        if range_header:
+            match=re.fullmatch(r'bytes=([0-9]*)-([0-9]*)',range_header,re.IGNORECASE) if len(range_header)<=200 else None
             if not match or not any(match.groups()):raise HTTPError(416,'Invalid range',headers={'Content-Range':'bytes */'+str(row['size'])})
             first,last=match.groups()
             if first:start=int(first);end=min(int(last) if last else end,end)
             else:start=max(0,row['size']-int(last))
             if start>end or start>=row['size']:raise HTTPError(416,'Invalid range',headers={'Content-Range':'bytes */'+str(row['size'])})
             partial=True
-        headers={'Content-Length':str(max(0,end-start+1)),'Content-Disposition':download_header(row['name']),'Cache-Control':'no-store',**(extra or {})}
-        if request:headers['Accept-Ranges']='bytes'
+        headers['Content-Length']=str(max(0,end-start+1))
         if partial:headers['Content-Range']=f"bytes {start}-{end}/{row['size']}"
         def content():
             source=store.iter_range(row['object_id'],start,end,row['size']) if partial and (start or end<row['size']-1) else store.iter_read(row['object_id'])
-            for chunk in source:check();yield chunk
+            with closing(source):
+                for chunk in source:
+                    check()
+                    yield chunk
         body=content()
-        if request and request.method!='HEAD':
+        if request.method=='HEAD':
+            store.probe_download(row['object_id'])
+            output=()
+        else:
             try:
                 first=next(body,b'')
                 if begin:begin()
             except BaseException:body.close();raise
             output=chain((first,),body)
-        else:output=body
         return StreamingResponse(output,status_code=206 if partial else 200,media_type='application/octet-stream',headers=headers,background=body.close)
-    def zip_response(rows,selection,check=lambda fid=None:None,request=None,begin=None,extra=None):
+    def zip_response(rows,selection,check,request,begin=None,extra=None):
         import zipstream
         ids=set(selection.ids)
         available={x['id']:x for x in rows}
@@ -232,6 +253,13 @@ def create_files_router(db,ready,guard,tokens,protection,now,fail,data_dir,publi
                 changed=True
                 while changed:
                     old=len(selected);selected.update(x['id'] for x in rows if x['parent_id'] in selected);changed=len(selected)!=old
+        if request.headers.get('range'):raise HTTPError(416,localized_message('fileZipRestartDownload'))
+        # ZIP emits an entry header before reading the first object. Check one
+        # selected object so a storage outage can still return an HTTP error.
+        first_file=next((item for item in rows if item['id'] in selected and item['kind']=='file'),None)
+        if first_file:store.probe_download(first_file['object_id'])
+        headers={'Content-Disposition':download_header('files.zip'),'Cache-Control':'no-store',**(extra or {})}
+        if request.method=='HEAD':return Response(media_type='application/zip',headers=headers)
         z=zipstream.ZipStream(compress_type=zipstream.ZIP_DEFLATED)
         names={}
         for item in rows:names[(item['parent_id'],item['name'])]=names.get((item['parent_id'],item['name']),0)+1
@@ -250,18 +278,13 @@ def create_files_router(db,ready,guard,tokens,protection,now,fail,data_dir,publi
                     for chunk in store.iter_read(identity):check(fid);yield chunk
                 z.add(content(),path,size=item['size'])
         stream=iter(z)
-        if request and request.headers.get('range'):raise HTTPError(416,localized_message('fileZipRestartDownload'))
-        if request and request.method!='HEAD':
-            try:
-                first=next(stream,b'')
-                if begin:begin()
-            except BaseException:
-                if hasattr(stream,'close'):stream.close()
-                raise
-            stream=chain((first,),stream)
+        try:
+            first=next(stream,b'')
+            if begin:begin()
+        except BaseException:stream.close();raise
         def output():
-            for chunk in stream:check();yield chunk
-        return StreamingResponse(output(),media_type='application/zip',headers={'Content-Disposition':download_header('files.zip'),'Cache-Control':'no-store',**(extra or {})})
+            for chunk in chain((first,),stream):check();yield chunk
+        return StreamingResponse(output(),media_type='application/zip',headers=headers,background=stream.close)
     @r.get('/api/files')
     def listing(request:Request,parent_id:str|None=None,view:str='active'):
         s=guard(request)
@@ -397,17 +420,17 @@ def create_files_router(db,ready,guard,tokens,protection,now,fail,data_dir,publi
     def download_selected(data:Selection,request:Request):
         s=guard(request)
         with db() as c:rows=[dict(x) for x in file_module_rows(c,c.execute('SELECT * FROM files WHERE user_id=? AND deleted IS NULL',(s['user_id'],)),s['user_id'])]
-        return zip_response(rows,data,lambda fid=None:private_check(request,s['user_id'],fid))
+        return zip_response(rows,data,lambda fid=None:private_check(request,s['user_id'],fid),request)
     @r.get('/api/files/download.zip')
     def zip_download(request:Request,ids:str=Query(default='',max_length=9000)):
         s=guard(request);selection=Selection(ids=[x for x in ids.split(',') if x])
         with db() as c:rows=[dict(x) for x in file_module_rows(c,c.execute('SELECT * FROM files WHERE user_id=? AND deleted IS NULL',(s['user_id'],)),s['user_id'])]
-        return zip_response(rows,selection,lambda fid=None:private_check(request,s['user_id'],fid))
+        return zip_response(rows,selection,lambda fid=None:private_check(request,s['user_id'],fid),request)
     @r.get('/api/files/{fid}/content')
     def content(fid:str,request:Request):
         s=guard(request)
         with db() as c:row=dict(own(c,fid,s['user_id']))
-        return response(row,lambda:private_check(request,s['user_id'],fid))
+        return response(row,lambda:private_check(request,s['user_id'],fid),request,private=True)
     def thumbnail_response(row,authorize=None):
         from app.file_thumbnails import thumbnail
         from app.file_thumbnail_cache import ThumbnailCache

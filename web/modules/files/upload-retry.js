@@ -3,14 +3,19 @@ export class UploadStoppedError extends Error {
  constructor(){super(tText("files:uploadStopped"));this.name='UploadStoppedError';}
 }
 
-// Only an explicit rejection before writing is safe to retry. A lost response
-// or a 5xx can hide a committed file, so neither is retried here.
+// Only explicit rejections before the file record is committed can be retried.
 export async function withUploadRateRetry(send,transfer){
- for(let attempt=0;;attempt++){
+ let rateRetries=0;
+ for(;;){
   if(transfer.isStopped())throw new UploadStoppedError();
   try{return await send();}catch(error){
+   if(error.status===503&&error.code==='fileStorageTemporarilyUnavailable'&&transfer.waitForStorage){
+    if(!await transfer.waitForStorage(error.message))throw new UploadStoppedError();
+    transfer.resume();continue;
+   }
    const raw=error.retryAfter,seconds=typeof raw==='string'&&/^\d+$/.test(raw)?Number(raw):NaN;
-   if(error.status!==429||!Number.isFinite(seconds)||seconds<1||seconds>3600||attempt>=3)throw error;
+   if(error.status!==429||!Number.isFinite(seconds)||seconds<1||seconds>3600||rateRetries>=3)throw error;
+   rateRetries++;
    const deadline=performance.now()+seconds*1000;
    while(performance.now()<deadline){
     if(transfer.isStopped())throw new UploadStoppedError();

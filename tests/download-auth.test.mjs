@@ -6,7 +6,15 @@ function environment(fetch){
   const original=new Map(['fetch','document','navigator','location'].map(key=>[key,Object.getOwnPropertyDescriptor(globalThis,key)]));
   const navigations=[],toasts=[],dialogs=[];
   const ctx={toast:text=>toasts.push(text),modal:html=>{dialogs.push(html);return {querySelector:()=>({})};}};
-  for(const [key,value] of Object.entries({fetch,document:{cookie:'drg_csrf=fixture-token'},navigator:{},location:{origin:'https://files.example.com',assign:path=>navigations.push(path)}}))Object.defineProperty(globalThis,key,{value,configurable:true,writable:true});
+  const document={
+    cookie:'drg_csrf=fixture-token',
+    body:{append:link=>assert.equal(link.download,'')},
+    createElement(tag){
+      assert.equal(tag,'a');
+      return {click(){navigations.push(this.href);},remove(){}};
+    },
+  };
+  for(const [key,value] of Object.entries({fetch,document,navigator:{},location:{origin:'https://files.example.com'}}))Object.defineProperty(globalThis,key,{value,configurable:true,writable:true});
   return {ctx,navigations,toasts,dialogs,restore(){for(const [key,descriptor] of original)if(descriptor)Object.defineProperty(globalThis,key,descriptor);else delete globalThis[key];}};
 }
 test('repeated clicks share the check and start one native download without reading a body',async()=>{
@@ -18,11 +26,11 @@ test('repeated clicks share the check and start one native download without read
   }finally{env.restore();}
 });
 test('permissions failures never refresh or navigate to the API',async()=>{
-  const calls=[],env=environment(async(path,options)=>{calls.push(options.method);return {status:403,ok:false};});
+  const calls=[],env=environment(async(path,options)=>{calls.push(options.method);return {status:403,ok:false,headers:new Headers()};});
   try{assert.equal(await downloadFile('/api/shared-files/link/file/content',env.ctx),false);assert.deepEqual(calls,['HEAD']);assert.deepEqual(env.navigations,[]);assert.match(env.toasts[0],/нет доступа/);}finally{env.restore();}
 });
 test('a failed refresh offers login and keeps the page',async()=>{
-  const calls=[],env=environment(async(path,options)=>{calls.push(path);return {status:401,ok:false};});
+  const calls=[],env=environment(async(path,options)=>{calls.push(path);return {status:401,ok:false,headers:new Headers()};});
   try{
     assert.equal(await downloadFile('/api/files/one/content',env.ctx),false);
     assert.deepEqual(calls,['/api/files/one/content','/api/me','/api/refresh']);

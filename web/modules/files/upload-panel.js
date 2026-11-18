@@ -15,7 +15,7 @@ export async function uploadFile(path,file,headers={},progress=()=>{},retry=true
   request.upload.onload=()=>progress(file.size,file.size,true);
   request.onload=()=>{let data;try{data=JSON.parse(request.responseText);}catch{}
    if(request.status>=200&&request.status<300&&data)resolve(data);
-   else reject(Object.assign(Error(typeof data?.detail==='string'?data.detail:tText("files:failedToUploadFile", {value0:(request.status)})),{status:request.status,retryAfter:request.getResponseHeader('Retry-After')}));
+   else reject(Object.assign(Error(typeof data?.detail==='string'?data.detail:tText("files:failedToUploadFile", {value0:(request.status)})),{status:request.status,code:data?.code,retryAfter:request.getResponseHeader('Retry-After')}));
   };
   request.onerror=()=>reject(Error(tText("files:connectionLostRefreshTheFolderBeforeReUploading")));
   request.onabort=()=>reject(Error(tText("files:fileTransferAborted")));
@@ -25,17 +25,19 @@ export async function uploadFile(path,file,headers={},progress=()=>{},retry=true
 
 export function uploadPanel(entries,alive,close){
  const el=document.createElement('aside');el.className='drive-transfer';el.setAttribute('aria-label',tText("files:uploadingFiles2"));
- el.innerHTML=`<div class=drive-transfer-top><button class=text-link data-upload-stop>${tHtml("files:stopUpload")}</button><button class=text-link data-upload-close hidden>${tHtml("files:done")}</button></div><div class=drive-transfer-heading>${icon('upload')}<h3>${tHtml("files:uploadingToDrgDrive")}</h3><progress data-upload-progress max=100 value=0 aria-label="${tHtml("files:overallUploadProgress")}"></progress><p data-folder-upload-status role=status>${tHtml("files:preparing")}</p><p data-upload-current></p><p class=hint data-upload-hint>${tHtml("files:doNotCloseThisPageWhileFilesAre")}</p></div><div class=drive-transfer-list>${entries.map((f,i)=>`<div class=drive-transfer-item data-transfer-item="${i}"><span class="drive-file-icon is-${fileCategory(f)}">${fileArtwork(f,fileCategory(f))}</span><div><strong title="${esc(f.name)}">${esc(f.name.split('/').at(-1))}</strong><small>${bytes(f.size)}</small></div><span data-transfer-state>${tHtml("files:inQueue")}</span></div>`).join('')}</div>`;
- let stopped=false,index=-1,completed=0,activeBytes=0,done=0,frame=0,ring;
+ el.innerHTML=`<div class=drive-transfer-top><button class=text-link data-upload-stop>${tHtml("files:stopUpload")}</button><button class="primary compact" data-upload-retry hidden>${tHtml("app:retry")}</button><button class=text-link data-upload-close hidden>${tHtml("files:done")}</button></div><div class=drive-transfer-heading>${icon('upload')}<h3>${tHtml("files:uploadingToDrgDrive")}</h3><progress data-upload-progress max=100 value=0 aria-label="${tHtml("files:overallUploadProgress")}"></progress><p data-folder-upload-status role=status>${tHtml("files:preparing")}</p><p data-upload-current></p><p class=hint data-upload-hint>${tHtml("files:doNotCloseThisPageWhileFilesAre")}</p></div><div class=drive-transfer-list>${entries.map((f,i)=>`<div class=drive-transfer-item data-transfer-item="${i}"><span class="drive-file-icon is-${fileCategory(f)}">${fileArtwork(f,fileCategory(f))}</span><div><strong title="${esc(f.name)}">${esc(f.name.split('/').at(-1))}</strong><small>${bytes(f.size)}</small></div><span data-transfer-state>${tHtml("files:inQueue")}</span></div>`).join('')}</div>`;
+ let stopped=false,index=-1,completed=0,activeBytes=0,done=0,frame=0,ring,resolveRetry;
  const total=entries.reduce((n,f)=>n+f.size,0),status=$('[data-folder-upload-status]',el),stop=$('[data-upload-stop]',el),closing=$('[data-upload-close]',el),current=$('[data-upload-current]',el),bar=$('[data-upload-progress]',el),hint=$('[data-upload-hint]',el);
  const rows=[...el.querySelectorAll('.drive-transfer-item')],states=rows.map(row=>$('[data-transfer-state]',row));
+ const retry=$('[data-upload-retry]',el);
  const setStatus=text=>{if(status.textContent!==text)status.textContent=text;};
  const paint=()=>{
   frame=0;bar.value=total?Math.min(100,100*(completed+activeBytes)/total):100*done/Math.max(1,entries.length);
   if(ring){const size=entries[index].size,percent=size?Math.min(100,Math.round(100*activeBytes/size)):0;ring.setAttribute('aria-valuenow',percent);$('.drive-ring-progress',ring).setAttribute('stroke-dasharray',percent+' 100');}
  };
  const flush=()=>{cancelAnimationFrame(frame);paint();};
- stop.onclick=()=>{stopped=true;stop.disabled=true;setStatus(tText("files:stopAfterTheCurrentFile"));};
+ stop.onclick=()=>{stopped=true;stop.disabled=true;setStatus(tText("files:stopAfterTheCurrentFile"));resolveRetry?.(false);};
+ retry.onclick=()=>resolveRetry?.(true);
  closing.onclick=close;
  return {el,isStopped:()=>stopped||!alive(),
   start(){
@@ -46,6 +48,15 @@ export function uploadPanel(entries,alive,close){
   },
   progress(loaded,size,finishing){activeBytes=Math.max(activeBytes,Math.min(loaded,entries[index].size));if(!frame)frame=requestAnimationFrame(paint);if(finishing&&!stopped)setStatus(tText("files:finishingUpload"));},
   wait(seconds){activeBytes=0;setStatus(tText("files:serverPausedContinueWithSeconds", {value0:(seconds)}));flush();},
+  waitForStorage(message){
+   if(stopped||!alive())return Promise.resolve(false);
+   activeBytes=0;setStatus(message);flush();retry.hidden=false;
+   return new Promise(resolve=>{
+    const observer=new MutationObserver(()=>{if(!el.isConnected||!alive())resolveRetry?.(false);});
+    resolveRetry=result=>{observer.disconnect();resolveRetry=null;retry.hidden=true;resolve(result);};
+    observer.observe(document,{childList:true,subtree:true});
+   });
+  },
   resume(){if(!stopped)setStatus(index<0?tText("files:preparing"):tText("files:objectOf", {value0:(index+1), value1:(entries.length)}));},
   complete(){completed+=entries[index].size;activeBytes=0;done++;rows[index].classList.remove('is-uploading');states[index].innerHTML=icon('check');ring=null;flush();},
   finish(error){

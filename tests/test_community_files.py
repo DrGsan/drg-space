@@ -1,6 +1,7 @@
 import io
 import json
 from zipfile import ZipFile
+import pytest
 from tests.test_security import owner,member,client,reset,note
 from tests.test_widgets import enable,image_bytes
 from app import main as m
@@ -36,6 +37,100 @@ def test_download_head_checks_permissions_without_reading_file_bytes(monkeypatch
     assert client().head('/api/files/'+file['id']+'/content').status_code==401
     assert c.delete('/api/file-shares/'+shared['token']).status_code==200
     assert c.head(paths[2]).status_code==404
+
+def test_storage_outage_is_reported_before_drive_download_and_upload(monkeypatch):
+    from app.file_store import FileStore, FileStorageUnavailable, ObjectWriter
+
+    c,_,_=owner()
+    saved=upload(c)
+    path='/api/files/'+saved['id']+'/content'
+    archive='/api/files/download.zip?ids='+saved['id']
+    def offline(*args):
+        raise FileStorageUnavailable('Private backend error')
+    with monkeypatch.context() as outage:
+        outage.setattr(FileStore,'iter_read',offline)
+        outage.setattr(FileStore,'probe_download',offline)
+        outage.setattr(ObjectWriter,'finish',offline)
+        for receive,url in ((c.head,path),(c.get,path),(c.head,archive),(c.get,archive)):
+            response=receive(url)
+            assert response.status_code==503
+            assert response.headers['X-DrG-Error-Code']=='fileStorageTemporarilyUnavailable'
+            assert 'Content-Disposition' not in response.headers
+        rejected=c.post('/api/files/upload?name=retry.txt',content=b'retry')
+        assert rejected.status_code==503
+        assert rejected.json()['code']=='fileStorageTemporarilyUnavailable'
+        assert [f['id'] for f in c.get('/api/files').json()['items']]==[saved['id']]
+    assert c.get(path).content==b'hello'
+    retried=upload(c,'retry.txt',b'retry')
+    assert [f['id'] for f in c.get('/api/files').json()['items'] if f['name']=='retry.txt']==[retried['id']]
+
+def test_private_download_resumes_only_the_same_version():
+    c,_,_=owner()
+    body=b'0123456789'
+    saved=upload(c,body=body)
+    path='/api/files/'+saved['id']+'/content'
+    head=c.head(path,headers={'Range':'bytes=3-5'})
+    etag=head.headers['etag']
+    assert head.status_code==200 and not head.content
+    assert head.headers['accept-ranges']=='bytes'
+    assert head.headers['content-length']=='10' and 'content-range' not in head.headers
+    assert etag.startswith('"') and etag.endswith('"')
+    assert client().get(path,headers={'Range':'bytes=3-','If-Range':etag}).status_code==401
+
+    for requested,start,end in [('bytes=3-5',3,5),('bytes=5-',5,9),('bytes=-4',6,9),('bytes=8-50',8,9),('bytes=-20',0,9)]:
+        partial=c.get(path,headers={'Range':requested,'If-Range':etag})
+        assert partial.status_code==206
+        assert partial.headers['content-range']==f'bytes {start}-{end}/10'
+        assert int(partial.headers['content-length'])==end-start+1
+        assert partial.headers['etag']==etag and partial.content==body[start:end+1]
+    assert c.get(path,headers={'Range':'bytes=5-','If-Match':etag}).content==body[5:]
+    assert c.get(path,headers={'Range':'items=0-5'}).content==body
+    for rejected in ('bytes=10-','bytes=4-3','bytes=-0','bytes=','bytes=0-1,6-9','bytes='+('0'*220)+'-'):
+        response=c.get(path,headers={'Range':rejected})
+        assert response.status_code==416 and response.headers['content-range']=='bytes */10'
+
+    replacement=b'abcdefghij'
+    assert c.put(path,params={'version':saved['version']},content=replacement).status_code==200
+    response=c.get(path,headers={'Range':'bytes=5-','If-Range':etag})
+    assert response.status_code==200 and response.content==replacement
+    assert response.headers['etag']!=etag and 'content-range' not in response.headers
+    assert c.get(path,headers={'Range':'bytes=5-','If-Match':etag}).status_code==412
+    assert c.get(path,headers={'Range':'bytes=5-','If-Range':'W/'+response.headers['etag']}).content==replacement
+
+    assert c.delete('/api/files/'+saved['id']).status_code==200
+    denied=c.get(path,headers={'Range':'bytes=5-','If-Range':etag})
+    assert denied.status_code==404 and 'etag' not in denied.headers
+
+def test_private_range_rechecks_access_after_the_first_chunk(monkeypatch):
+    from app.file_store import FileStore
+    from app.http import HTTPError
+
+    c,_,_=owner()
+    saved=upload(c,body=b'0123456789')
+    path='/api/files/'+saved['id']+'/content'
+    flask=m.app.test_client()
+    for cookie in c.cookies.jar:
+        flask.set_cookie(cookie.name,cookie.value)
+    released=[]
+    def frames(*args):
+        try:
+            yield b'345'
+            yield b'678'
+        finally:
+            released.append(True)
+    monkeypatch.setattr(FileStore,'iter_range',frames)
+    response=flask.get(path,headers={'Range':'bytes=3-8'},buffered=False)
+    try:
+        assert response.status_code==206
+        data=iter(response.response)
+        assert next(data)==b'345'
+        assert c.delete('/api/files/'+saved['id']).status_code==200
+        with pytest.raises(HTTPError) as revoked:
+            next(data)
+        assert revoked.value.status_code==404
+    finally:
+        response.close()
+    assert released==[True]
 
 def test_invitation_in_global_inbox_without_opening_social():
     c,_,_=owner();g,_=member(c)

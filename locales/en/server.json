@@ -880,6 +880,7 @@
   "storageIsDisabledOrWaitingForDeletionTo": "Storage is disabled or waiting for deletion to complete.",
   "storageIsDisabled": "Storage is disabled.",
   "storageIsUnavailable": "Storage is unavailable.",
+  "fileStorageTemporarilyUnavailable": "File storage is temporarily unavailable.",
   "incorrectAccountPassword": "Incorrect account password.",
   "noteHasBeenModifiedOpenItAgainBefore": "Note has been modified. Open it again before editing.",
   "cannotMoveTheFolderIntoItselfOrIts": "Cannot move the folder into itself or its descendant.",

@@ -61,5 +61,11 @@
   "release5_2_10Change2": "Keep previews private and clean up old thumbnails when their source is replaced or permanently deleted.",
   "release5_2_10Change3": "Limit temporary thumbnail storage without changing original files or their storage quota.",
   "release5_2_11Title": "Runtime security update",
-  "release5_2_11Change1": "Update a security dependency while preserving saved data, settings and client compatibility."
+  "release5_2_11Change1": "Update a security dependency while preserving saved data, settings and client compatibility.",
+  "release5_2_12Title": "Drive transfer recovery",
+  "release5_2_12Change1": "Resume an interrupted private Drive download from the last received byte when the file is unchanged.",
+  "release5_2_12Change2": "Start a fresh download if the file was replaced during an interruption.",
+  "release5_2_12Change3": "Retry an interrupted Drive upload when file storage returns without resending files already saved.",
+  "release5_2_12Change4": "Show when file storage is temporarily unavailable before a download starts.",
+  "release5_2_12Change5": "Check database readiness independently of the application process."
 }
