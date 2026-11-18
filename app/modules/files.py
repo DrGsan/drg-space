@@ -7,12 +7,14 @@ import calendar
 import json
 import mimetypes
 import os
+import re
 import secrets
 from datetime import datetime,timezone
 from urllib.parse import quote
-from contextlib import suppress
+from contextlib import closing,suppress
 from app.http import Router,Request,Response,HTTPError,Query
 from app.http import StreamingResponse
+from werkzeug.http import parse_etags
 from pydantic import BaseModel,ConfigDict,Field
 from app.file_store import file_store
 from app.chat_storage import attachment_room
@@ -194,24 +196,41 @@ def create_files_router(db,ready,guard,tokens,protection,now,fail,data_dir,publi
         if old_id:
             with suppress(Exception):collect_blob(old_id,'file')
         return saved
-    def response(row,check,request,begin=None,extra=None):
+    def response(row,check,request,begin=None,extra=None,*,private=False):
         if row['kind']!='file':fail(422,localized_message('forTheFolderChooseToDownloadZip'))
+        range_header=request.headers.get('Range')
+        headers={'Content-Disposition':download_header(row['name']),'Cache-Control':'no-store','Accept-Ranges':'bytes',**(extra or {})}
+        if private:
+            # Object identities are immutable and change on replacement, even
+            # when the old and new objects have the same byte length.
+            identity=hashlib.sha256(f"drive:{row['id']}:{row['object_id']}".encode()).hexdigest()
+            etag=f'"{identity}"'
+            headers['ETag']=etag
+            condition=request.headers.get('If-Match')
+            if condition is not None and not parse_etags(condition).contains(identity):
+                raise HTTPError(412,localized_message('fileHasBeenModifiedOpenItAgain'),headers={'ETag':etag})
+            if_range=request.headers.get('If-Range')
+            if request.method!='GET' or if_range is not None and if_range.strip()!=etag:
+                range_header=None
+            elif range_header and '=' in range_header and range_header.split('=',1)[0].lower()!='bytes':
+                range_header=None
         start,end=0,row['size']-1;partial=False
-        if request.headers.get('range'):
-            import re
-            match=re.fullmatch(r'bytes=(\d*)-(\d*)',request.headers['range'])
+        if range_header:
+            match=re.fullmatch(r'bytes=([0-9]*)-([0-9]*)',range_header,re.IGNORECASE) if len(range_header)<=200 else None
             if not match or not any(match.groups()):raise HTTPError(416,'Invalid range',headers={'Content-Range':'bytes */'+str(row['size'])})
             first,last=match.groups()
             if first:start=int(first);end=min(int(last) if last else end,end)
             else:start=max(0,row['size']-int(last))
             if start>end or start>=row['size']:raise HTTPError(416,'Invalid range',headers={'Content-Range':'bytes */'+str(row['size'])})
             partial=True
-        headers={'Content-Length':str(max(0,end-start+1)),'Content-Disposition':download_header(row['name']),'Cache-Control':'no-store',**(extra or {})}
-        headers['Accept-Ranges']='bytes'
+        headers['Content-Length']=str(max(0,end-start+1))
         if partial:headers['Content-Range']=f"bytes {start}-{end}/{row['size']}"
         def content():
             source=store.iter_range(row['object_id'],start,end,row['size']) if partial and (start or end<row['size']-1) else store.iter_read(row['object_id'])
-            for chunk in source:check();yield chunk
+            with closing(source):
+                for chunk in source:
+                    check()
+                    yield chunk
         body=content()
         if request.method=='HEAD':
             store.probe_download(row['object_id'])
@@ -411,7 +430,7 @@ def create_files_router(db,ready,guard,tokens,protection,now,fail,data_dir,publi
     def content(fid:str,request:Request):
         s=guard(request)
         with db() as c:row=dict(own(c,fid,s['user_id']))
-        return response(row,lambda:private_check(request,s['user_id'],fid),request)
+        return response(row,lambda:private_check(request,s['user_id'],fid),request,private=True)
     def thumbnail_response(row,authorize=None):
         from app.file_thumbnails import thumbnail
         from app.file_thumbnail_cache import ThumbnailCache

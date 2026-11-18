@@ -33,6 +33,8 @@ Storage markers bind the volume, database identity, encryption format and object
 
 Drive reports an S3 outage before transferring a file as `503` with error code `fileStorageTemporarilyUnavailable`. The upload queue can retry the affected file when storage returns. Downloads that already started are reported as interrupted by the browser's download manager.
 
+Private single-file downloads accept a byte range on `GET`. A resume request can use the strong `ETag` returned by `HEAD` or `GET` as its `If-Range` validator. If the file has been replaced, Drive sends the full current file. Encrypted storage reads the requested frames and checks their authentication and the file terminator before serving the range. Unencrypted objects retain sequential reads for whole-object integrity checks.
+
 ## Keys and backups
 
 Preserve both `APP_SECRET` and `DATA_ENCRYPTION_KEY`. Losing the storage key makes encrypted raw storage unreadable. Changing the encryption switch, key, database or object backend requires a separately validated migration; editing `.env` is not a conversion procedure.

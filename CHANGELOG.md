@@ -2,6 +2,11 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.2.12-rc.2] — 2026-11-18 — Resume private Drive downloads
+
+- Resume an interrupted private Drive download from the last received byte when the file is unchanged.
+- Start a fresh download if the file was replaced during an interruption.
+
 ## [5.2.12-rc.1] — 2026-11-18 — Drive recovery and database readiness
 
 - Retry an interrupted Drive upload when file storage returns without resending files already saved.

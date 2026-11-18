@@ -65,5 +65,8 @@
   "release5_2_12_rc_1Title": "Drive recovery and database readiness",
   "release5_2_12_rc_1Change1": "Retry an interrupted Drive upload when file storage returns without resending files already saved.",
   "release5_2_12_rc_1Change2": "Show when file storage is temporarily unavailable before a download starts.",
-  "release5_2_12_rc_1Change3": "Check database readiness independently of the application process."
+  "release5_2_12_rc_1Change3": "Check database readiness independently of the application process.",
+  "release5_2_12_rc_2Title": "Resume private Drive downloads",
+  "release5_2_12_rc_2Change1": "Resume an interrupted private Drive download from the last received byte when the file is unchanged.",
+  "release5_2_12_rc_2Change2": "Start a fresh download if the file was replaced during an interruption."
 }
