@@ -34,3 +34,4 @@
 .note-file-menu-trigger:hover,.note-file-menu-trigger[aria-expanded=true]{background:color-mix(in srgb,var(--text) 6%,transparent);color:var(--text)}
 .note-file-menu-trigger:focus-visible{outline:2px solid var(--blue);outline-offset:2px}.note-file-menu-trigger:disabled{opacity:.6;cursor:wait}
 .note-file-error{margin:4px 0 2px 32px!important;color:var(--text);font-size:12px}
+.note-inline-image{display:inline-block;max-width:100%;height:auto;vertical-align:middle}

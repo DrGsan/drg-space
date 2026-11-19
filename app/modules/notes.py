@@ -79,6 +79,13 @@ def validate_blocks(blocks,fail):
             if obj.get('type')=='equation':
                 props=obj.get('props',{})
                 if not isinstance(props,dict) or set(props)-{'latex'} or not isinstance(props.get('latex'),str) or not 1<=len(props['latex'])<=4096:fail(422,localized_message('latexFormulaFrom1To4096Characters'))
+            if obj.get('type')=='inlineImage':
+                props=obj.get('props')
+                if (not isinstance(props,dict) or set(props)-{'url','alt','width'}
+                        or not isinstance(props.get('url'),str) or not props['url'].startswith(('https://','http://'))
+                        or not isinstance(props.get('alt',''),str) or len(props.get('alt',''))>4096
+                        or type(props.get('width',0)) is not int or not 0<=props.get('width',0)<=9999):
+                    fail(422,localized_message('invalidBlockProperties'))
             for k,v in obj.items():
                 if k in ('url','href') and v:
                     if not isinstance(v,str):fail(422,localized_message('invalidLink2'))

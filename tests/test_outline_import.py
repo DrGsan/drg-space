@@ -16,14 +16,18 @@ def png():
 def test_outline_multiple_exports_keep_tree_embedded_binaries_and_existing_pages():
  c,_,_=owner();existing=c.post('/api/notes',json={'title':'Existing','body':'Keep me'}).json()
  identity='9c95ddaa-fca8-4618-89c0-22c9e4dd3f9f'
- parts=[zip_body({'Collection/Root.md':'# Root\n\n[Child](Root/Child.md)\n\n![Picture](uploads/photo.png)','Collection/Root/Child.md':'# Child\n\nText','Collection/uploads/photo.png':png()}),zip_body({'Single.md':'# Single\n\n![Binary](/api/attachments.redirect?id='+identity+')','attachments/'+identity+'.bin':png()}),zip_body({'Third.md':'# Third\n\n[File](attachments/readme.txt)','attachments/readme.txt':'PRIVATE_ATTACHMENT'})]
+ parts=[zip_body({'Collection/Root.md':'# 👩🏽‍💻 Root\n\n[Child](Root/Child.md)\n\n![Picture](uploads/photo.png)','Collection/Root/Child.md':'# Child\n\nText','Collection/uploads/photo.png':png()}),zip_body({'Single.md':'# Single\n\n![Binary](/api/attachments.redirect?id='+identity+')','attachments/'+identity+'.bin':png()}),zip_body({'Third.md':'# 🕶️ Third\n\n[Clip (v2).mp3 4](attachments/Clip%20(v2).mp3)\n\n[Alternate 4](attachments/Clip%20(v2).mp3)','attachments/Clip (v2).mp3':'data'})]
  body=b''.join(parts);headers={'X-Outline-Parts':json.dumps([len(part) for part in parts])}
  result=c.post('/api/account/outline/preview',content=body,headers=headers);assert result.status_code==200,result.text
- summary=result.json();assert summary['notes']==4 and summary['files']==3 and summary['warnings']==[]
+ summary=result.json();assert summary['notes']==5 and summary['files']==3 and summary['warnings']==[]
+ assert summary['page_images']['icon']=={'expected':2,'saved':2}
  assert c.post('/api/account/outline/import',content=body,headers=headers).status_code==422
  bad=c.post('/api/account/outline/import',content=body,headers={**headers,'X-Import-Confirmation':'IMPORT','X-Outline-Preview':'wrong'});assert bad.status_code==409
  imported=c.post('/api/account/outline/import',content=body,headers={**headers,'X-Import-Confirmation':'IMPORT','X-Outline-Preview':summary['sha256']});assert imported.status_code==200,imported.text
  notes=c.get('/api/notes').json();by_title={note['title']:note for note in notes};assert by_title['Child']['parent_id']==by_title['Root']['id']
+ assert by_title['Root']['parent_id']==by_title['Collection']['id']
+ assert by_title['Root']['icon']=='👩🏽‍💻' and by_title['Third']['icon']=='🕶️'
+ assert '[Clip (v2).mp3]' in by_title['Third']['body'] and '[Alternate 4]' in by_title['Third']['body']
  assert c.get('/api/notes/'+existing['id']).json()['body']=='Keep me'
  assert 'attachments.redirect' not in by_title['Single']['body']
  assert '/api/notes/'+by_title['Root']['id']+'/files/' in by_title['Root']['body']

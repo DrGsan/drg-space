@@ -444,7 +444,7 @@
   "saveError": "Save error",
   "togetherOnThePage": "● Together on the page: {{value0}}",
   "anotherVersionOfThePageHasBeenRestored": "Another version of the page has been restored. Open it again.",
-  "theFileMustBeNoMoreThan50": "The file must be no more than 50 MB.",
+  "noteAttachmentSizeLimit": "A note attachment must be no larger than {{limit}} MB.",
   "pageIsAlreadyClosed": "Page is already closed.",
   "couldNotSaveThePageBeforeUploading": "Could not save the page before uploading.",
   "changesPending": "Changes pending…",

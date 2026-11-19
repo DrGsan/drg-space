@@ -10,6 +10,8 @@ The import dialog accepts the supported archive and document formats and shows a
 
 Use a complete export with subpages and files when preserving layout is important. Select the ZIP, wait for archive inspection, review its structure and warnings, then confirm the import. The server validates paths, limits and block structures; archive inspection does not execute embedded scripts.
 
+Note attachments can be up to 250 MiB each. The Outline and Notion archive import also allows up to 512 MiB per upload and 1 GiB of unpacked data.
+
 Internal links are resolved to imported pages where possible. External or unsupported targets remain identifiable links. Missing assets and unsupported structures are reported rather than silently replaced with successful results.
 
 Compare a fresh import with the source at a similar content width, checking hierarchy, columns, code, lists, tables, links, icons, covers and attachments. Differences caused by absent export data remain limitations of that export. See [notes](notes.md) and [Notion synchronization](notion-sync.md).

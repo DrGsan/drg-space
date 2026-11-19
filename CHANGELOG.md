@@ -2,6 +2,14 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.2.13-rc.1] — 2026-11-19 — Outline import
+
+- Allow note attachments of up to 250 MiB.
+- Keep Outline collections, page icons, table images and original attachment labels when importing Markdown exports.
+
+- **Installation:** Rebuild Space with the existing Compose files and volumes.
+- **Compatibility:** No migration is required.
+
 ## [5.2.12] — 2026-11-18 — Drive transfer recovery
 
 - Resume an interrupted private Drive download from the last received byte when the file is unchanged.

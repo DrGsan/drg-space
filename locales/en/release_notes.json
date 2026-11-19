@@ -1,4 +1,7 @@
 {
+  "release5_2_13_rc_1Title": "Outline import",
+  "release5_2_13_rc_1Change1": "Allow note attachments of up to 250 MiB.",
+  "release5_2_13_rc_1Change2": "Keep Outline collections, page icons, table images and original attachment labels when importing Markdown exports.",
   "release5_2_6Title": "More efficient Media conversations",
   "release5_2_6Change1": "Open Media conversations with fewer repeated reads for reactions and author profiles.",
   "release5_2_6Change2": "Keep reaction visibility and profile presence up to date when access changes.",

@@ -671,7 +671,8 @@ class NotesWorkspace {
       moveBlocks: blockIds => this.moveBlocks(blockIds),
       toast: message => this.ctx.toast(message),
       uploadFile: async file => {
-        if(file.size>50*1024*1024)throw new Error(tText("notes:theFileMustBeNoMoreThan50"));
+        const attachmentLimit=250;
+        if(file.size>attachmentLimit*1024**2)throw new Error(tText("notes:noteAttachmentSizeLimit",{limit:attachmentLimit}));
         if(this.disposed||this.page!==page)throw new Error(tText("notes:pageIsAlreadyClosed"));
         if(!(await this.persistDraft()))throw new Error(tText("notes:couldNotSaveThePageBeforeUploading"));
         if(this.disposed||this.page!==page)throw new Error(tText("notes:pageIsAlreadyClosed"));

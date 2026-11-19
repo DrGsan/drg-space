@@ -24,6 +24,8 @@ from urllib.parse import unquote, urlsplit
 from app.archive_stream import EncryptedSpool
 from app.modules.notes import validate_blocks
 from app.modules.notion import validate_config, validate_values
+from app.i18n import message as localized_message
+from app.note_limits import ATTACHMENT_BYTES, ATTACHMENT_MIB
 
 MAX_UPLOAD = 512 * 1024**2
 MAX_EXPANDED = 1024**3
@@ -852,10 +854,12 @@ class NotionArchive:
                 invalid('Страница Markdown длиннее 200 000 символов.')
         # Include every attachment, including files not linked by the export.
         for name, (_, info) in self.files.items():
-            if name in self.aliases or name in self.file_aliases:
+            if name in self.aliases:
                 continue
-            if info.file_size > 50*1024**2:
-                invalid('Вложение превышает лимит заметок 50 Мб.')
+            if info.file_size > ATTACHMENT_BYTES:
+                invalid(localized_message('noteAttachmentSizeLimit', limit=ATTACHMENT_MIB))
+            if name in self.file_aliases:
+                continue
             if len(PurePosixPath(name).name) > 255:
                 invalid('Имя вложенного файла длиннее 255 символов.')
             owner = self.folder_owner(name) or next(iter(self.pages.values()))
@@ -1093,7 +1097,7 @@ def _block_text(item):
     return result+'\n'+'\n'.join(_block_text(child) for child in item.get('children', []))
 
 
-def rewrite_markdown_links(body, resolve):
+def rewrite_markdown_links(body, resolve, attachment_label=None):
     output, offset = [], 0
     # Balanced destinations are common in Notion page names. Never rewrite code.
     tokens = re.compile(r'(^```[^\n]*\n[\s\S]*?^```[^\n]*$|`[^`\n]+`|!?\[([^\]\n]*)\]\()', re.M)
@@ -1117,7 +1121,10 @@ def rewrite_markdown_links(body, resolve):
         raw = body[match.end():end-1]
         title = re.search(r'\s+"[^"\n]*"$', raw)
         destination = raw[:title.start()] if title else raw
-        url = resolve(destination.strip('<>'), match[0].startswith('!'))
-        output.append(match[0]+url+(title[0] if title else '')+')' if url else match[2])
+        destination = destination.strip('<>')
+        image = match[0].startswith('!')
+        url = resolve(destination, image)
+        label = attachment_label(destination, match[2]) if url and not image and attachment_label else match[2]
+        output.append(('!' if image else '')+'['+label+']('+url+(title[0] if title else '')+')' if url else label)
         offset = end
     return ''.join(output)+body[offset:]

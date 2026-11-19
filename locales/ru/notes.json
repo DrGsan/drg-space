@@ -444,7 +444,7 @@
   "saveError": "Ошибка сохранения",
   "togetherOnThePage": "● Вместе на странице: {{value0}}",
   "anotherVersionOfThePageHasBeenRestored": "Восстановлена другая версия страницы. Открываем её заново.",
-  "theFileMustBeNoMoreThan50": "Файл должен быть не больше 50 Мб.",
+  "noteAttachmentSizeLimit": "Вложение заметки должно быть не больше {{limit}} МБ.",
   "pageIsAlreadyClosed": "Страница уже закрыта.",
   "couldNotSaveThePageBeforeUploading": "Не удалось сохранить страницу перед загрузкой.",
   "changesPending": "Есть изменения…",

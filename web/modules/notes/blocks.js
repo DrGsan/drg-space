@@ -42,6 +42,7 @@ import {spoilerMarkdown,parseInlineSpoilers} from './spoiler-markdown.js';
 import {bindEmptyToggleDrop} from './toggle-drop.js';
 import {linkPreviews,linkPasteHandler,linkParagraphSpec} from './link-preview.js';
 import {parseImportedMarkdown} from './import-markdown.js';
+import {inlineImage} from './inline-image.js';
 import {normalizeToggleHTML} from './paste.js';
 import {pageIconUrl} from '../../core/page-assets.js';
 import {column,columnList} from './columns.js';
@@ -107,7 +108,7 @@ const Callout = createReactBlockSpec(
 )();
 export const schema = BlockNoteSchema.create({
   blockSpecs: { ...defaultBlockSpecs, file:downloadableFile(defaultBlockSpecs.file), paragraph:linkParagraphSpec(defaultBlockSpecs.paragraph), codeBlock, pageLink: PageLink, callout: Callout, column, columnList },
-  inlineContentSpecs:{...defaultInlineContentSpecs,equation:equationInline},
+  inlineContentSpecs:{...defaultInlineContentSpecs,equation:equationInline,inlineImage},
   styleSpecs:{...defaultStyleSpecs,code:createStyleSpecFromTipTapMark(defaultStyleSpecs.code.implementation.mark.extend({excludes:''}),'boolean'),spoiler:spoilerStyle},
 });
 export function mountBlockEditor(host, page, options = {}) {
