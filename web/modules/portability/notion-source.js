@@ -5,7 +5,7 @@ import {statusBadges} from '../notes/status-badges.js';
 const label=status=>tText('portability:notionState_'+status);
 
 export function canCopyNotionPage(page,ctx){
-  return Boolean(page.notion_sync&&!page.notion_sync.transfer_pending&&page.manage&&ctx.state.me?.role==='owner');
+  return Boolean(page.notion_sync&&page.notion_sync.page_status!=='importing'&&page.manage&&ctx.state.me?.role==='owner');
 }
 
 export function mountNotionSource(host,page,ctx,{openPage,onCopy}={}){

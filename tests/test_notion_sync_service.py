@@ -172,6 +172,25 @@ def test_readonly_link_cannot_be_published_with_edit_permission_but_view_publica
     assert c.get('/api/shared/'+token).json()['permission']=='view'
 
 
+def test_independent_copy_of_ready_leaf_while_its_sibling_is_importing():
+    from app.notion_sync.copy import independent
+    c,s,provider,service,stamp=initialized()
+    provider.pages[NEW]=page(NEW,'Unfinished sibling',ROOT)
+    provider.blocks[NEW]=[]
+    provider.blocks[ROOT].append({'id':NEW,'type':'child_page','child_page':{'title':'Unfinished sibling'},'has_children':True})
+    root,mapping=imported(service,s)
+    with m.db() as db:
+        db.execute("UPDATE notion_roots SET status='importing' WHERE id=?",(root,))
+        db.execute("UPDATE notion_pages SET status='importing' WHERE note_id=?",(mapping[NEW],))
+    source=c.get('/api/notes/'+mapping[CHILD]).json()
+    assert source['notion_sync']['transfer_pending'] and source['notion_sync']['page_status']=='active'
+    copied=independent(service,s['user_id'],mapping[CHILD],as_duplicate=True)['note_id']
+    note=c.get('/api/notes/'+copied).json()
+    assert note['title']=='Child (копия)' and note['parent_id'] is None and 'notion_sync' not in note
+    with pytest.raises(NotionError) as error:independent(service,s['user_id'],mapping[ROOT],as_duplicate=True)
+    assert error.value.code=='notionImportInProgress'
+
+
 def test_server_disabled_cannot_edit_previous_duplex_copy_or_enqueue_external_work():
     from app.notion_sync import access
     c,s,provider,service,stamp=initialized();identity,mapping=imported(service,s)

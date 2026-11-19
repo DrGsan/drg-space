@@ -152,9 +152,21 @@ try{
  await expect.poll(async()=>{const items=await api('/notes?catalog=true',undefined,'GET');return items.find(n=>n.id===linkedRoot.note_id).position>items.find(n=>n.id===anchor.id).position;}).toBe(true);
  await expect(page.locator('#page-title')).toBeDisabled();
  const original=await api('/notes/'+linkedRoot.note_id,undefined,'GET');
+ const backgroundTransfer='**/api/notes**';
+ await page.route(backgroundTransfer,async route=>{
+  const request=route.request(),path=new URL(request.url()).pathname;
+  if(request.method()!=='GET'||!['/api/notes','/api/notes/'+linkedRoot.note_id].includes(path))return route.continue();
+  const response=await route.fetch(),body=await response.json();
+  const withTransfer=note=>note.id===linkedRoot.note_id?{...note,notion_sync:{...note.notion_sync,status:'importing',transfer_pending:true}}:note;
+  try{await route.fulfill({response,json:Array.isArray(body)?body.map(withTransfer):withTransfer(body)});}
+  catch(error){if(!request.failure()&&!String(error.message).includes('Route is already handled!'))throw error;}
+ });
+ await page.reload();
+ await expect(page.locator('#page-title')).toBeDisabled();
  await page.locator('#page-actions').click();
  await page.locator('[data-page-action=duplicate]').click();
  await expect(page.locator('#page-title')).toHaveValue(original.title+' (копия)');
+ await page.unrouteAll({behavior:'wait'});
  await expect(page.locator('#page-title')).toBeEnabled();
  await expect(page.locator('.notion-source-banner')).toHaveCount(0);
  const newId=new URL(page.url()).pathname.split('/').at(-1);
