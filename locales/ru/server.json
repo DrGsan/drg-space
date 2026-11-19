@@ -1,4 +1,5 @@
 {
+  "outlineCollectionJsonWithoutAttachments": "Для переноса иконок выберите JSON-экспорт Outline без вложений вместе с Markdown-архивом.",
   "dateUnitsDaysWeeksMonthsYears": "Единицы даты: days, weeks, months, years.",
   "unknownDateUnit": "Неизвестная единица даты.",
   "numberExceedsTheValidRange": "Число выходит за допустимые пределы.",
@@ -76,7 +77,7 @@
   "thePageTitleIsLongerThan200Characters": "Название страницы длиннее 200 символов.",
   "theNotionDatabaseDoesNotContainColumnHeaders": "База Notion не содержит заголовков колонок.",
   "theMarkdownPageIsLongerThan200000": "Страница Markdown длиннее 200 000 символов.",
-  "theAttachmentExceedsTheNoteLimitOf50": "Вложение превышает лимит заметок 50 Мб.",
+  "noteAttachmentSizeLimit": "Вложение заметки должно быть не больше {{limit}} МБ.",
   "theAttachmentFilenameExceeds255Characters": "Имя вложенного файла длиннее 255 символов.",
   "theExportIsMissingTargetsFor": "В экспорте отсутствуют цели ",
   "localLinksTheirLabelsHaveBeenKept": " локальных ссылок. Их подписи сохранены.",

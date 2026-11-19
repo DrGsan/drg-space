@@ -1,5 +1,15 @@
 # Updating DrG Space
 
+## 5.2.13
+
+Outline imports preserve collection hierarchy, page titles and icons, callouts, images inside tables and text, and attachment names. Import Markdown ZIPs with attachments, optionally accompanied by JSON ZIPs of the same collections without attachments to recover the collection emoji. The note attachment limit is 250 MiB per file.
+
+Rebuild Space with the existing Compose files, environment, encryption keys and volumes. No migration, new settings or Media update is required. For the base installation:
+
+```sh
+docker compose up -d --build --no-deps app
+```
+
 ## 5.2.12
 
 Drive resumes a private download from the requested byte range when the file is unchanged. If the file was replaced, the current copy is downloaded in full. During an S3 outage, Drive shows a retry action for the affected transfer. The new `GET /api/ready` endpoint checks database readiness separately from the existing `GET /api/health` process check.

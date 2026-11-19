@@ -37,6 +37,9 @@ def project(doc,fail):
                     out.append(part)
             elif isinstance(child,XmlElement) and child.tag=='hardBreak':out.append({'type':'text','text':'\n','styles':{}})
             elif isinstance(child,XmlElement) and child.tag=='equation':out.append({'type':'equation','props':{'latex':dict(child.attributes).get('latex','')}})
+            elif isinstance(child,XmlElement) and child.tag=='inlineImage':
+                props=dict(child.attributes)
+                out.append({'type':'inlineImage','props':{key:props[key] for key in ('url','alt','width') if key in props}})
             else:fail(422,localized_message('unknownEmbeddedTextElement'))
         return out
     def table(node):
@@ -92,6 +95,11 @@ def project(doc,fail):
         result=''
         for part in items:
             if part.get('type')=='equation':result+='$'+part.get('props',{}).get('latex','')+'$';continue
+            if part.get('type')=='inlineImage':
+                props=part['props']
+                label=props.get('alt','').replace('\\','\\\\').replace(']','\\]').replace('|','\\|').replace('\n',' ')
+                result+='!['+label+']('+props['url']+')'
+                continue
             if part.get('type')=='link':result+='['+text(part.get('content',[]))+']('+part.get('href','')+')';continue
             t=part.get('text','');styles=part.get('styles',{})
             for key,marker in [('code','`'),('bold','**'),('italic','*'),('strike','~~'),('spoiler','||')]:

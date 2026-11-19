@@ -23,11 +23,24 @@ async function scenario(page){
  const existing=await api('/notes','POST',{title:'Existing note',body:'Preserve original'},csrf);
  const parts=JSON.parse(execFileSync(process.env.DRG_PYTHON||'.venv/bin/python',['-c',String.raw`import io,json,base64
 from zipfile import ZipFile
+from PIL import Image
 out=[]
 for i in range(3):
  b=io.BytesIO()
  with ZipFile(b,'w') as z:
-  z.writestr('Page'+str(i)+'.md','# Outline '+str(i)+'\n\n[File](attachments/file'+str(i)+'.txt)')
+  body='# Outline '+str(i)+'\n\n[File](attachments/file'+str(i)+'.txt)'
+  if i==0:
+   image=io.BytesIO()
+   Image.new('RGB',(10,15),'blue').save(image,'PNG')
+   fence=chr(96)*3
+   body=('# 🍿 Outline 0\n\n| Poster | Film |\n| --- | --- |\n| ![Sample](attachments/poster.png " =250x375") | **Film title** |\n\n'
+         'Inline ![Inline](attachments/poster.png) content.\n\n'
+         '1. A list item.  \n   ![Inside list](attachments/poster.png)\n\n'
+         '[Notes.txt 4](attachments/Notes.txt)\n\n:::warning\n**Warning**&#x20; Check the sample.\n:::\n\n'
+         ':::info\nMore detail\n\n- item\n\n:::\n\n'+fence+'txt\n:::tip\nLiteral fence\n:::\n'+fence)
+   z.writestr('attachments/poster.png',image.getvalue())
+   z.writestr('attachments/Notes.txt','data')
+  z.writestr('Page'+str(i)+'.md',body)
   z.writestr('attachments/file'+str(i)+'.txt','OUTLINE_ATTACHMENT_'+str(i))
  out.append(base64.b64encode(b.getvalue()).decode())
 print(json.dumps(out))`],{encoding:'utf8'}));
@@ -37,6 +50,21 @@ print(json.dumps(out))`],{encoding:'utf8'}));
  await expect(form.locator('[data-notion-preview]')).toContainText('Вложения');expect((await api('/notes')).length).toBe(1);
  await form.locator('[data-notion-import]').click();await expect(page.locator('[data-notion-preview]')).toContainText('Импорт завершён',{timeout:15000});
  const notes=await api('/notes');expect(notes).toHaveLength(4);expect((await api('/notes/'+existing.id)).body).toBe('Preserve original');expect(notes.every(n=>!n.space_id)).toBe(true);
+ const imported=notes.find(n=>n.title==='Outline 0');expect(imported.icon).toBe('🍿');
+ await page.goto('/page/'+imported.id);
+ const poster=page.locator('td img[alt="Sample"]');
+ await expect(poster).toHaveAttribute('width','250');
+ await expect.poll(()=>poster.evaluate(image=>image.naturalWidth)).toBe(10);
+ await expect(page.locator('td').filter({hasText:'Film title'})).toBeVisible();
+ await expect(page.locator('p').filter({hasText:'Inline content.'}).locator('img.note-inline-image[alt="Inline"]')).toBeVisible();
+ await expect(page.locator('[data-content-type="numberedListItem"] img.note-inline-image[alt="Inside list"]')).toBeVisible();
+ await expect(page.getByText('Notes.txt',{exact:true})).toBeVisible();
+ const warning=page.locator('[data-callout-kind="warning"]');
+ await expect(warning).toContainText('Warning Check the sample.');
+ await expect(warning.locator('strong')).toHaveText('Warning');
+ await expect(page.locator('[data-callout-kind="info"]')).toBeVisible();
+ await expect(page.locator('[data-callout-kind="tip"]')).toHaveCount(0);
+ await expect(page.locator('[data-content-type="codeBlock"]')).toContainText(':::tip');
  await page.screenshot({path:'artifacts/outline-import.png'});expect(errors).toEqual([]);
 }
 const origin='http://127.0.0.1:8039',directory=await mkdtemp(tmpdir()+'/drg-outline-import-');

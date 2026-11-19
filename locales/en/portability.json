@@ -76,7 +76,7 @@
   "moveFrom": "Move from {{value0}}",
   "pagesDatabasesAndFilesWillBeAddedTo": "Pages, databases, and files will be added to your personal notes with the original nesting. Existing notes will be preserved. {{value0}}",
   "exportZipUpTo512Mb": "Export {{value0}} (.zip, up to 512 MB)",
-  "inOutlineSelectTheExportOfTheCollection": "In Outline, select the export of the collection or document in Markdown along with attachments. Select one or more ZIP files: documents, nested pages, images, and files will be added to your personal notes.",
+  "inOutlineSelectTheExportOfTheCollection": "Export collections or documents from Outline as Markdown with attachments. To restore collection icons, also export the collections as JSON without attachments. Select all ZIP files together.",
   "inNotionSelectHtmlOrMarkdownCsvExport": "In Notion, select HTML or Markdown & CSV export, all content and subfolder structure. HTML better preserves formatting and database property types. Download the resulting ZIP file completely. If the export consists of parts or you have two formats, select them together: identical pages will be merged by Notion ID, and the formatting will be taken from HTML.",
   "outlineParticipantsAccessRightsAndHistoryAreNot": "Outline participants, access rights, and history are not transferred.",
   "notionParticipantsAccessRightsVersionHistoryFormulasAnd": "Notion participants, access rights, version history, formulas, and view settings are not included in the export; databases will open with saved values.",

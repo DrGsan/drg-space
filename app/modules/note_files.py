@@ -13,8 +13,7 @@ from app.file_store import file_store
 from app.modules.files import filename
 from app.modules.social import note_access
 from app.modules.notion import require_role
-
-LIMIT = 50 * 1024 * 1024
+from app.note_limits import ATTACHMENT_BYTES, ATTACHMENT_MIB
 
 def page_file(c, page, fid, fail, referenced=False, uid=None):
     row=c.execute("SELECT * FROM files WHERE id=? AND kind='file' AND deleted IS NULL",(fid,)).fetchone()
@@ -72,13 +71,13 @@ def create_note_files_router(db,ready,rate,now,fail,data_dir):
         s=ready(request);name=filename(name);rate(request,'note-file-upload',60,subject=s['user_id'])
         with db() as c:
             n=note_access(c,nid,s['user_id'],fail);require_role(c,n,s['user_id'],fail,session=s,now=now)
-        if request.headers.get('content-length','').isdigit() and int(request.headers['content-length'])>LIMIT:fail(413,localized_message('theFileMustBeNoMoreThan50'))
+        if request.headers.get('content-length','').isdigit() and int(request.headers['content-length'])>ATTACHMENT_BYTES:fail(413,localized_message('noteAttachmentSizeLimit', limit=ATTACHMENT_MIB))
         identity=secrets.token_hex(16);fid=secrets.token_urlsafe(12);writer=None
         async with uploads:
             try:
                 writer=await blocking(store.writer,identity)
                 async for chunk in request.stream():
-                    if writer.size+len(chunk)>LIMIT:fail(413,localized_message('theFileMustBeNoMoreThan50'))
+                    if writer.size+len(chunk)>ATTACHMENT_BYTES:fail(413,localized_message('noteAttachmentSizeLimit', limit=ATTACHMENT_MIB))
                     await blocking(writer.write,chunk)
                 size,_=await blocking(writer.finish)
                 # Do not trust a user-supplied MIME for active content.
