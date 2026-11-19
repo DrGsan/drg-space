@@ -43,3 +43,22 @@ def test_outline_rejects_unsafe_paths_and_non_markdown_without_creating_data():
  for files in ({'../escape.md':'# Bad'},{'index.html':'<script>bad</script>'}):
   response=c.post('/api/account/outline/preview',content=zip_body(files));assert response.status_code==422,response.text
  assert c.get('/api/notes').json()==[]
+
+def test_outline_combines_json_collection_icons_with_markdown_and_ignores_metadata_files():
+ c,_,_=owner()
+ def metadata(name,icon):
+  return zip_body({'metadata.json':'{"exportVersion":1}',name+'.json':json.dumps({
+   'collection':{'name':name,'icon':icon},'documents':{},'attachments':{}
+  })})
+ parts=[zip_body({'Collection/Document.md':'# Document\n\nText','Collection/JSON example.json':'{}'}),
+        zip_body({'Other/Page.md':'# Page\n\nMore text'}),metadata('Collection','🏝️'),metadata('Other','🍿')]
+ body=b''.join(parts);headers={'X-Outline-Parts':json.dumps([len(part) for part in parts])}
+ preview=c.post('/api/account/outline/preview',content=body,headers=headers)
+ assert preview.status_code==200,preview.text
+ stats=preview.json()
+ assert stats['notes']==4 and stats['files']==1 and stats['page_images']['icon']['saved']==2
+ imported=c.post('/api/account/outline/import',content=body,headers={**headers,'X-Import-Confirmation':'IMPORT','X-Outline-Preview':stats['sha256']})
+ assert imported.status_code==200,imported.text
+ by_title={note['title']:note for note in c.get('/api/notes').json()}
+ assert by_title['Collection']['icon']=='🏝️' and by_title['Other']['icon']=='🍿'
+ assert by_title['Document']['parent_id']==by_title['Collection']['id'] and by_title['Page']['parent_id']==by_title['Other']['id']

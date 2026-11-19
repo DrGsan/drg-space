@@ -1,4 +1,5 @@
 {
+  "outlineCollectionJsonWithoutAttachments": "Для переноса иконок выберите JSON-экспорт Outline без вложений вместе с Markdown-архивом.",
   "dateUnitsDaysWeeksMonthsYears": "Единицы даты: days, weeks, months, years.",
   "unknownDateUnit": "Неизвестная единица даты.",
   "numberExceedsTheValidRange": "Число выходит за допустимые пределы.",

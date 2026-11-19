@@ -1,5 +1,20 @@
-import {marked} from 'marked';
+import {marked,Marked} from 'marked';
 import {normalizeToggleHTML} from './paste.js';
+
+// Parse directive lines before the Markdown parser folds soft line breaks.
+// The block normalizer then matches the fences around parsed rich content.
+const outlineFence=/^ {0,3}:::(?:info|success|warning|danger|error|tip|note)?[ \t]*(?:\r?\n|$)/im;
+const firstOutlineFence=new RegExp(outlineFence.source,'i');
+const outlineMarkdown=new Marked({extensions:[{
+  name:'outlineFence',
+  level:'block',
+  start(source){return source.search(outlineFence);},
+  tokenizer(source){
+    const match=firstOutlineFence.exec(source);
+    if(match)return {type:'outlineFence',raw:match[0],text:match[0].trim()};
+  },
+  renderer(token){return '<p data-outline-fence>'+token.text+'</p>\n';},
+}]});
 
 export function privateAttachmentUrl(value, origin){
   let url;
@@ -24,10 +39,19 @@ export function importedFileBlocks(blocks,origin=location.origin){
   });
 }
 
-function tableImages(html,origin){
-  if(!html.includes('<table')||!html.includes('<img'))return null;
+function importMarkup(html,origin){
+  const hasFences=html.includes('<p data-outline-fence>');
+  if(!hasFences&&(!html.includes('<table')||!html.includes('<img')))return null;
   const doc=new DOMParser().parseFromString(html,'text/html');
-  let changed=false;
+  // Keep the alert's first rich paragraph in its visible body. Subsequent
+  // paragraphs and lists stay separate blocks for the existing normalizer.
+  for(const fence of doc.querySelectorAll('p[data-outline-fence]')){
+    const body=fence.nextElementSibling;
+    if(fence.textContent===':::'||!body?.matches('p:not([data-outline-fence])'))continue;
+    fence.append(doc.createElement('br'),...body.childNodes);
+    body.remove();
+  }
+  let changed=hasFences;
   for(const image of doc.querySelectorAll('td img, th img')){
     const url=privateAttachmentUrl(image.getAttribute('src'),origin);
     if(!url)continue;
@@ -50,7 +74,7 @@ export function attachmentOrigins(value,origin){
 export function parseImportedMarkdown(editor,text,origin=location.origin){
   // Markdown exports may contain explicit HTML details. Code fences remain
   // escaped by marked and cannot accidentally become interactive blocks.
-  const html=marked.parse(text),tables=tableImages(html,origin);
-  const formatted=normalizeToggleHTML(tables||html)||tables;
+  const html=(text.includes(':::')?outlineMarkdown:marked).parse(text),markup=importMarkup(html,origin);
+  const formatted=normalizeToggleHTML(markup||html)||markup;
   return importedFileBlocks(attachmentOrigins(formatted?editor.tryParseHTMLToBlocks(formatted):editor.tryParseMarkdownToBlocks(text),origin),origin);
 }

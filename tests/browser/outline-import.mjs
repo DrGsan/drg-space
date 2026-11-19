@@ -32,7 +32,10 @@ for i in range(3):
   if i==0:
    image=io.BytesIO()
    Image.new('RGB',(10,15),'blue').save(image,'PNG')
-   body='# 🍿 Outline 0\n\n| Poster | Film |\n| --- | --- |\n| ![Sample](attachments/poster.png " =250x375") | **Film title** |\n\n[Notes.txt 4](attachments/Notes.txt)'
+   fence=chr(96)*3
+   body=('# 🍿 Outline 0\n\n| Poster | Film |\n| --- | --- |\n| ![Sample](attachments/poster.png " =250x375") | **Film title** |\n\n'
+         '[Notes.txt 4](attachments/Notes.txt)\n\n:::warning\n**Warning**&#x20; Check the sample.\n:::\n\n'
+         ':::info\nMore detail\n\n- item\n\n:::\n\n'+fence+'txt\n:::tip\nLiteral fence\n:::\n'+fence)
    z.writestr('attachments/poster.png',image.getvalue())
    z.writestr('attachments/Notes.txt','data')
   z.writestr('Page'+str(i)+'.md',body)
@@ -52,6 +55,12 @@ print(json.dumps(out))`],{encoding:'utf8'}));
  await expect.poll(()=>poster.evaluate(image=>image.naturalWidth)).toBe(10);
  await expect(page.locator('td').filter({hasText:'Film title'})).toBeVisible();
  await expect(page.getByText('Notes.txt',{exact:true})).toBeVisible();
+ const warning=page.locator('[data-callout-kind="warning"]');
+ await expect(warning).toContainText('Warning Check the sample.');
+ await expect(warning.locator('strong')).toHaveText('Warning');
+ await expect(page.locator('[data-callout-kind="info"]')).toBeVisible();
+ await expect(page.locator('[data-callout-kind="tip"]')).toHaveCount(0);
+ await expect(page.locator('[data-content-type="codeBlock"]')).toContainText(':::tip');
  await page.screenshot({path:'artifacts/outline-import.png'});expect(errors).toEqual([]);
 }
 const origin='http://127.0.0.1:8039',directory=await mkdtemp(tmpdir()+'/drg-outline-import-');
