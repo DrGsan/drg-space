@@ -53,12 +53,14 @@ def next_positions(c,uid,parents):
 
 
 class SyncService:
-    def __init__(self,db,config,data_dir,public_url,*,clock=time.time,transport=None,wait=time.sleep,fetch=None):
+    def __init__(self,db,config,data_dir,public_url,*,clock=time.time,transport=None,wait=time.sleep,fetch=None,catalog_secret=None):
         self.db,self.config,self.data_dir,self.public_url=db,config,data_dir,public_url.rstrip('/')
         self.clock,self.fetch=clock,fetch
         self.connections=Connections(db,config,data_dir,clock=clock,transport=transport,wait=wait)
+        from app.notion_sync.catalog_cache import CatalogCache
         from app.notion_sync.discovery import PagePicker
-        self.picker=PagePicker(self.connections)
+        self.catalog_cache=CatalogCache(data_dir,catalog_secret,clock=clock) if catalog_secret else None
+        self.picker=PagePicker(self.connections,self.catalog_cache)
         self.worker_id=secrets.token_urlsafe(12)
         self.batch_seconds=5
 

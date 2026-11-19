@@ -9,7 +9,7 @@ import secrets
 import time
 from urllib.parse import urlencode
 
-from app.notion_sync.client import NotionClient,NotionError,exchange
+from app.notion_sync.client import NotionClient,NotionError,digest,exchange
 from app.notion_sync.state import dump
 from app.process_locks import try_file_lock
 
@@ -101,7 +101,9 @@ class Connections:
             self.reserve(identity,row['workspace_id'])
             if mutation:mutation_check()
             if request_check:request_check()
-        return NotionClient(payload['access_token'],write=mutation_check is not None,transport=self.transport,before_request=before)
+        client=NotionClient(payload['access_token'],write=mutation_check is not None,transport=self.transport,before_request=before)
+        client.grant_digest=grant_digest(payload)
+        return client
 
     def reserve(self,identity,workspace):
         # One common budget for all grants/users of a workspace. This
@@ -129,9 +131,17 @@ class Connections:
             if not current or current['status']!='active':raise NotionError('notionConnectionPaused',409)
             if current['cooldown']>self.clock():raise NotionError('notionRateLimited',429,int(current['cooldown']-self.clock())+1)
 
-    def pause(self,identity,status='paused'):
+    def pause(self,identity,status='paused',*,expected_grant=None):
         with self.db() as c:
             c.execute('BEGIN IMMEDIATE')
+            if expected_grant is not None:
+                row=c.execute('SELECT payload FROM notion_connections WHERE id=?',(identity,)).fetchone()
+                if not row or grant_digest(json.loads(row['payload']))!=expected_grant:
+                    return
             c.execute('UPDATE notion_connections SET status=?,updated=? WHERE id=?',(status,int(self.clock()),identity))
             c.execute("UPDATE notion_roots SET status='paused',version=version+1 WHERE connection_id=? AND status!='detached'",(identity,))
             c.execute("UPDATE notes SET version=version+1,updated=? WHERE id IN (SELECT p.note_id FROM notion_pages p JOIN notion_roots r ON r.id=p.root_id WHERE r.connection_id=? AND r.status!='detached')",(int(self.clock()),identity))
+
+
+def grant_digest(payload):
+    return digest([payload.get('access_token'),payload.get('refresh_token')])

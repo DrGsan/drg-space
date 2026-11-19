@@ -1,5 +1,15 @@
 # Updating DrG Space
 
+## 5.2.17
+
+The Notion page picker overlaps independent metadata requests within the existing workspace request budget. App workers sharing a data volume reuse the same encrypted catalog for up to five minutes. The catalog is scoped to the current authorization. Link coverage is read live each time.
+
+Rebuild Space with the existing Compose files, environment, encryption keys and volumes. No migration, new settings or Media update is required. For the base installation:
+
+```sh
+docker compose up -d --build --no-deps app
+```
+
 ## 5.2.16
 
 Drive discards uploads when the connection closes before the request body is complete. This applies to local and S3 storage.

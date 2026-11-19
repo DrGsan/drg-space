@@ -2,6 +2,14 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.2.17] — 2026-11-19 — Faster Notion page selection
+
+- Open the Notion page picker faster by overlapping independent catalog requests.
+- Share the encrypted catalog between app workers to avoid repeated Notion requests.
+
+- **Installation:** Rebuild Space with the existing Compose files and volumes.
+- **Compatibility:** No migration is required.
+
 ## [5.2.16] — 2026-11-19 — Interrupted Drive uploads
 
 - Discard interrupted uploads before they can appear as incomplete files in Drive.

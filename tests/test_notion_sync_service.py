@@ -42,7 +42,7 @@ class Provider:
 
 def initialized():
     c,_,_=owner();s=session(c);provider=Provider();stamp=[float(m.now())]
-    service=SyncService(m.db,CONFIG,m.DATA,m.PUBLIC_URL,clock=lambda:stamp[0],transport=httpx.MockTransport(provider.handle),wait=lambda seconds:stamp.__setitem__(0,stamp[0]+seconds),fetch=provider.fetch)
+    service=SyncService(m.db,CONFIG,m.DATA,m.PUBLIC_URL,clock=lambda:stamp[0],transport=httpx.MockTransport(provider.handle),wait=lambda seconds:stamp.__setitem__(0,stamp[0]+seconds),fetch=provider.fetch,catalog_secret=m.APP_SECRET)
     with m.db() as db:
         db.execute('DELETE FROM notion_budgets')
         db.execute('DELETE FROM notion_events')

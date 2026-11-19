@@ -61,7 +61,8 @@ async def lifespan(app):
         def temp_jobs():
             return [('backup-temporaries',admin_router.backups.cleanup_temps),
                     ('personal-temporaries',lambda:cleanup_temps(DATA,'.drg-personal-work-')),
-                    ('notion-temporaries',lambda:cleanup_temps(DATA,'.drg-notion-work-'))]
+                    ('notion-temporaries',lambda:cleanup_temps(DATA,'.drg-notion-work-')),
+                    ('notion-catalog-expiry',notion_sync_service.catalog_cache.prune)]
         try:
             while True:
                 if lease is None:lease=try_file_lock(DATA,'maintenance.lock')
@@ -620,7 +621,7 @@ from app.notion_sync.config import NotionConfig
 from app.notion_sync.service import SyncService
 from app.notion_sync.access import prepare as prepare_notion_access
 from app.modules.notion_sync import create_notion_sync_router
-notion_sync_service=SyncService(db,NotionConfig.from_env(PUBLIC_URL),DATA,PUBLIC_URL,clock=lambda:now())
+notion_sync_service=SyncService(db,NotionConfig.from_env(PUBLIC_URL),DATA,PUBLIC_URL,catalog_secret=APP_SECRET)
 prepare_notion_access(db,notion_sync_service.config.configured,notion_sync_service.config.write_configured)
 app.include_router(create_notion_sync_router(notion_sync_service,notes_ready,rate,fail,administrator))
 

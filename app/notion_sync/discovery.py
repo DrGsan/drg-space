@@ -1,15 +1,25 @@
 """Bounded account/grant-scoped metadata cache; never traverses page bodies."""
-from collections import OrderedDict
-from concurrent.futures import Future,TimeoutError
+from collections import OrderedDict, deque
+from concurrent.futures import Future, ThreadPoolExecutor, TimeoutError
 import copy,json,threading
+from itertools import islice
+from typing import NamedTuple
 
 from app.notion_sync.client import NotionError,page_id,digest
+from app.notion_sync.connections import grant_digest
 from app.notion_sync.snapshot import title
 
 
+class CatalogScope(NamedTuple):
+    workspace: str
+    key: str
+    grant: str
+
+
 class PagePicker:
-    def __init__(self,connections):
+    def __init__(self,connections,catalog_cache=None):
         self.connections=connections;self.entries=OrderedDict();self.lock=threading.Lock()
+        self.catalog_cache=catalog_cache
 
     def list(self,uid,connection,query='',cursor=''):
         owner=self.connections
@@ -66,51 +76,58 @@ class PagePicker:
         finally:
             if client:client.close()
 
-    def tree(self,uid,connection,refresh=False):
-        """One bounded metadata snapshot, shared by expansion and local search.
+    def _tree_scope(self,c,uid,connection):
+        row=c.execute("SELECT n.payload,n.workspace_id,n.bot_id,n.updated FROM notion_connections n JOIN users u ON u.id=n.user_id WHERE n.id=? AND n.user_id=? AND n.kind='read' AND n.status='active' AND u.role='owner'",(connection,uid)).fetchone()
+        if not row:raise NotionError('notionAccessDenied',403)
+        grant=grant_digest(json.loads(row['payload']))
+        workspace=row['workspace_id']
+        return CatalogScope(workspace,digest([workspace,row['bot_id'],row['updated'],grant]),grant)
 
-        Notion search is not a complete inventory. Data-source records and
-        missing accessible ancestors are resolved once, never page bodies.
-        Explicit refresh is coalesced and throttled to 30 seconds per grant.
-        """
+    def tree(self,uid,connection,refresh=False):
         owner=self.connections
         if not owner.config.configured:raise NotionError('notionNotConfigured',409)
-        with owner.db() as c:
-            row=c.execute("SELECT n.payload,n.workspace_id FROM notion_connections n JOIN users u ON u.id=n.user_id WHERE n.id=? AND n.user_id=? AND n.kind='read' AND n.status='active' AND u.role='owner'",(connection,uid)).fetchone()
-        if not row:raise NotionError('notionAccessDenied',403)
-        grant=json.loads(row['payload']);stamp=owner.clock()
-        key=(uid,connection,digest([grant.get('access_token'),grant.get('refresh_token')]),'tree')
-        with self.lock:
-            for stale,(expires,future) in list(self.entries.items()):
-                if future.done() and (expires<=stamp or stale==key and refresh and expires-270<=stamp):self.entries.pop(stale)
-            entry=self.entries.get(key);leader=entry is None
-            if leader:
-                while len(self.entries)>=128:
-                    stale=next((k for k,(_,f) in self.entries.items() if f.done()),None)
-                    if stale is None:raise NotionError('notionRetryLater',503,5)
-                    self.entries.pop(stale)
-                future=Future();self.entries[key]=(stamp+300,future)
-            else:future=entry[1];self.entries.move_to_end(key)
-        if leader:
-            client=None
+
+        def read_scope():
+            with owner.db() as c:return self._tree_scope(c,uid,connection)
+
+        def build():
+            def verify_scope():
+                if read_scope()!=scope:
+                    raise NotionError('notionRetryLater',503,5)
+
+            client=owner.client(connection,request_check=verify_scope)
             try:
-                client=owner.client(connection);result=catalog(client)
-                future.set_result(result)
-            except BaseException as error:
-                if isinstance(error,NotionError):
-                    if error.status==401:owner.pause(connection,'reauthorize')
+                # client() may rotate an expired grant before the first read.
+                scope=read_scope()
+                if scope.grant!=client.grant_digest:
+                    raise NotionError('notionRetryLater',503,5)
+
+                def provider_error(error):
+                    if error.status==401 and error.code=='notionAuthorizationExpired':
+                        owner.pause(connection,'reauthorize',expected_grant=scope.grant)
                     if error.status in (429,529):
-                        with owner.db() as c:c.execute('UPDATE notion_connections SET cooldown=? WHERE workspace_id=?',(int(owner.clock())+error.delay,row['workspace_id']))
-                future.set_exception(error)
-                with self.lock:self.entries.pop(key,None)
-                raise
+                        until=int(owner.clock())+error.delay
+                        with owner.db() as c:c.execute('UPDATE notion_connections SET cooldown=? WHERE workspace_id=? AND cooldown<?',
+                                                        (until,scope.workspace,until))
+
+                result=catalog(client,on_error=provider_error)
+                verify_scope()
+                return scope,result
             finally:
-                if client:client.close()
-        try:result=copy.deepcopy(future.result(timeout=35))
-        except TimeoutError:raise NotionError('notionRetryLater',503,5) from None
+                client.close()
+
+        scope=read_scope()
+        if self.catalog_cache is None:
+            scope,result=build()
+        else:
+            slot=digest([uid,connection])
+            scope,result=self.catalog_cache.get(slot,scope,refresh,read_scope,build)
         # Link state is current SQL data, deliberately outside the metadata cache.
         from app.notion_sync.selection import links
-        with owner.db() as c:reserved=links(c,uid,row['workspace_id'])
+        with owner.db() as c:
+            if self._tree_scope(c,uid,connection)!=scope:
+                raise NotionError('notionRetryLater',503,5)
+            reserved=links(c,uid,scope.workspace)
         by_id={item['id']:item for item in result['items']}
         for item in result['items']:
             chain=set(item['ancestors'])|{item['id']}
@@ -123,14 +140,34 @@ class PagePicker:
         return result
 
 
-def catalog(client):
+def _overlap(executor, values, run):
+    iterator=iter(values)
+    pending=deque(executor.submit(run,value) for value in islice(iterator,2))
+    while pending:
+        yield pending.popleft().result()
+        for value in islice(iterator,1):
+            pending.append(executor.submit(run,value))
+
+
+def catalog(client, *, on_error=None):
     from app.notion_sync.hierarchy import reference,metadata
-    raw={};budget=[100];request=client.request
+    raw={};budget=100;failure=None;lock=threading.Lock()
     # Includes pagination, ancestor resolution and record queries in one budget.
     def bounded(method,path,data=None):
-        budget[0]-=1
-        if budget[0]<0:raise NotionError('notionPageTooLarge',422)
-        return request(method,path,data)
+        nonlocal budget,failure
+        with lock:
+            if failure:raise NotionError(failure.code,failure.status,failure.delay,**failure.params)
+            if not budget:raise NotionError('notionPageTooLarge',422)
+            budget-=1
+        try:
+            return client.request(method,path,data)
+        except NotionError as error:
+            if method!='GET' or error.status not in (403,404):
+                with lock:
+                    first=failure is None
+                    if first:failure=error
+                if first and on_error:on_error(error)
+            raise
     class Reader:
         request=staticmethod(bounded)
     reader=Reader()
@@ -143,27 +180,42 @@ def catalog(client):
         identity=page_id(value['id']);raw[identity]=value
         if len(raw)>2000:raise NotionError('notionPageTooLarge',422)
     for value in collect('/v1/search','POST',{'sort':{'direction':'descending','timestamp':'last_edited_time'}}):add(value)
-    # Search omits database records; read their metadata with the documented API.
-    for identity,value in list(raw.items()):
-        if value['object']=='data_source':
-            for record in collect('/v1/data_sources/'+identity+'/query','POST'):add(record)
-    checked=set();missing=set();queue=list(raw)
-    while queue:
-        identity=queue.pop()
-        if identity in checked:continue
-        checked.add(identity);parent=reference(raw[identity])
-        if not parent or parent[1] in raw or parent[1] in missing:continue
+    def records(identity):
+        return collect('/v1/data_sources/'+identity+'/query','POST')
+
+    def resolve(parent):
         kind,pid=parent
-        try:value=metadata(reader,kind,pid)
+        try:
+            return parent,metadata(reader,kind,pid)
         except NotionError as error:
-            if error.status in (403,404):missing.add(pid);continue
+            if error.status in (403,404):return parent,None
             raise
-        if value.get('object') in ('page','database','data_source'):
-            add(value)
-            if pid in raw:queue.append(pid)
-        elif kind=='block':
-            # Blocks are transparent navigation ancestors, never selectable pages.
-            raw[pid]=value;queue.append(pid)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        # Preserve pagination within each source and combine responses in
+        # search order. All requests still pass through the workspace budget.
+        sources=[identity for identity,value in raw.items() if value['object']=='data_source']
+        for batch in _overlap(executor,sources,records):
+            for record in batch:add(record)
+
+        checked=set(raw);queue=list(raw.values())
+        while queue:
+            pending={}
+            for item in queue:
+                parent=reference(item)
+                if parent and parent[1] not in checked:
+                    pending[parent[1]]=parent
+                    checked.add(parent[1])
+            queue=[]
+            for (kind,pid),value in _overlap(executor,pending.values(),resolve):
+                if value is None:continue
+                if value.get('object') in ('page','database','data_source'):
+                    add(value)
+                elif kind=='block':
+                    # Blocks are transparent navigation ancestors.
+                    raw[pid]=value
+                    if len(raw)>2000:raise NotionError('notionPageTooLarge',422)
+                if pid in raw:queue.append(raw[pid])
     def parents(identity):
         seen={identity};chain=[];value=raw[identity]
         while (parent:=reference(value)) and parent[1] in raw:

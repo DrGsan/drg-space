@@ -1,10 +1,15 @@
 """Hierarchy discovery and transaction-scoped duplicate prevention."""
 import copy,json
 from concurrent.futures import ThreadPoolExecutor
+import os
+from threading import Barrier, Event
+from uuid import UUID
 import httpx,pytest
 from tests.test_notion_sync_service import initialized,imported,page,ROOT,CHILD,NEW
 from app import main as m
-from app.notion_sync.client import NotionError
+from app.notion_sync.catalog_cache import CatalogCache
+from app.notion_sync.client import NotionClient, NotionError, digest
+from app.notion_sync.discovery import PagePicker, catalog
 from tests.test_security import reset
 
 DB='66666666-6666-4666-8666-666666666666'
@@ -88,6 +93,138 @@ def test_tree_revalidates_owner_and_grant_even_with_populated_cache():
     with m.db() as db:db.execute("UPDATE users SET role='admin' WHERE id=?",(s['user_id'],))
     with pytest.raises(NotionError,match='notionAccessDenied'):service.picker.tree(s['user_id'],'read')
     assert len(calls)==3
+
+
+def test_catalog_is_encrypted_and_shared_by_independent_pickers():
+    _,s,_,service,stamp,calls=tree_fixture()
+    uid=s['user_id']
+    cache=service.catalog_cache
+    peer=PagePicker(service.connections,CatalogCache(m.DATA,m.APP_SECRET,clock=service.connections.clock))
+    original=service.connections.transport
+    entered,released=Event(),Event()
+
+    def stalled(request):
+        if request.url.path=='/v1/search':
+            entered.set()
+            assert released.wait(5)
+        return original.handle_request(request)
+
+    service.connections.transport=httpx.MockTransport(stalled)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first=pool.submit(service.picker.tree,uid,'read')
+        assert entered.wait(5)
+        second=pool.submit(peer.tree,uid,'read',True)
+        released.set()
+        expected=first.result()
+        assert second.result()==expected
+    assert len(calls)==3
+    snapshot=cache.root/(digest([uid,'read'])+'.snapshot')
+    assert snapshot.read_bytes().startswith(cache.cipher.MAGIC)
+    assert b'Same' not in snapshot.read_bytes() and snapshot.stat().st_mode&0o777==0o600
+
+    with m.db() as db:
+        row=db.execute("SELECT payload FROM notion_connections WHERE id='read'").fetchone()
+        grant=json.loads(row['payload']);grant['access_token']='rotated-test-grant'
+        db.execute("UPDATE notion_connections SET payload=? WHERE id='read'",(json.dumps(grant),))
+    assert peer.tree(uid,'read')==expected
+    assert len(calls)==6 and snapshot.exists()
+
+    stamp[0]+=301
+    os.utime(snapshot,times=(stamp[0]-301,stamp[0]-301))
+    cache.prune()
+    assert not snapshot.exists()
+
+
+def test_catalog_rejects_grant_changed_while_building():
+    _,s,_,service,_,calls=tree_fixture()
+    old=service.connections.transport
+
+    def rotate(request):
+        result=old.handle_request(request)
+        if request.url.path=='/v1/databases/'+DB:
+            with m.db() as db:
+                grant=json.loads(db.execute("SELECT payload FROM notion_connections WHERE id='read'").fetchone()['payload'])
+                grant['access_token']='changed-during-build'
+                db.execute("UPDATE notion_connections SET payload=? WHERE id='read'",(json.dumps(grant),))
+        return result
+
+    service.connections.transport=httpx.MockTransport(rotate)
+    with pytest.raises(NotionError,match='notionRetryLater'):
+        service.picker.tree(s['user_id'],'read')
+    assert len(calls)==3
+    assert not (service.catalog_cache.root/(digest([s['user_id'],'read'])+'.snapshot')).exists()
+
+
+def test_catalog_overlaps_independent_sources_and_parents_without_duplicate_requests():
+    sources=[str(UUID(int=i)) for i in (1,2,3)]
+    records=[str(UUID(int=i)) for i in (4,5,6,7)]
+    ancestors=[str(UUID(int=i)) for i in (8,9)]
+    query_gate=Barrier(2)
+    parent_gate=Barrier(2)
+    requests=[]
+
+    def provider(request):
+        path=request.url.path
+        data=json.loads(request.content) if request.method=='POST' else {}
+        requests.append((path,data.get('start_cursor')))
+        if path=='/v1/search':
+            items=[page(ROOT,'Child 1',ancestors[0]),page(CHILD,'Child 2',ancestors[1]),page(NEW,'Child 3',ancestors[0])]
+            items.extend({'id':s,'object':'data_source','title':[],'parent':{'database_id':DB}} for s in sources)
+            items.append({'id':DB,'object':'database','title':[],'data_sources':[{'id':s} for s in sources]})
+            return httpx.Response(200,json={'results':items,'has_more':False})
+        if path.endswith('/query'):
+            i=sources.index(path.split('/')[-2])
+            cursor=data.get('start_cursor')
+            if i<2 and not cursor:
+                query_gate.wait(5)
+            identity=records[3] if cursor else records[i]
+            item=page(identity,'Record')|{'parent':{'data_source_id':sources[i]}}
+            return httpx.Response(200,json={'results':[item],'has_more':i==0 and not cursor,'next_cursor':'next'})
+        identity=path.rsplit('/',1)[-1]
+        assert identity in ancestors
+        parent_gate.wait(5)
+        return httpx.Response(200,json=page(identity,'Parent'))
+
+    client=NotionClient('test-grant',transport=httpx.MockTransport(provider))
+    try:items={item['id']:item for item in catalog(client)['items']}
+    finally:client.close()
+    assert all(items[record]['parent_id']==source for record,source in zip(records,[*sources,sources[0]]))
+    assert items[ROOT]['parent_id']==items[NEW]['parent_id']==ancestors[0]
+    assert items[CHILD]['parent_id']==ancestors[1]
+    assert len(requests)==len(set(requests))==7
+
+
+def test_catalog_does_not_start_more_requests_after_a_parallel_rate_limit():
+    sources=[str(UUID(int=i)) for i in (1,2,3)]
+    calls=[]
+    gate=Barrier(2)
+    limited=Event()
+    failures=[]
+
+    def provider(request):
+        path=request.url.path
+        if path=='/v1/search':
+            items=[{'id':s,'object':'data_source','title':[],'parent':{'database_id':DB}} for s in sources]
+            return httpx.Response(200,json={'results':items,'has_more':False})
+        identity=path.split('/')[-2]
+        calls.append(identity)
+        gate.wait(5)
+        if identity==sources[1]:
+            return httpx.Response(429,headers={'Retry-After':'45'})
+        assert limited.wait(5)
+        return httpx.Response(200,json={'results':[],'has_more':False})
+
+    def on_error(error):
+        failures.append((error.status,error.delay))
+        limited.set()
+
+    client=NotionClient('test-grant',transport=httpx.MockTransport(provider))
+    try:
+        with pytest.raises(NotionError,match='notionRateLimited'):
+            catalog(client,on_error=on_error)
+    finally:client.close()
+    assert set(calls)==set(sources[:2]) and len(calls)==2
+    assert failures==[(429,45)]
 
 
 def test_confirmation_rechecks_a_page_moved_inside_an_existing_tree():

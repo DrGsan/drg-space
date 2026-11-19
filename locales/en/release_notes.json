@@ -1,4 +1,7 @@
 {
+  "release5_2_17Title": "Faster Notion page selection",
+  "release5_2_17Change1": "Open the Notion page picker faster by overlapping independent catalog requests.",
+  "release5_2_17Change2": "Share the encrypted catalog between app workers to avoid repeated Notion requests.",
   "release5_2_16Title": "Interrupted Drive uploads",
   "release5_2_16Change1": "Discard interrupted uploads before they can appear as incomplete files in Drive.",
   "release5_2_15Title": "Note navigation and Outline import",
