@@ -2,7 +2,7 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.2.13-rc.3] — 2026-11-19 — Outline import
+## [5.2.13] — 2026-11-19 — Outline import
 
 - Allow note attachments of up to 250 MiB.
 - Keep Outline collections, page icons, table images and original attachment labels when importing Markdown exports.
