@@ -31,10 +31,10 @@ try{
  await page.getByRole('button',{name:'Синхронизация с Notion',exact:true}).click();
  const dialog=page.getByRole('dialog').last();await expect(dialog.locator('[data-sync-preview]')).toBeVisible();
  await dialog.screenshot({path:'artifacts/drg-62/after-web-connect.png'});
- await dialog.locator('[data-source-picker]').click();await expect(dialog.getByRole('option',{name:/Семейная библиотека/})).toBeVisible();
+ await dialog.locator('[data-source-picker]').click();await expect(dialog.getByRole('treeitem',{name:'Семейная библиотека'})).toBeVisible();
  await dialog.screenshot({path:'artifacts/drg-62/after-web-page-picker.png'});
  await page.setViewportSize({width:390,height:844});await dialog.screenshot({path:'artifacts/drg-62/after-webapp-page-picker.png'});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- await page.setViewportSize({width:1280,height:900});await dialog.locator('[data-source-search]').fill('библиотека');await expect(dialog.locator('[data-source-list]').getByRole('option')).toHaveCount(1);await dialog.getByRole('option',{name:/Семейная библиотека/}).click();await dialog.getByRole('button',{name:'Проверить состав переноса',exact:true}).click();
+ await page.setViewportSize({width:1280,height:900});await dialog.locator('[data-source-search]').fill('библиотека');await expect(dialog.locator('[data-source-list]').getByRole('option')).toHaveCount(1);await dialog.getByRole('button',{name:'Семейная библиотека',exact:true}).click();await dialog.getByRole('button',{name:'Проверить состав переноса',exact:true}).click();
  await expect(dialog.locator('[data-sync-progress]')).toBeVisible({timeout:10000});
  await expect(dialog.locator('[data-sync-progress]')).toContainText(/Проверено страниц: [1-9]/,{timeout:10000});
  await dialog.screenshot({path:'artifacts/drg-62/after-web-progress.png'});
@@ -151,6 +151,23 @@ try{
  await page.locator('[data-page-action=move-down]').click();
  await expect.poll(async()=>{const items=await api('/notes?catalog=true',undefined,'GET');return items.find(n=>n.id===linkedRoot.note_id).position>items.find(n=>n.id===anchor.id).position;}).toBe(true);
  await expect(page.locator('#page-title')).toBeDisabled();
+ const original=await api('/notes/'+linkedRoot.note_id,undefined,'GET');
+ await page.locator('#page-actions').click();
+ await page.locator('[data-page-action=duplicate]').click();
+ await expect(page.locator('#page-title')).toHaveValue(original.title+' (копия)');
+ await expect(page.locator('#page-title')).toBeEnabled();
+ await expect(page.locator('.notion-source-banner')).toHaveCount(0);
+ const newId=new URL(page.url()).pathname.split('/').at(-1);
+ const copy=await api('/notes/'+newId,undefined,'GET');
+ expect(copy.parent_id).toBe(null);expect(copy.notion_sync).toBeUndefined();
+ const lastRoot=page.locator('[data-sidebar-section=private] > [data-tree-row][style="--depth:0"]').last();
+ await expect(lastRoot).toHaveAttribute('data-tree-row',newId);
+ expect((await api('/notes/'+linkedRoot.note_id,undefined,'GET')).title).toBe(original.title);
+ await visit('/page/'+anchor.id);
+ await page.locator('#page-actions').click();
+ await page.locator('[data-page-action=duplicate]').click();
+ await expect(page.locator('#page-title')).toHaveValue(anchor.title+' (копия)');
+ await visit('/page/'+linkedRoot.note_id);
  // A background pause must update the banner without replacing a dirty editor.
  // The failed save is retained in the existing encrypted per-account draft.
  let stoppedWrite=false;const writePattern='**/api/notes**',notePath='/api/notes/'+linkedRoot.note_id;

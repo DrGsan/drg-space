@@ -1,7 +1,7 @@
 import {tText,tHtml,locale} from "../../core/i18n.js";
 import {watchNoteCatalog} from './catalog-refresh.js';
 import {notionImportDialog} from '../portability/notion.js';
-import {mountNotionSource} from '../portability/notion-source.js';
+import {canCopyNotionPage,mountNotionSource} from '../portability/notion-source.js';
 import {pageLayout} from './page-layout.js';
 import {statusBadges} from './status-badges.js';
 import {trashPopover} from './trash.js';
@@ -152,7 +152,7 @@ class NotesWorkspace {
     if(latest){this.page.participants=latest.participants;this.page.external=latest.external;}
     if(latest?.notion_sync&&this.page?.notion_sync&&this.state.dirty&&JSON.stringify(latest.notion_sync)!==JSON.stringify(this.page.notion_sync)){
       this.page.notion_sync=latest.notion_sync;
-      mountNotionSource($('#notion-page',this.host),this.page,this.ctx,{openPage:id=>this.open(id,false),refresh:()=>this.refresh(),beforeCopy:()=>this.flush()});
+      this.showNotionSource(this.page);
       if(latest.notion_sync.read_only&&!this.recoveryBlocked)this.retainNotionDraft().catch(error=>this.ctx.toast(error.message));
     }
     if(latest&&this.page?.notion_sync&&!this.state.dirty&&!this.notionRefresh&&(latest.version!==this.page.version||JSON.stringify(latest.notion_sync)!==JSON.stringify(this.page.notion_sync))){
@@ -611,7 +611,7 @@ class NotesWorkspace {
     if(page.database_id){
       this.ctx.api('/databases/'+page.database_id).then(db=>{if(this.disposed||this.page?.id!==page.id)return;const record=db.records.find(r=>r.note_id===page.id);if(!record)return;const box=$('#record-properties-panel',this.host);box.innerHTML='<div class="record-property-list">'+db.properties.map(p=>'<div><span>'+esc(p.name)+'</span><strong>'+esc(display(record.properties[p.id])||'—')+'</strong></div>').join('')+'</div>'+((page.role==='editor'&&db.role==='editor'&&!page.locked)?`<button class="secondary compact" id="edit-record-properties">${tHtml("notes:entryProperties")}</button>`:'');$('#edit-record-properties',box)?.addEventListener('click',()=>recordForm(db,record,this.ctx,()=>this.open(page.id)));}).catch(e=>this.ctx.toast(e.message));
     }
-    mountNotionSource($('#notion-page',this.host),page,this.ctx,{openPage:id=>this.open(id,false),refresh:()=>this.refresh(),beforeCopy:()=>this.flush()});
+    this.showNotionSource(page);
     if(sourceOpened&&$('.notion-source-banner',screen))$('.notion-source-banner',screen).open=true;
     const readonly=(page.role&&page.role!=='editor')||(page.locked&&!page.unlock_until);
     if(readonly){
@@ -821,7 +821,7 @@ class NotesWorkspace {
       } catch (e) {
         this.error = e;
         if(e.status===423&&this.page?.notion_sync){
-          try{const latest=await this.ctx.api('/notes/'+this.page.id);this.page.notion_sync=latest.notion_sync;mountNotionSource($('#notion-page',this.host),this.page,this.ctx,{openPage:id=>this.open(id,false),refresh:()=>this.refresh(),beforeCopy:()=>this.flush()});await this.retainNotionDraft();}catch(problem){this.ctx.toast(problem.message);}return false;
+          try{const latest=await this.ctx.api('/notes/'+this.page.id);this.page.notion_sync=latest.notion_sync;this.showNotionSource(this.page);await this.retainNotionDraft();}catch(problem){this.ctx.toast(problem.message);}return false;
         }
         if(await this.recoverSharedConflict(e))return false;
         if (!this.disposed) {
@@ -960,10 +960,17 @@ class NotesWorkspace {
   }
   iconPicker(){iconPicker(this);}
   coverPicker(){coverPicker(this);}
+  showNotionSource(page){
+    mountNotionSource($('#notion-page',this.host),page,this.ctx,{
+      openPage:id=>this.open(id,false),
+      onCopy:source=>this.pageAction('duplicate',source),
+    });
+  }
   actions() {
     if(this.closePageMenu){this.closePageMenu();this.closePageMenu=null;return;}
     const page=this.page,editable=(!page.role||page.role==='editor')&&(!page.locked||page.unlock_until);
-    const actions=pageActions(page,editable);
+    const canDuplicate=page.notion_sync?canCopyNotionPage(page,this.ctx):editable;
+    const actions=pageActions(page,editable,{canDuplicate});
     if(page.notion_sync?.can_reorder){
       const roots=this.state.notes.filter(n=>n.parent_id===page.parent_id&&!n.deleted&&n.space_id===page.space_id),index=roots.findIndex(n=>n.id===page.id);
       for(const action of actions){if(action.name==='move-up')action.disabled=index<=0;if(action.name==='move-down')action.disabled=index<0||index===roots.length-1;}
@@ -1001,13 +1008,29 @@ class NotesWorkspace {
       if(action==='width')return this.meta({full_width:!this.page.full_width});
       if(action==='export')return this.export();
       if(action==='import')return this.import();
-      if(action==='duplicate'){
-        const copy=await this.ctx.api('/notes/'+this.page.id+'/duplicate','POST');
-        savePageView(this.state.me?.id,copy.id,this.viewPreferences);
-        await this.refresh();return this.open(copy.id);
-      }
+      if(action==='duplicate')return await this.duplicatePage(this.page);
       if(action==='trash')return this.removePage(this.page.id);
     }catch(error){this.ctx.toast(error.message);}
+  }
+  async duplicatePage(page){
+    const linked=Boolean(page.notion_sync);
+    if(this.copyingNote||(linked&&!canCopyNotionPage(page,this.ctx)))return;
+    const view={...this.viewPreferences};
+    this.copyingNote=true;
+    try{
+      const copy=linked
+        ?await this.ctx.api('/account/notion-sync/copy','POST',{note_id:page.id,as_duplicate:true})
+        :await this.ctx.api('/notes/'+page.id+'/duplicate','POST');
+      const id=linked?copy.note_id:copy.id;
+      savePageView(this.state.me?.id,id,view);
+      if(this.disposed)return;
+      await this.refresh();
+      if(this.disposed||this.page?.id!==page.id)return;
+      const search=$('#search-pages',this.host);
+      if(linked&&search.value){search.value='';this.search();}
+      await this.open(id);
+      if(linked)this.host.querySelector(`[data-sidebar-section="private"] [data-tree-row="${CSS.escape(id)}"]`)?.scrollIntoView({block:'nearest'});
+    }finally{this.copyingNote=false;}
   }
   async clipboard(text,message){
     try{await navigator.clipboard.writeText(text);this.ctx.toast(message);return true;}

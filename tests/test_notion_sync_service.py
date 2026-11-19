@@ -143,9 +143,12 @@ def test_independent_copy_owns_attachments_and_is_editable_after_source_file_is_
     c,s,provider,service,stamp=initialized()
     provider.blocks[ROOT].append({'id':IMAGE,'type':'file','file':{'type':'file','file':{'url':'https://files.example/attachment.pdf?signature=first'},'name':'attachment.pdf'},'has_children':False})
     identity,mapping=imported(service,s)
-    copied=independent(service,s['user_id'],mapping[ROOT])['note_id']
+    last=c.post('/api/notes',json={'title':'Last local note'}).json()
+    copied=independent(service,s['user_id'],mapping[ROOT],as_duplicate=True)['note_id']
     source=c.get('/api/notes/'+mapping[ROOT]).json();copy=c.get('/api/notes/'+copied).json()
     assert copy['role']=='editor' and 'notion_sync' not in copy and copy['parent_id'] is None
+    assert copy['title']=='Root (копия)' and copy['position']==last['position']+1
+    assert [n['id'] for n in c.get('/api/notes?catalog=true').json() if n['parent_id'] is None][-1]==copied
     assert copy['blocks'][1]['props']['pageId']!=mapping[CHILD]
     source_file=source['blocks'][2]['props']['url'];copied_file=copy['blocks'][2]['props']['url']
     assert source_file!=copied_file

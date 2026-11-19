@@ -40,6 +40,7 @@ class Action(BaseModel):
 class CopyPage(BaseModel):
     model_config=ConfigDict(extra='forbid')
     note_id:str=Field(min_length=16,max_length=16)
+    as_duplicate:bool=Field(default=False,strict=True)
 
 class Experimental(BaseModel):
     model_config=ConfigDict(extra='forbid')
@@ -67,8 +68,8 @@ def create_notion_sync_router(service,ready,rate,fail,administrator=None):
         session=account_ready(request)
         if session['role']!='owner':fail(403,message('onlyTheSiteOwnerCanAccessThis'))
         return session
-    def run(function,*args):
-        try:return function(*args)
+    def run(function,*args,**kwargs):
+        try:return function(*args,**kwargs)
         except NotionError as error:fail(error.status,message(error.code,**error.params),headers={'Retry-After':str(error.delay)} if error.delay else None)
         except ValueError as error:
             if str(error) not in ('notionNotConfigured','notionInvalidPage'):raise
@@ -123,7 +124,7 @@ def create_notion_sync_router(service,ready,rate,fail,administrator=None):
     async def copy(data:CopyPage,request:Request):
         from app.notion_sync.copy import independent
         s=ready(request);rate(request,'notion-independent-copy',12,subject=s['user_id'])
-        return await blocking(run,independent,service,s['user_id'],data.note_id)
+        return await blocking(run,independent,service,s['user_id'],data.note_id,as_duplicate=data.as_duplicate)
 
     @r.post('/api/account/notion-sync/roots/{rid}/experimental')
     def experimental(rid:str,data:Experimental,request:Request):

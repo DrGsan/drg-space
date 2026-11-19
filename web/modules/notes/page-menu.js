@@ -150,12 +150,12 @@ export function showPageMenu({ anchor, page={}, view=defaults(), mode, editable,
   return close;
 }
 
-export function pageActions(page,editable,{secret=false}={}){
+export function pageActions(page,editable,{secret=false,canDuplicate=editable}={}){
   const actions=[
       {name:'copy-link',label:tText("notes:copyLink2"),icon:'link',group:'copy'},
       ...(page.kind!=='database'?[{name:'copy-content',label:tText("notes:copyContent"),icon:'copy',group:'copy'}]:[]),
+      ...(canDuplicate?[{name:'duplicate',label:tText("notes:createCopy"),icon:'duplicate',group:'copy'}]:[]),
       ...(editable?[
-        {name:'duplicate',label:tText("notes:createCopy"),icon:'duplicate',group:'copy'},
         {name:'move',label:tText("notes:move"),icon:'move',group:'copy'},
         {name:'trash',label:tText("notes:toTrash"),icon:'trash',group:'copy',danger:true},
         {name:'child',label:tText("notes:addSubpage"),icon:'child',group:'page'},
