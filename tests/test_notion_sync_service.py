@@ -143,9 +143,12 @@ def test_independent_copy_owns_attachments_and_is_editable_after_source_file_is_
     c,s,provider,service,stamp=initialized()
     provider.blocks[ROOT].append({'id':IMAGE,'type':'file','file':{'type':'file','file':{'url':'https://files.example/attachment.pdf?signature=first'},'name':'attachment.pdf'},'has_children':False})
     identity,mapping=imported(service,s)
-    copied=independent(service,s['user_id'],mapping[ROOT])['note_id']
+    last=c.post('/api/notes',json={'title':'Last local note'}).json()
+    copied=independent(service,s['user_id'],mapping[ROOT],as_duplicate=True)['note_id']
     source=c.get('/api/notes/'+mapping[ROOT]).json();copy=c.get('/api/notes/'+copied).json()
     assert copy['role']=='editor' and 'notion_sync' not in copy and copy['parent_id'] is None
+    assert copy['title']=='Root (копия)' and copy['position']==last['position']+1
+    assert [n['id'] for n in c.get('/api/notes?catalog=true').json() if n['parent_id'] is None][-1]==copied
     assert copy['blocks'][1]['props']['pageId']!=mapping[CHILD]
     source_file=source['blocks'][2]['props']['url'];copied_file=copy['blocks'][2]['props']['url']
     assert source_file!=copied_file
@@ -167,6 +170,25 @@ def test_readonly_link_cannot_be_published_with_edit_permission_but_view_publica
     token=response.json()['token']
     assert c.patch('/api/shares/'+token,json={'permission':'edit'}).status_code==423
     assert c.get('/api/shared/'+token).json()['permission']=='view'
+
+
+def test_independent_copy_of_ready_leaf_while_its_sibling_is_importing():
+    from app.notion_sync.copy import independent
+    c,s,provider,service,stamp=initialized()
+    provider.pages[NEW]=page(NEW,'Unfinished sibling',ROOT)
+    provider.blocks[NEW]=[]
+    provider.blocks[ROOT].append({'id':NEW,'type':'child_page','child_page':{'title':'Unfinished sibling'},'has_children':True})
+    root,mapping=imported(service,s)
+    with m.db() as db:
+        db.execute("UPDATE notion_roots SET status='importing' WHERE id=?",(root,))
+        db.execute("UPDATE notion_pages SET status='importing' WHERE note_id=?",(mapping[NEW],))
+    source=c.get('/api/notes/'+mapping[CHILD]).json()
+    assert source['notion_sync']['transfer_pending'] and source['notion_sync']['page_status']=='active'
+    copied=independent(service,s['user_id'],mapping[CHILD],as_duplicate=True)['note_id']
+    note=c.get('/api/notes/'+copied).json()
+    assert note['title']=='Child (копия)' and note['parent_id'] is None and 'notion_sync' not in note
+    with pytest.raises(NotionError) as error:independent(service,s['user_id'],mapping[ROOT],as_duplicate=True)
+    assert error.value.code=='notionImportInProgress'
 
 
 def test_server_disabled_cannot_edit_previous_duplex_copy_or_enqueue_external_work():

@@ -3,12 +3,13 @@ import json
 import secrets
 from contextlib import suppress
 
+from app.i18n import text
 from app.notion_sync.client import NotionError
 from app.notion_sync.state import dump
 from app.personal_data import NOTE_FILE_LINK
 
 
-def independent(service,uid,nid,receipt=None,*,document=None,shallow=False):
+def independent(service,uid,nid,receipt=None,*,document=None,shallow=False,as_duplicate=False):
     with service.db() as c:
         source=c.execute('SELECT n.* FROM notes n JOIN notion_pages p ON p.note_id=n.id WHERE n.id=? AND n.user_id=? AND n.space_id IS NULL AND n.deleted IS NULL',(nid,uid)).fetchone()
         if not source:raise NotionError('notionLinkUnavailable',404)
@@ -83,12 +84,20 @@ def independent(service,uid,nid,receipt=None,*,document=None,shallow=False):
             for node in asset_nodes.values():
                 current=c.execute('SELECT version,deleted,user_id,space_id FROM notes WHERE id=?',(node['id'],)).fetchone()
                 if not current or current['version']!=node['version'] or current['deleted'] is not None or current['user_id']!=uid or current['space_id'] is not None:raise NotionError('notionLocalChanged',409)
+            root_id=mapping[nid]
+            root_position=c.execute('SELECT COALESCE(MAX(position),-1)+1 FROM notes WHERE user_id=? AND parent_id IS NULL AND space_id IS NULL AND deleted IS NULL',(uid,)).fetchone()[0]
+            suffix=text('copy') if as_duplicate else ''
             for node in shown.values():
+                identity=mapping[node['id']]
+                root=identity==root_id
+                position=root_position if root else node['position']
+                title=node['title']
+                if root and suffix:title=title[:200-len(suffix)].rstrip()+suffix
                 values={key:node[key] for key in ('icon','cover')}
                 for kind,value in values.items():
                     if value.startswith('image:') and value[6:] in images:values[kind]='image:'+images[value[6:]]['new_id']
                 c.execute('INSERT INTO notes(id,user_id,title,body,blocks,icon,cover,full_width,position,created,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
-                          (mapping[node['id']],uid,node['title'],rewrite(node['body']),dump(rewrite(json.loads(node['blocks']))) if node['blocks'] else None,values['icon'],values['cover'],node['full_width'],node['position'],stamp,stamp))
+                          (identity,uid,title,rewrite(node['body']),dump(rewrite(json.loads(node['blocks']))) if node['blocks'] else None,values['icon'],values['cover'],node['full_width'],position,stamp,stamp))
             for node in shown.values():c.execute('UPDATE notes SET parent_id=? WHERE id=?',(mapping.get(node['parent_id']),mapping[node['id']]))
             for row in files.values():
                 destination=row['destination']

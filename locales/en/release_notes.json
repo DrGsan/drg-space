@@ -1,4 +1,8 @@
 {
+  "release5_2_14Title": "Copy a Notion note",
+  "release5_2_14Change1": "Create an editable local copy of a linked Notion page from the standard note menu.",
+  "release5_2_14Change2": "Open the new copy and place it at the bottom of the personal notes list.",
+  "release5_2_14Change3": "Allow copying ready pages while other parts of the Notion collection are still importing.",
   "release5_2_13Title": "Outline import",
   "release5_2_13Change1": "Allow note attachments of up to 250 MiB.",
   "release5_2_13Change2": "Keep Outline collections, page icons, table images and original attachment labels when importing Markdown exports.",
