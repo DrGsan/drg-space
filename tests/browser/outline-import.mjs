@@ -34,6 +34,8 @@ for i in range(3):
    Image.new('RGB',(10,15),'blue').save(image,'PNG')
    fence=chr(96)*3
    body=('# 🍿 Outline 0\n\n| Poster | Film |\n| --- | --- |\n| ![Sample](attachments/poster.png " =250x375") | **Film title** |\n\n'
+         'Inline ![Inline](attachments/poster.png) content.\n\n'
+         '1. A list item.  \n   ![Inside list](attachments/poster.png)\n\n'
          '[Notes.txt 4](attachments/Notes.txt)\n\n:::warning\n**Warning**&#x20; Check the sample.\n:::\n\n'
          ':::info\nMore detail\n\n- item\n\n:::\n\n'+fence+'txt\n:::tip\nLiteral fence\n:::\n'+fence)
    z.writestr('attachments/poster.png',image.getvalue())
@@ -54,6 +56,8 @@ print(json.dumps(out))`],{encoding:'utf8'}));
  await expect(poster).toHaveAttribute('width','250');
  await expect.poll(()=>poster.evaluate(image=>image.naturalWidth)).toBe(10);
  await expect(page.locator('td').filter({hasText:'Film title'})).toBeVisible();
+ await expect(page.locator('p').filter({hasText:'Inline content.'}).locator('img.note-inline-image[alt="Inline"]')).toBeVisible();
+ await expect(page.locator('[data-content-type="numberedListItem"] img.note-inline-image[alt="Inside list"]')).toBeVisible();
  await expect(page.getByText('Notes.txt',{exact:true})).toBeVisible();
  const warning=page.locator('[data-callout-kind="warning"]');
  await expect(warning).toContainText('Warning Check the sample.');

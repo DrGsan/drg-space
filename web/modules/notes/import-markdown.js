@@ -39,9 +39,20 @@ export function importedFileBlocks(blocks,origin=location.origin){
   });
 }
 
+function besideInlineText(image){
+  for(const direction of ['previousSibling','nextSibling']){
+    for(let node=image[direction];node;node=node[direction]){
+      if(node.nodeName==='BR')continue;
+      if(node.nodeType===1&&!node.matches('a,b,code,del,em,i,s,span,strong,sub,sup,u'))break;
+      if(node.textContent.trim())return true;
+    }
+  }
+  return false;
+}
+
 function importMarkup(html,origin){
   const hasFences=html.includes('<p data-outline-fence>');
-  if(!hasFences&&(!html.includes('<table')||!html.includes('<img')))return null;
+  if(!hasFences&&!html.includes('<img'))return null;
   const doc=new DOMParser().parseFromString(html,'text/html');
   // Keep the alert's first rich paragraph in its visible body. Subsequent
   // paragraphs and lists stay separate blocks for the existing normalizer.
@@ -52,7 +63,8 @@ function importMarkup(html,origin){
     body.remove();
   }
   let changed=hasFences;
-  for(const image of doc.querySelectorAll('td img, th img')){
+  for(const image of doc.querySelectorAll('img')){
+    if(!image.closest('td,th')&&!besideInlineText(image))continue;
     const url=privateAttachmentUrl(image.getAttribute('src'),origin);
     if(!url)continue;
     const marker=doc.createElement('span');
