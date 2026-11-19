@@ -46,8 +46,17 @@ def json_body(data: Input):
 @app.post('/upload')
 async def upload(request: Request):
     digest = hashlib.sha256();size = 0
-    async for part in request.stream():
-        digest.update(part);size += len(part)
+    probe = request.args.get('probe') == 'abort'
+    try:
+        async for part in request.stream():
+            digest.update(part);size += len(part)
+            if probe:
+                (root / 'upload-started').touch()
+    finally:
+        if probe:
+            (root / 'upload-closed').touch()
+    if probe:
+        (root / 'upload-completed').touch()
     return {'size': size, 'sha256': digest.hexdigest()}
 
 @app.get('/download')

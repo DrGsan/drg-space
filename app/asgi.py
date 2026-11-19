@@ -10,7 +10,7 @@ import threading
 
 from a2wsgi import WSGIMiddleware
 from a2wsgi.wsgi import WSGIResponder
-from werkzeug.exceptions import HTTPException
+from werkzeug.exceptions import ClientDisconnected, HTTPException
 from werkzeug.routing import Map, Rule
 
 from app.http import HTTPError, Request, WebSocket, WebSocketDisconnect
@@ -71,13 +71,22 @@ class StreamingHTTP(WSGIMiddleware):
                 gone.set()
 
         async def body():
+            # Consume any queued final body message even if the peer has
+            # closed. Without that message a disconnect is an aborted upload,
+            # and the WSGI body reader must not receive a normal end of input.
+            try:
+                return incoming.get_nowait()
+            except asyncio.QueueEmpty:
+                pass
             if gone.is_set():
-                return {'type': 'http.disconnect'}
+                raise ClientDisconnected()
             item = asyncio.create_task(incoming.get())
             disconnected = asyncio.create_task(gone.wait())
             try:
                 done, _ = await asyncio.wait((item, disconnected), return_when=asyncio.FIRST_COMPLETED)
-                return item.result() if item in done else {'type': 'http.disconnect'}
+                if item in done:
+                    return item.result()
+                raise ClientDisconnected()
             finally:
                 for task in (item, disconnected):
                     task.cancel()

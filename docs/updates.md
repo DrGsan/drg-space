@@ -1,5 +1,15 @@
 # Updating DrG Space
 
+## 5.2.16
+
+Drive discards uploads when the connection closes before the request body is complete. This applies to local and S3 storage.
+
+Rebuild Space with the existing Compose files, environment, encryption keys and volumes. No migration, new settings or Media update is required. For the base installation:
+
+```sh
+docker compose up -d --build --no-deps app
+```
+
 ## 5.2.15
 
 The note move dialog shows a collapsible tree of editable local destinations. Secret note icons appear in the sidebar after unlocking. New Outline collection pages start with their page links.

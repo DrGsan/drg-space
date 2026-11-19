@@ -1,4 +1,6 @@
 {
+  "release5_2_16Title": "Interrupted Drive uploads",
+  "release5_2_16Change1": "Discard interrupted uploads before they can appear as incomplete files in Drive.",
   "release5_2_15Title": "Note navigation and Outline import",
   "release5_2_15Change1": "Choose an editable local destination from a compact page tree when moving a note.",
   "release5_2_15Change2": "Show secret notes’ emoji and custom icons in the sidebar after unlocking.",

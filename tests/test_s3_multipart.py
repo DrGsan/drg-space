@@ -163,16 +163,17 @@ def test_failed_multipart_api_upload_aborts_without_db_or_quota_changes(monkeypa
     client = MultipartS3(fail=failure)
     redirect_file_store(monkeypatch, client)
     response = c.post('/api/files/upload', params={'name': 'interrupted.bin'}, content=large_body)
-    assert response.status_code == 500, response.text
+    assert response.status_code == 503, response.text
+    assert response.json()['code'] == 'fileStorageTemporarilyUnavailable'
     assert account_state(uid) == before
     assert not client.objects and not client.uploads
     assert [event[0] for event in client.events].count('abort') == 1
-    assert client.events[-1][0] == 'abort'
     if failure == 'upload_part':
         assert [event for event in client.events if event[0] == 'part'] == [('part', 1), ('part', 2)]
         assert not any(event[0] == 'complete' for event in client.events)
+        assert client.events[-1][0] == 'abort'
     else:
-        assert client.events[-2][0] == 'complete'
+        assert [event[0] for event in client.events[-3:]] == ['complete', 'abort', 'delete']
 
 
 def test_quota_rejection_deletes_finalized_multipart_object(monkeypatch, large_body):

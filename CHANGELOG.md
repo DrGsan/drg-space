@@ -2,6 +2,13 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.2.16] — 2026-11-19 — Interrupted Drive uploads
+
+- Discard interrupted uploads before they can appear as incomplete files in Drive.
+
+- **Installation:** Rebuild Space with the existing Compose files and volumes.
+- **Compatibility:** No migration is required.
+
 ## [5.2.15] — 2026-11-19 — Note navigation and Outline import
 
 - Choose an editable local destination from a compact page tree when moving a note.

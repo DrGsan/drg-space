@@ -66,6 +66,20 @@ def test_async_sockets_streaming_disconnect_and_revocation(tmp_path):
             response = client.post('/upload', content=(data[n:n+32768] for n in range(0,len(data),32768)))
             assert response.status_code == 200
             assert response.json() == {'size':len(data), 'sha256':hashlib.sha256(data).hexdigest()}
+            partial = b'x' * (1024 * 1024)
+            for framing, body in (
+                (b'Content-Length: 2097152', partial),
+                (b'Transfer-Encoding: chunked', b'100000\r\n' + partial + b'\r\n'),
+            ):
+                with socket.create_connection(('127.0.0.1', port), timeout=5) as upload:
+                    upload.sendall(b'POST /upload?probe=abort HTTP/1.1\r\nHost: localhost\r\n' + framing + b'\r\n\r\n')
+                    upload.sendall(body)
+                    wait_for(lambda: (root / 'upload-started').exists())
+                wait_for(lambda: (root / 'upload-closed').exists())
+                wait_for(lambda: client.get('/api/health').json()['leases'] == 0)
+                assert not (root / 'upload-completed').exists()
+                (root / 'upload-started').unlink()
+                (root / 'upload-closed').unlink()
             raw = http.client.HTTPConnection('127.0.0.1', port, timeout=5)
             raw.request('GET','/download');download = raw.getresponse();assert download.status == 200
             assert download.read(16) == b'x'*16
