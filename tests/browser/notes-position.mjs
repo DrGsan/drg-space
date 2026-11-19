@@ -4,6 +4,7 @@ import {spawn} from 'node:child_process';
 import {mkdtemp,rm,mkdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {createHmac} from 'node:crypto';
+import {pageAction} from './notes-ui.js';
 
 function totp(secret){
   let bits='';for(const c of secret)bits+='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'.indexOf(c).toString(2).padStart(5,'0');
@@ -29,6 +30,7 @@ async function scenario(page){
   csrf=(await post('/2fa/activate',{saved_recovery_codes:true},csrf)).csrf;
   const first=await post('/notes',{title:'Первая заметка',body:'Сохранённый текст первой заметки'},csrf);
   const second=await post('/notes',{title:'Вторая заметка',body:'Сохранённый текст второй заметки'},csrf);
+  const nested=await post('/notes',{title:'Подстраница',parent_id:first.id,body:'Вложенная заметка'},csrf);
   await page.goto('/');
   const tabs=page.locator('.mobile-app-tabs'),notesTab=tabs.locator('[data-mobile-view=notes]');
   const list=async()=>{await expect(page.locator('#pages-sidebar')).toBeVisible();await expect(page.locator('#notion-page')).toBeHidden();};
@@ -59,6 +61,17 @@ async function scenario(page){
   expect((await (await context.request.get(origin+'/api/notes/'+second.id)).json()).title).toBe('Правка перед переходом');
   // An explicit page link overrides list mode, including a desktop widget link.
   await page.goto('/page/'+first.id);await editor(first.title);await page.reload();await editor(first.title);
+  await pageAction(page,'move');
+  await expect(page.locator(`[data-parent="${nested.id}"]`)).toHaveCount(0);
+  await page.locator('.modal-close').click();
+  await page.goto('/page/'+second.id);await editor('Правка перед переходом');
+  await pageAction(page,'move');
+  const target=page.locator(`[data-parent="${nested.id}"]`);
+  await expect(target).toBeHidden();
+  await page.locator('.note-move-list [data-move-expand]').click();
+  await expect(target).toBeVisible();
+  expect(await page.locator('.note-move-list').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  await page.locator('.modal-close').click();
   await page.locator('#notes-main-menu').click();await list();
   await tabs.locator('[data-mobile-view=tasks]').click();await notesTab.click();await list();
   await page.setViewportSize({width:1280,height:900});

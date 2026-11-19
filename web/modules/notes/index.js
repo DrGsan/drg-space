@@ -24,7 +24,7 @@ import {personAvatar,personName} from '../../core/people.js';
 import {readSidebar,saveSidebar,customizeSidebar,sidebarSections} from './sidebar.js';
 import { pageWordCount, pageActions, showPageMenu, pageMenuIcon, readPageView, savePageView, transferPageView, applyPageView } from "./page-menu.js";
 import "./page-menu.css";
-import {mountVault,moveIntoVault,unlockVaultNotes,subscribeVaultNotes,vaultNotesActivity} from '../security/vault.js';
+import {mountVault,moveIntoVault,unlockVaultNotes,subscribeVaultNotes,vaultNotesActivity,vaultTreeIcon,loadVaultTreeIcon} from '../security/vault.js';
 import {FederatedNotes} from '../federation/notes.js';
 let active;
 // Keep each account's tree open only for this loaded app, across view remounts.
@@ -282,7 +282,7 @@ class NotesWorkspace {
     const section=(key,items,sectionScope)=>`<section class="notes-tree-section" data-sidebar-section="${key}"><div class="tree-section-heading"><span class="tree-section-label">${scope!=='private'&&key==='private'?tText("notes:pages"):sidebarSections[key]}</span>${['private','shared'].includes(key)?`<button class="icon-btn" data-create-scope="${esc(sectionScope)}" aria-label="${tHtml("notes:addPage", {value0:(key==='shared'?tText("notes:shared"):scope==='private'?tText("notes:personal"):tText("notes:family"))})}">＋</button>`:''}</div>${items}</section>`;
     const roots=items=>items.filter(n=>!n.parent_id||!notes.some(parent=>parent.id===n.parent_id)).map(n=>row(n)).join('');
     const sections={
-      favorites:()=>{const items=notes.filter(n=>n.favorite),secret=scope==='private'&&this.vaultEnabled&&!this.sidebarConfig.hidden.includes('secret')?(this.secretItems||[]).filter(n=>n.favorite):[];return items.length||secret.length?section('favorites',items.map(simple).join('')+secret.map(n=>`<button class="favorite-page" data-secret-page="${esc(n.id)}"><span class="tree-page-icon">${esc(n.icon?.startsWith('image:')?'📄':n.icon||'📄')}</span><span class="tree-page-title">${esc(n.title)}</span></button>`).join('')):'';},
+      favorites:()=>{const items=notes.filter(n=>n.favorite),secret=scope==='private'&&this.vaultEnabled&&!this.sidebarConfig.hidden.includes('secret')?(this.secretItems||[]).filter(n=>n.favorite):[];return items.length||secret.length?section('favorites',items.map(simple).join('')+secret.map(n=>`<button class="favorite-page" data-secret-page="${esc(n.id)}"><span class="tree-page-icon">${vaultTreeIcon(n)}</span><span class="tree-page-title">${esc(n.title)}</span></button>`).join('')):'';},
       recent:()=>section('recent',[...notes].filter(n=>!n.isDraft).sort((a,b)=>b.updated-a.updated).slice(0,8).map(simple).join('')||`<p class="hint">${tHtml("notes:noPagesYet")}</p>`),
       shared:()=>scope==='private'?section('shared',roots(notes.filter(n=>n.space_id))||`<p class="hint">${tHtml("notes:commonPagesWithFriendsWillAppearHere")}</p>`,'shared'):'',
       private:()=>section('private',`<div class="tree-root-drop" data-root-scope="${esc(scope)}" data-root-position="first"></div>${roots(notes.filter(n=>scope!=='private'||!n.space_id))||`<p class="hint">${tHtml("notes:noPages")}</p>`}<div class="tree-end-drop" data-root-scope="${esc(scope)}" aria-label="${tHtml("notes:moveToTheEndOfTheList")}"></div>`,scope),
@@ -291,13 +291,14 @@ class NotesWorkspace {
       ? (this.searching?`<p class="hint">${tHtml("notes:searchingForNotes")}</p>`:this.searchError?`<p class="hint">${esc(this.searchError)}</p>`:`<div class="tree-section-label">${tHtml("notes:found", {value0:(this.searchTotal||0)})}</div>${(this.searchResults||[]).map(n=>`<button class="note-search-result ${this.page?.id===n.id?'selected':''}" data-open-page="${esc(n.id)}"><strong>${pageIcon(n)} ${esc(n.title)}</strong><span>${esc(n.excerpt||tText("notes:withoutText"))}</span></button>`).join('')||`<p class="hint">${tHtml("notes:nothingFoundTryOtherWords")}</p>`}${this.searchTotal>100?`<p class="hint">${tHtml("notes:showingTheFirst100ResultsRefineYourQuery")}</p>`:''}`)
       : this.sidebarConfig.order.filter(key=>!this.sidebarConfig.hidden.includes(key)).map(key=>sections[key]?.()||'').join('');
     if(this.vaultEnabled&&scope==='private'&&!this.sidebarConfig.hidden.includes('secret')){
-      const secretRow=(item,depth=0)=>{const children=(this.secretItems||[]).filter(x=>x.parent_id===item.id),expanded=this.secretExpanded.has(item.id);return `<div class="page-tree-row ${this.vault?.note?.id===item.id?'selected':''}" data-secret-row="${esc(item.id)}" style="--depth:${depth}"><button class="tree-toggle" data-secret-expand="${esc(item.id)}" aria-label="${tHtml("notes:subpages", {value0:(esc(item.title))})}" ${children.length?`aria-expanded="${expanded}"`:'disabled'}>${children.length?(expanded?'▾':'▸'):'·'}</button><button class="tree-open" data-secret-page="${esc(item.id)}"><span class="tree-page-icon">${esc(item.kind==='database'?'▦':item.icon?.startsWith('image:')?'📄':item.icon||'📄')}</span><span class="tree-page-title">${esc(item.title)}</span></button><button class="tree-add" data-secret-add="${esc(item.id)}" aria-label="${tHtml("notes:createASecretSubpage", {value0:(esc(item.title))})}">＋</button></div>${expanded?children.map(x=>secretRow(x,depth+1)).join(''):''}`;};
+      const secretRow=(item,depth=0)=>{const children=(this.secretItems||[]).filter(x=>x.parent_id===item.id),expanded=this.secretExpanded.has(item.id);return `<div class="page-tree-row ${this.vault?.note?.id===item.id?'selected':''}" data-secret-row="${esc(item.id)}" style="--depth:${depth}"><button class="tree-toggle" data-secret-expand="${esc(item.id)}" aria-label="${tHtml("notes:subpages", {value0:(esc(item.title))})}" ${children.length?`aria-expanded="${expanded}"`:'disabled'}>${children.length?(expanded?'▾':'▸'):'·'}</button><button class="tree-open" data-secret-page="${esc(item.id)}"><span class="tree-page-icon">${vaultTreeIcon(item)}</span><span class="tree-page-title">${esc(item.title)}</span></button><button class="tree-add" data-secret-add="${esc(item.id)}" aria-label="${tHtml("notes:createASecretSubpage", {value0:(esc(item.title))})}">＋</button></div>${expanded?children.map(x=>secretRow(x,depth+1)).join(''):''}`;};
       const content=this.secretItems?(this.secretItems.filter(x=>!x.parent_id).map(x=>secretRow(x)).join('')||`<p class="hint">${tHtml("notes:noSecretPages")}</p>`):'';
       const secretHTML=`<section class="notes-tree-section" data-sidebar-section="secret"><div class="tree-section-heading">${this.secretItems?`<span class="tree-section-label">${tHtml("notes:private")}</span>`:`<button class="tree-section-label secret-section-title" data-secret-notes>${tHtml("notes:private")}</button>`}<button class="icon-btn" data-secret-add="" aria-label="${tHtml("notes:createASecretPage")}">＋</button></div>${content}</section>`;
       const next=this.sidebarConfig.order.slice(this.sidebarConfig.order.indexOf('secret')+1).map(key=>$('[data-sidebar-section='+key+']',this.host)).find(Boolean);
       if(next)next.insertAdjacentHTML('beforebegin',secretHTML);else $('#page-tree',this.host).insertAdjacentHTML('beforeend',secretHTML);
       const secretSection=$('[data-sidebar-section=secret]',this.host);for(const type of ['pointerdown','keydown','wheel'])secretSection.addEventListener(type,event=>{if(event.isTrusted)vaultNotesActivity(this.ctx);},{passive:true});
       $('[data-secret-notes]',this.host)?.addEventListener('click',async()=>{try{if(await unlockVaultNotes(this.ctx)&&this.vault?.locked){this.empty();this.tree();}}catch(error){this.ctx.toast(error.message);}});
+      this.host.querySelectorAll('[data-vault-tree-icon]').forEach(icon=>loadVaultTreeIcon(this.ctx,icon));
       this.host.querySelectorAll('[data-secret-expand]').forEach(b=>b.onclick=()=>{const id=b.dataset.secretExpand;this.secretExpanded.has(id)?this.secretExpanded.delete(id):this.secretExpanded.add(id);this.tree();});
       this.host.querySelectorAll('[data-secret-page]').forEach(b=>b.onclick=async()=>{if(await this.openVault()){await this.vault.openNote(b.dataset.secretPage);this.tree();}});
       this.host.querySelectorAll('[data-secret-add]').forEach(b=>b.onclick=async()=>{if(await this.openVault()){const parent=b.dataset.secretAdd||null;if(parent)this.secretExpanded.add(parent);const created=await this.vault.newPage(parent);if(!created&&!this.vault.note)this.empty();else await this.vault.refreshTree();this.tree();}});
@@ -1152,21 +1153,56 @@ class NotesWorkspace {
     }catch(error){this.ctx.toast(error.message);}
   }
   moveDialog() {
-    const options = this.state.notes.filter((n) => n.id !== this.page.id && n.space_id===this.page.space_id);
+    const source = this.page;
+    const notes = this.state.notes.filter(note => note.space_id === source.space_id);
+    const now = Date.now() / 1000;
+    const canReceivePage = note => !note.isDraft && (!note.role || note.role === 'editor')
+      && (!note.locked || note.unlock_until > now)
+      && (!note.notion_sync || note.notion_sync.status === 'detached');
+    const ids = new Set(notes.map(note => note.id));
+    const children = new Map();
+    for (const note of notes) {
+      const parent = ids.has(note.parent_id) ? note.parent_id : null;
+      if (!children.has(parent)) children.set(parent, []);
+      children.get(parent).push(note);
+    }
+    const branch = (parent, depth = 0) => (children.get(parent) || [])
+      .filter(note => note.id !== source.id)
+      .map(note => {
+        if (!canReceivePage(note)) return branch(note.id, depth);
+        const nested = branch(note.id, depth + 1);
+        return `<div class="note-move-branch">
+          <div class="note-move-row">
+            ${nested ? `<button type="button" class="note-move-toggle" data-move-expand aria-expanded="false" aria-label="${tHtml("notes:subpages", {value0:esc(note.title)})}"></button>` : '<span></span>'}
+            <button type="button" class="note-move-target" data-parent="${esc(note.id)}"><span class="note-move-icon">${pageIcon(note)}</span><span>${esc(note.title)}</span></button>
+          </div>
+          ${nested ? `<div class="note-move-children${depth >= 5 ? ' note-move-deep' : ''}" hidden>${nested}</div>` : ''}
+        </div>`;
+      }).join('');
+    const destinations = branch(null);
     const el = this.ctx.modal(
-      `<h2>${tHtml("notes:whereToMove")}</h2><div class="page-action-list">${this.vaultEnabled&&!this.page.space_id?`<button data-move-secret>${tHtml("notes:secret")}</button>`:''}<button data-parent="">${tHtml("notes:topLevelOfTheWorkspace")}</button>${options
-          .map(
-            (n) =>
-              `<button data-parent="${esc(n.id)}">${pageIcon(n)} ${esc(n.title)}</button>`,
-          )
-          .join("")}</div>`,
+      `<h2 id="note-move-title">${tHtml("notes:whereToMove")}</h2>
+      <div class="note-move-actions">
+        ${this.vaultEnabled&&!source.space_id?`<button type="button" class="note-move-target" data-move-secret><span class="note-move-icon">${pageMenuIcon('lock')}</span><span>${tHtml("notes:secret")}</span></button>`:''}
+        <button type="button" class="note-move-target" data-parent=""><span class="note-move-icon">${pageMenuIcon('workspace')}</span><span>${tHtml("notes:topLevelOfTheWorkspace")}</span></button>
+      </div>${destinations ? `<div class="note-move-list">${destinations}</div>` : ''}`,
     );
+    const dialog = $('.modal', el);
+    dialog.classList.add('note-move-dialog');
+    dialog.setAttribute('aria-labelledby', 'note-move-title');
     el.querySelector('[data-move-secret]')?.addEventListener('click',async()=>{try{if(!await this.flush())return;const item=this.page;$('.modal-close',el).click();if(await moveIntoVault(this.ctx,'notes',item)){this.state.notes=await this.ctx.api('/notes');this.page=null;this.state.selected=null;this.tree();if(await this.openVault())await this.vault.openNote(item.id);}}catch(error){this.ctx.toast(error.message);}});
+    el.querySelectorAll('[data-move-expand]').forEach(button => {
+      button.onclick = () => {
+        const nested = button.parentElement.nextElementSibling;
+        nested.hidden = !nested.hidden;
+        button.setAttribute('aria-expanded', String(!nested.hidden));
+      };
+    });
     el.querySelectorAll("[data-parent]").forEach(
       (b) =>
         (b.onclick = () => {
           $(".modal-close", el).click();
-          this.move(this.page.id, b.dataset.parent || null);
+          this.move(source.id, b.dataset.parent || null);
         }),
     );
   }

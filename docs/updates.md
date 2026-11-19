@@ -1,5 +1,15 @@
 # Updating DrG Space
 
+## 5.2.15
+
+The note move dialog shows a collapsible tree of editable local destinations. Secret note icons appear in the sidebar after unlocking. New Outline collection pages start with their page links.
+
+Rebuild Space with the existing Compose files, environment, encryption keys and volumes. No migration, new settings or Media update is required. For the base installation:
+
+```sh
+docker compose up -d --build --no-deps app
+```
+
 ## 5.2.14
 
 Use the standard note menu to create an editable local copy of a linked Notion page. The copy opens at the bottom of the personal notes list and has its own attachments. A page that has finished importing can be copied while unrelated pages from the same collection are still transferring.

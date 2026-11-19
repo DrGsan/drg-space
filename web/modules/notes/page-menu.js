@@ -40,6 +40,7 @@ const paths = {
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4"/>',
   duplicate: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h1"/>',
   move: '<path d="M4 20v-6a4 4 0 0 1 4-4h12m-5-5 5 5-5 5"/>',
+  workspace: '<path d="M4 8a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/>',
   trash: '<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/>',
   width: '<path d="M3 12h18m-4-4 4 4-4 4M7 8l-4 4 4 4"/>',
   small: '<path d="M3 17 8 5l5 12M5 12h6m5-4v12m-3-3 3 3 3-3"/>',

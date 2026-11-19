@@ -1,4 +1,4 @@
-import {appSection} from './notes-ui.js';
+import {appSection,pageAction} from './notes-ui.js';
 import {execFileSync} from 'node:child_process';
 import {expect} from '@playwright/test';
 import {chromium,webkit} from 'playwright';
@@ -40,8 +40,9 @@ for i in range(3):
          ':::info\nMore detail\n\n- item\n\n:::\n\n'+fence+'txt\n:::tip\nLiteral fence\n:::\n'+fence)
    z.writestr('attachments/poster.png',image.getvalue())
    z.writestr('attachments/Notes.txt','data')
-  z.writestr('Page'+str(i)+'.md',body)
-  z.writestr('attachments/file'+str(i)+'.txt','OUTLINE_ATTACHMENT_'+str(i))
+  prefix='Collection/' if i==2 else ''
+  z.writestr(prefix+'Page'+str(i)+'.md',body)
+  z.writestr(prefix+'attachments/file'+str(i)+'.txt','OUTLINE_ATTACHMENT_'+str(i))
  out.append(base64.b64encode(b.getvalue()).decode())
 print(json.dumps(out))`],{encoding:'utf8'}));
  await page.goto('/');await appSection(page,'Настройки');await page.locator('#open-personal-data').click();await page.locator('[data-outline-import]').click();
@@ -49,7 +50,24 @@ print(json.dumps(out))`],{encoding:'utf8'}));
  await form.getByRole('button',{name:'Проверить архив',exact:true}).click();await expect(form.locator('[data-notion-preview]')).toContainText('Архив проверен');
  await expect(form.locator('[data-notion-preview]')).toContainText('Вложения');expect((await api('/notes')).length).toBe(1);
  await form.locator('[data-notion-import]').click();await expect(page.locator('[data-notion-preview]')).toContainText('Импорт завершён',{timeout:15000});
- const notes=await api('/notes');expect(notes).toHaveLength(4);expect((await api('/notes/'+existing.id)).body).toBe('Preserve original');expect(notes.every(n=>!n.space_id)).toBe(true);
+ const notes=await api('/notes');expect(notes).toHaveLength(5);expect((await api('/notes/'+existing.id)).body).toBe('Preserve original');expect(notes.every(n=>!n.space_id)).toBe(true);
+ const collection=notes.find(n=>n.title==='Collection'),child=notes.find(n=>n.title==='Outline 2');
+ await page.goto('/page/'+collection.id);
+ await expect(page.locator('.inline-page-link')).toContainText(child.title);
+ expect((await api('/notes/'+collection.id)).blocks.map(block=>block.type)).toEqual(['pageLink']);
+ await pageAction(page,'move');
+ await expect(page.locator(`[data-parent="${child.id}"]`)).toHaveCount(0);
+ await page.locator('.modal-close').click();
+ await page.goto('/page/'+existing.id);
+ await pageAction(page,'move');
+ const target=page.locator(`[data-parent="${child.id}"]`);
+ const toggle=page.locator(`[data-parent="${collection.id}"]`).locator('..').locator('[data-move-expand]');
+ await expect(target).toBeHidden();
+ await expect(toggle).toHaveAttribute('aria-expanded','false');
+ await toggle.press('Enter');await expect(target).toBeVisible();
+ await toggle.click();await expect(target).toBeHidden();
+ await toggle.click();await target.click();
+ await expect.poll(async()=>(await api('/notes/'+existing.id)).parent_id).toBe(child.id);
  const imported=notes.find(n=>n.title==='Outline 0');expect(imported.icon).toBe('🍿');
  await page.goto('/page/'+imported.id);
  const poster=page.locator('td img[alt="Sample"]');

@@ -16,19 +16,84 @@ import {uploadFile} from '../files/upload-panel.js';
 // document contents or object URLs in storage, cookies or navigation URLs.
 const grants=new Map();
 const drafts=new Map();
-const noteTrees=new Map(),treeListeners=new Map();
+const noteTrees=new Map(),treeListeners=new Map(),treeIcons=new Map();
+const noteIconAsset=icon=>/^image:([a-f0-9]{32})$/.exec(icon||'')?.[1];
 function treeValue(ctx){const grant=grants.get(key(ctx,'notes'));return grant&&grant.expires*1000>Date.now()&&!document.hidden?noteTrees.get(ctx.state.me.id)||null:null;}
 function emitTree(ctx){for(const fn of treeListeners.get(ctx.state.me.id)||[])fn(treeValue(ctx));}
 export function vaultNotesActivity(ctx){const grant=grants.get(key(ctx,'notes'));if(!grant||Date.now()-(grant.lastTreeActivity||0)<15000)return;grant.lastTreeActivity=Date.now();vaultApi(ctx,'notes','/activity','POST').then(value=>Object.assign(grant,value)).catch(()=>{});}
-function cacheTree(ctx,items){noteTrees.set(ctx.state.me.id,items);emitTree(ctx);}
-export function subscribeVaultNotes(ctx,fn){const uid=ctx.state.me.id;if(!treeListeners.has(uid))treeListeners.set(uid,new Set());treeListeners.get(uid).add(fn);fn(treeValue(ctx));let visible=!!treeValue(ctx),lastCheck=0;const tick=()=>{const grant=grants.get(key(ctx,'notes'));if(!grant||grant.expires*1000<=Date.now())noteTrees.delete(uid);const next=!!treeValue(ctx);if(next!==visible){visible=next;emitTree(ctx);}if(next&&Date.now()-lastCheck>30000){lastCheck=Date.now();vaultApi(ctx,'notes','/state').catch(()=>{});}};const timer=setInterval(tick,1000);document.addEventListener('visibilitychange',tick);return ()=>{clearInterval(timer);document.removeEventListener('visibilitychange',tick);treeListeners.get(uid)?.delete(fn);};}
+function pruneTreeIcons(uid,keep=new Set()){
+ const icons=treeIcons.get(uid);
+ if(!icons)return;
+ for(const [id,entry] of icons){
+  if(keep.has(id))continue;
+  icons.delete(id);
+  entry.controller.abort();
+  if(entry.url)URL.revokeObjectURL(entry.url);
+ }
+ if(!icons.size)treeIcons.delete(uid);
+}
+function clearTree(uid){pruneTreeIcons(uid);noteTrees.delete(uid);}
+function cacheTree(ctx,items){
+ const uid=ctx.state.me.id;
+ pruneTreeIcons(uid,new Set(items.map(item=>noteIconAsset(item.icon))));
+ noteTrees.set(uid,items);
+ emitTree(ctx);
+}
+export function vaultTreeIcon(item){
+ const asset=noteIconAsset(item.icon);
+ if(asset)return `<span data-vault-tree-icon="${asset}">📄</span>`;
+ return esc(item.icon||(item.kind==='database'?'▦':'📄'));
+}
+export function loadVaultTreeIcon(ctx,placeholder){
+ const uid=ctx.state.me.id,id=placeholder.dataset.vaultTreeIcon,grant=grants.get(key(ctx,'notes'));
+ if(!treeValue(ctx))return;
+ if(!treeIcons.has(uid))treeIcons.set(uid,new Map());
+ const icons=treeIcons.get(uid);
+ let entry=icons.get(id);
+ if(!entry){
+  const controller=new AbortController();
+  entry={controller,url:null,promise:null};
+  icons.set(id,entry);
+  entry.promise=vaultBinary(ctx,'notes','/content/'+id,undefined,controller.signal).then(async response=>{
+   const blob=new Blob([await response.blob()],{type:response.headers.get('X-Vault-Mime')||'application/octet-stream'});
+   if(icons.get(id)!==entry||grants.get(key(ctx,'notes'))!==grant||grant.expires*1000<=Date.now())return;
+   entry.url=URL.createObjectURL(blob);
+   return entry.url;
+  }).catch(()=>{if(icons.get(id)===entry)icons.delete(id);});
+ }
+ entry.promise.then(url=>{
+  if(!url||!placeholder.isConnected||!treeValue(ctx)||icons.get(id)!==entry)return;
+  const img=document.createElement('img');
+  img.className='page-custom-icon';
+  img.alt=tText("common:pageIcon");
+  img.src=url;
+  placeholder.replaceWith(img);
+ });
+}
+export function subscribeVaultNotes(ctx,fn){
+ const uid=ctx.state.me.id;
+ if(!treeListeners.has(uid))treeListeners.set(uid,new Set());
+ const listeners=treeListeners.get(uid);
+ let visible,lastCheck=0;
+ const update=items=>{visible=!!items;fn(items);};
+ listeners.add(update);update(treeValue(ctx));
+ const tick=()=>{
+  const grant=grants.get(key(ctx,'notes'));
+  if(!grant||grant.expires*1000<=Date.now())clearTree(uid);
+  const next=!!treeValue(ctx);
+  if(next!==visible)emitTree(ctx);
+  if(next&&Date.now()-lastCheck>30000){lastCheck=Date.now();vaultApi(ctx,'notes','/state').catch(()=>{});}
+ };
+ const timer=setInterval(tick,1000);document.addEventListener('visibilitychange',tick);
+ return ()=>{clearInterval(timer);document.removeEventListener('visibilitychange',tick);listeners.delete(update);if(!listeners.size)pruneTreeIcons(uid);};
+}
 if(typeof window!=='undefined')window.addEventListener('beforeunload',event=>{if(drafts.size){event.preventDefault();event.returnValue='';}});
 let active;
 const key=(ctx,section)=>ctx.state.me.id+':'+section;
 const mobile=()=>matchMedia('(pointer:coarse)').matches||/Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
 const pinInput=(name='pin',label='PIN')=>`<label>${label}<input name="${name}" type="password" inputmode="numeric" pattern="(?:[0-9]{4}|[0-9]{6})" minlength="4" maxlength="6" autocomplete="off" required aria-label="${label}"></label>`;
 const factorInput=`<label>${tHtml("security:label2faOrRecoveryCode")}<input name="code" autocomplete="one-time-code" maxlength="100" required></label>`;
-export const vaultController={flush:()=>active?.flush()??Promise.resolve(true),destroy:()=>{active?.destroy();active=null;},clear:()=>{active?.destroy();active=null;grants.clear();drafts.clear();noteTrees.clear();for(const listeners of treeListeners.values())for(const fn of listeners)fn(null);}};
+export const vaultController={flush:()=>active?.flush()??Promise.resolve(true),destroy:()=>{active?.destroy();active=null;},clear:()=>{active?.destroy();active=null;grants.clear();drafts.clear();for(const uid of noteTrees.keys())clearTree(uid);for(const listeners of treeListeners.values())for(const fn of listeners)fn(null);}};
 
 export async function mountVaultSettings(host,ctx){
  const status=await ctx.api('/secret-vault');if(!host.isConnected)return;
@@ -52,7 +117,7 @@ export async function mountVaultSettings(host,ctx){
 export async function ensureVault(ctx,section){
  const id=key(ctx,section),old=grants.get(id);
  if(old&&old.expires*1000>Date.now())return old;
- grants.delete(id);if(section==='notes'){noteTrees.delete(ctx.state.me.id);emitTree(ctx);}
+ grants.delete(id);if(section==='notes'){clearTree(ctx.state.me.id);emitTree(ctx);}
  return new Promise(resolve=>{
   const el=ctx.modal(`<h2>${tHtml("security:secret", {value0:(section==='notes'?tText("security:notes"):tText("security:files"))})}</h2><p class="hint">${tHtml("security:enterThe4Or6DigitStoragePin")}</p><form data-vault-unlock>${pinInput()}<button class="primary">${tHtml("security:open")}</button></form><button class="text-link" data-vault-unblock>${tHtml("security:disableRetryAttemptsVia2Fa")}</button>`);
   let finished=false;const observer=new MutationObserver(()=>{if(!el.isConnected){observer.disconnect();if(!finished)resolve(null);}});observer.observe(document.body,{childList:true,subtree:true});
@@ -68,7 +133,19 @@ export async function ensureVault(ctx,section){
 export async function vaultApi(ctx,section,path,method='GET',body,options={}){
  const grant=grants.get(key(ctx,section));if(!grant)throw Error(tText("security:enterThePinForTheSecretSection"));
  try{return await ctx.api('/secret-vault/'+section+path,method,body,true,{'X-Vault-Token':grant.token},{timeoutMs:path.startsWith('/move-')?0:15000,...options});}
- catch(error){if(error.status===401||error.status===423){grants.delete(key(ctx,section));if(section==='notes')emitTree(ctx);if(active?.section===section&&active.ctx.state.me.id===ctx.state.me.id)active.expire();}throw error;}
+ catch(error){if((error.status===401||error.status===423)&&grants.get(key(ctx,section))===grant){grants.delete(key(ctx,section));if(section==='notes'){clearTree(ctx.state.me.id);emitTree(ctx);}if(active?.section===section&&active.ctx.state.me.id===ctx.state.me.id)active.expire();}throw error;}
+}
+
+async function vaultBinary(ctx,section,path,body,network){
+ const grant=grants.get(key(ctx,section));if(!grant)throw Error(tText("security:thisSectionIsLocked"));
+ return abortable(async signal=>{
+  signal=AbortSignal.any([signal,network]);
+  const request=()=>fetch('/api/secret-vault/'+section+path,{method:body?'POST':'GET',body,signal,credentials:'same-origin',cache:'no-store',headers:{'X-Vault-Token':grant.token,'X-CSRF-Token':csrfCookie(),'Content-Type':'application/octet-stream'}});
+  let response=await request();
+  if(response.status===401&&await refreshSession())response=await request();
+  if(!response.ok){let message=tText("security:failedToReadTheFile");try{message=(await response.json()).detail||message;}catch{}throw Error(message);}
+  return response;
+ },{timeoutMs:120000});
 }
 
 // Unlock the sidebar without replacing the page that is already open.
@@ -133,7 +210,7 @@ class VaultPanel{
  async expire(automatic=false){
   if(this.disposed||this.locked)return;
   if(automatic)vaultApi(this.ctx,this.section,'/auto-lock','POST').catch(()=>{});
-  this.locked=true;grants.delete(key(this.ctx,this.section));if(this.section==='notes'){noteTrees.delete(this.ctx.state.me.id);emitTree(this.ctx);}
+  this.locked=true;grants.delete(key(this.ctx,this.section));if(this.section==='notes'){clearTree(this.ctx.state.me.id);emitTree(this.ctx);}
   this.host.classList.add('vault-obscured');
   if(this.sourceDirty&&this.editor){this.editor.replaceMarkdown(this.convert($('#markdown-source',this.host).value,false));this.sourceDirty=false;}
   if((this.dirty||this.saving)&&this.note&&(this.editor||this.note.database)){
@@ -281,13 +358,7 @@ class VaultPanel{
    catch(error){if(!this.disposed&&generation===this.generation){this.dirty=true;const status=$('[data-vault-status]',this.host);if(status)status.textContent=tText("security:notSaved", {value0:(error.message)});this.host.querySelector('[data-vault-retry]')?.removeAttribute('hidden');}return false;}
   })();const ok=await this.saving;this.saving=null;return ok&&(!this.dirty||await this.flush());
  }
- async binary(path,body){
-  const grant=grants.get(key(this.ctx,this.section));if(!grant)throw Error(tText("security:thisSectionIsLocked"));
-  return abortable(async signal=>{signal=AbortSignal.any([signal,this.network.signal]);let response=await fetch('/api/secret-vault/'+this.section+path,{method:body?'POST':'GET',body,signal,credentials:'same-origin',cache:'no-store',headers:{'X-Vault-Token':grant.token,'X-CSRF-Token':csrfCookie(),'Content-Type':'application/octet-stream'}});
-   if(response.status===401&&await refreshSession())response=await fetch('/api/secret-vault/'+this.section+path,{method:body?'POST':'GET',body,signal,credentials:'same-origin',cache:'no-store',headers:{'X-Vault-Token':grant.token,'X-CSRF-Token':csrfCookie(),'Content-Type':'application/octet-stream'}});
-   if(!response.ok){let message=tText("security:failedToReadTheFile");try{message=(await response.json()).detail||message;}catch{}throw Error(message);}return response;
-  },{timeoutMs:120000});
- }
+ binary(path,body){return vaultBinary(this.ctx,this.section,path,body,this.network.signal);}
  remember(path,url){const previous=this.urls.get(path);if(previous)URL.revokeObjectURL(previous);if(this.disposed||this.locked){URL.revokeObjectURL(url);return '';}this.urls.set(path,url);return url;}
  async upload(file,parent,progress){if(this.section==='files'){const grant=grants.get(key(this.ctx,this.section));if(!grant)throw Error(tText("security:thisSectionIsLocked"));try{return await uploadFile('/secret-vault/files/upload?name='+encodeURIComponent(file.name)+(parent?'&parent_id='+encodeURIComponent(parent):''),file,{'X-Vault-Token':grant.token},progress,true,this.network.signal);}catch(error){if(error.status===423)this.expire();throw error;}}const response=await this.binary('/upload?name='+encodeURIComponent(file.name)+(parent?'&parent_id='+encodeURIComponent(parent):''),file),item=await response.json();return this.remember(item.url,URL.createObjectURL(file));}
  async preview(item){

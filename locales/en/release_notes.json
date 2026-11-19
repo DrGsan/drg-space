@@ -1,4 +1,8 @@
 {
+  "release5_2_15Title": "Note navigation and Outline import",
+  "release5_2_15Change1": "Choose an editable local destination from a compact page tree when moving a note.",
+  "release5_2_15Change2": "Show secret notes’ emoji and custom icons in the sidebar after unlocking.",
+  "release5_2_15Change3": "Open imported Outline collections without an extra blank paragraph above their page links.",
   "release5_2_14Title": "Copy a Notion note",
   "release5_2_14Change1": "Create an editable local copy of a linked Notion page from the standard note menu.",
   "release5_2_14Change2": "Open the new copy and place it at the bottom of the personal notes list.",

@@ -37,6 +37,21 @@ def test_legacy_orphans_are_repaired_without_duplicate_links_or_replacing_markdo
     unrelated=create(c,'Other root');assert subpage(c,repaired,repair_ids=[unrelated['id']]).json()['added']==0
 
 
+def test_link_repair_drops_only_the_generated_blank_paragraph():
+    c,_,_=owner()
+    blank={'id':'blank','type':'paragraph','content':[],'children':[]}
+    for stored in (None,[blank]):
+        response=c.post('/api/notes',json={'title':'Collection','body':'','blocks':stored})
+        assert response.status_code==200,response.text
+        parent=response.json()
+        child=create(c,'Imported page',parent['id'])
+        response=subpage(c,parent,repair_ids=[child['id']],parent_blocks=[blank])
+        assert response.status_code==200,response.text
+        result=response.json()['parent']['blocks']
+        assert [item['type'] for item in result]==(['pageLink'] if stored is None else ['paragraph','pageLink'])
+        assert result[-1]['props']['pageId']==child['id']
+
+
 def test_removing_owned_shortcut_trashes_subtree_and_undo_restores_exact_batch():
     c,_,_=owner();p=create(c,blocks=[]);created=subpage(c,p).json();p=created['parent'];child=created['page']
     grandchild=create(c,'Nested',child['id']);independent=create(c,'Already deleted',child['id'])

@@ -84,6 +84,18 @@ try{
  await page.unroute(reviewPattern);await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
 
  await dialog.locator('[data-sync-open]').click();await expect(page.locator('.notion-source-banner')).toBeVisible({timeout:15000});
+ const linkedPath=new URL(page.url()).pathname;
+ const linkedPages=(await api('/notes?catalog=true',undefined,'GET')).filter(note=>note.notion_sync);
+ expect(linkedPages.length).toBeGreaterThan(0);
+ const anchor=await api('/notes',{title:'Обычная папка',body:'Сохранённый текст'});
+ await visit('/page/'+anchor.id);
+ await page.locator('#page-actions').click();
+ await page.locator('[data-page-action=move]').click();
+ const moveDialog=page.locator('.note-move-dialog');
+ await expect(moveDialog.locator('[data-parent=""]')).toBeVisible();
+ for(const linked of linkedPages)await expect(moveDialog.locator(`[data-parent="${linked.id}"]`)).toHaveCount(0);
+ await moveDialog.locator('.modal-close').click();
+ await visit(linkedPath);
  const layoutNotePath=new URL(page.url()).pathname.replace('/page/','/api/notes/');let plainLayout=true;
  const layoutPattern='**'+layoutNotePath;
  await page.route(layoutPattern,async route=>{
@@ -144,7 +156,6 @@ try{
  const send=page.getByRole('dialog').last();await expect(send.locator('[data-send-local]')).toBeEnabled();await expect(send.locator('[data-keep-copy]')).toBeChecked();await send.locator('[data-send-local]').click();await expect(send.locator('a')).toBeVisible();expect(decisions[1].direction).toBe('push');expect(decisions[1].keep_copy).toBe(true);
  await send.getByRole('button',{name:'Закрыть',exact:true}).click();await page.getByRole('dialog').last().getByRole('button',{name:'Закрыть',exact:true}).click();await page.setViewportSize({width:1280,height:900});
  await page.unrouteAll({behavior:'wait'});
- const anchor=await api('/notes',{title:'Обычная папка',body:'Сохранённый текст'});
  await page.reload();await expect(page.locator('.notion-source-banner')).toBeVisible();
  await page.locator('#page-actions').click();await expect(page.locator('[data-page-action=move-down]')).toBeVisible();
  await page.getByRole('dialog').last().screenshot({path:'artifacts/drg-62/after-webapp-reorder-menu.png'});

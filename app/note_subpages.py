@@ -110,6 +110,13 @@ def register_subpages(router,db,ready,now,fail,owned,serialize,publication_updat
                 c.note_access_index=None
                 created=owned(c,identity,session['user_id']);add=[created]
             if add:
+                # The editor supplies a placeholder when opening a blank legacy
+                # page. Repairing child links should not save it as real content.
+                if (data.repair_ids is not None and data.replace_block_id is None
+                    and parent['blocks'] is None and not parent['body'].strip()
+                    and len(blocks) == 1 and blocks[0].get('type') == 'paragraph'
+                    and not blocks[0].get('content') and not blocks[0].get('children')):
+                    blocks.clear()
                 replacements=[]
                 def append_shortcuts(items):
                     for child in add:

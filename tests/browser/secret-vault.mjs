@@ -67,9 +67,14 @@ try{
  await page.locator('#page-actions').click();await page.locator('[data-editor-mode=blocks]').click();await expect(page.getByLabel('Содержимое страницы')).toContainText('Markdown работает');
  await pageAction(page,'width');await expect(page.locator('#notion-page')).toHaveClass(/full-width/);
  await page.locator('#change-icon').click();const emoji=await page.locator('[data-emoji]').first().getAttribute('data-emoji');await page.locator('[data-emoji]').first().click();await expect(page.locator('#change-icon')).toHaveText(emoji);
+ await expect(page.locator('[data-secret-row] .tree-page-icon').first()).toHaveText(emoji);
+ await page.locator('#change-icon').click();await page.locator('[data-decoration-tab=upload]').click();await page.locator('[data-icon-file]').setInputFiles('tests/fixtures/blue.png');
+ const sidebarIcon=page.locator('[data-secret-row] .page-custom-icon').first();
+ await expect(sidebarIcon).toHaveAttribute('src',/^blob:/);
+ await expect.poll(()=>sidebarIcon.evaluate(img=>img.naturalWidth)).toBeGreaterThan(0);
  await page.locator('#change-cover').click();await page.locator('[data-cover-tab=upload]').click();await page.locator('[data-cover-file]').setInputFiles('tests/fixtures/blue.png');await expect(page.locator('.page-cover img')).toHaveAttribute('src',/^blob:/);
  await page.screenshot({path:'artifacts/secret-vault-note-header.png',fullPage:true});
- await page.locator('#favorite-page').click();await expect(page.locator('[data-sidebar-section=favorites] [data-secret-page]')).toHaveText(/Секретная заметка/);await page.locator('#favorite-page').click();await expect(page.locator('[data-sidebar-section=favorites] [data-secret-page]')).toHaveCount(0);
+ await page.locator('#favorite-page').click();await expect(page.locator('[data-sidebar-section=favorites] [data-secret-page] .page-custom-icon')).toHaveAttribute('src',await sidebarIcon.getAttribute('src'));await page.locator('#favorite-page').click();await expect(page.locator('[data-sidebar-section=favorites] [data-secret-page]')).toHaveCount(0);
  await pageAction(page,'duplicate');await expect(page.locator('#page-title')).toHaveValue('Секретная заметка (копия)');
  page.once('dialog',dialog=>dialog.accept());await pageAction(page,'trash');await expect(page.locator('[data-secret-page]')).toHaveCount(1);await page.locator('[data-secret-page]').click();
  expect(await page.evaluate(()=>Object.values(localStorage).join(' '))).not.toMatch(/Секретная заметка|Секретный текст|Markdown работает/);
@@ -93,8 +98,11 @@ try{
  await page.keyboard.press('ControlOrMeta+z');await expect(page.locator('[data-vault-status]')).toHaveText('Сохранено');await expect(page.locator('.inline-page-link')).toHaveCount(0);
  await page.locator('[data-open-page="'+ordinary.id+'"]').click();await page.locator('[data-secret-page]').click();await expect(page.locator('.inline-page-link')).toHaveCount(0);
  await page.locator('[data-secret-row]').hover();page.once('dialog',dialog=>dialog.accept('Вложенная секретная'));await page.locator('[data-secret-row] [data-secret-add]').last().click();await expect(page.locator('#page-title')).toHaveValue('Вложенная секретная');
+ const unlockedIcon=await sidebarIcon.getAttribute('src');
  await page.locator('[data-vault-lock]').click();await expect(page.locator('[data-secret-page]')).toHaveCount(0);await expect(page.locator('[data-secret-notes]')).toBeVisible();
+ expect(await page.evaluate(url=>fetch(url).then(()=>true,()=>false),unlockedIcon)).toBe(false);
  await page.locator('[data-secret-notes]').click();await page.locator('[data-vault-unlock] [name=pin]').fill('1234');await page.locator('[data-vault-unlock] button').click();await expect(page.locator('[data-secret-page]')).toHaveCount(1);
+ await expect(sidebarIcon).toHaveAttribute('src',/^blob:/);
  await page.locator('[data-secret-expand]').click();await expect(page.locator('[data-secret-page]')).toHaveCount(2);
  await page.screenshot({path:'artifacts/secret-vault-notes-desktop.png',fullPage:true});
  await page.locator('[data-open-page="'+ordinary.id+'"]').click();await expect(page.locator('#page-title')).toHaveValue('Для переноса');await pageAction(page,'move');
