@@ -110,7 +110,7 @@ npx playwright install chromium
 bash scripts/check-extended-local.sh
 ```
 
-This profile runs the full encrypted PostgreSQL pytest suite, including the real Redis cases and four Docker schema initialization cases, then builds the assets and runs the separate browser localization suite. It requires local Docker on a Unix socket and port 8002 free for the browser test server. The script starts its own native PostgreSQL instance on a private Unix socket and a pinned Redis container on a random loopback port. The schema initialization tests use a separate pinned PostgreSQL image. It cleans up its database, containers and temporary results on exit. Run it in an isolated checkout if you want to keep an existing local asset build.
+This profile builds the assets, runs the full encrypted PostgreSQL pytest suite, including the real Redis cases and four Docker schema initialization cases, and runs the separate browser localization suite. It requires local Docker on a Unix socket and port 8002 free for the browser test server. The script starts its own native PostgreSQL instance on a private Unix socket and a pinned Redis container on a random loopback port. The schema initialization tests use a separate pinned PostgreSQL image. It cleans up its database, containers and temporary results on exit. Run it in an isolated checkout if you want to keep an existing local asset build.
 
 ## Release history
 

@@ -21,6 +21,7 @@ case "$endpoint" in
     *) echo 'This check requires a local Docker daemon on a Unix socket.' >&2; exit 1 ;;
 esac
 docker info >/dev/null
+npm run build
 
 postgres_image=postgres:17-alpine@sha256:526f86d93c6ea08fd3f1fe5605650cacc781b2c6013169a0ad8f42c7d3d84f32
 redis_image=redis:8.8.0-alpine@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005
@@ -99,5 +100,4 @@ export DRG_INIT_ENV_POSTGRES_IMAGE="$postgres_image"
 unset postgres_password
 
 "$python" -m pytest -q -ra --basetemp="$run_dir/pytest"
-npm run build
 npm run test:i18n:browser -- --output "$run_dir/playwright"
