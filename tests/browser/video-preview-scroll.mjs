@@ -75,24 +75,36 @@ try{
  // Keep the browser's native video surface transparent and verify movement
  // from two decoded colors in screenshots of the actual visible tile.
  const moving=await readFile('tests/fixtures/chat-preview-motion.mp4');
+ const cadence=await readFile('tests/fixtures/chat-preview-cadence.mp4');
  const page=await browser.newPage({viewport:{width:390,height:800}});
  let originalRequests=0;
  const errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.route('http://moving-preview.test/**',route=>{
   const url=new URL(route.request().url());
   if(url.pathname==='/motion'){originalRequests++;return route.fulfill({contentType:'video/mp4',body:moving});}
+  if(url.pathname==='/cadence'){
+   const range=/^bytes=(\d+)-(\d*)$/.exec(route.request().headers().range||'');
+   if(!range)return route.fulfill({contentType:'video/mp4',body:cadence});
+   const start=Number(range[1]),end=Math.min(cadence.length-1,range[2]?Number(range[2]):cadence.length-1);
+   return route.fulfill({status:206,contentType:'video/mp4',
+    headers:{'Accept-Ranges':'bytes','Content-Range':`bytes ${start}-${end}/${cadence.length}`},body:cadence.subarray(start,end+1)});
+  }
   if(url.pathname==='/poster')return route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90"><path fill="#467d91" d="M0 0h160v90H0z"/></svg>'});
   return route.fulfill({contentType:'text/html',body:'<main id="history" class="fp-chat-history" style="height:600px;overflow:auto"></main>'});
  });
  await page.goto('http://moving-preview.test/');
- await page.addStyleTag({content:styles+'\nbody{margin:0}.chat-media-album{width:320px}.chat-media-row{aspect-ratio:16/9}video[data-video-preview]{opacity:0!important}'});
+ await page.addStyleTag({content:styles+'\nbody{margin:0}.chat-media-album{width:320px}.chat-media-row{aspect-ratio:16/9}.chat-media-tile[data-chat-attachment-id="/motion"]>video{opacity:0!important}'});
  await page.addScriptTag({content:bundle.outputFiles[0].text});
  await page.evaluate(()=>{
   const host=document.querySelector('#history');
-  const album=Preview.albumMarkup([{id:'one',kind:'video',width:160,height:90,url:'/motion',thumbnail_url:'/poster'}],'data-fp-chat-file',{imagePosters:true});
-  window.draw=text=>Preview.renderMarkup(host,'<div style="height:800px"></div>'+album+'<div style="height:800px">'+text+'</div>');
-  draw('original text');
-  window.player=Preview.inlineVideos(host);player.sync();
+  window.mount=url=>{
+   window.player?.destroy();
+   const album=Preview.albumMarkup([{id:url,kind:'video',width:160,height:90,url,thumbnail_url:'/poster'}],'data-fp-chat-file',{imagePosters:true});
+   window.draw=text=>Preview.renderMarkup(host,'<div style="height:800px"></div>'+album+'<div style="height:800px">'+text+'</div>');
+   draw('original text');
+   window.player=Preview.inlineVideos(host);player.sync();
+  };
+  mount('/motion');
  });
  const host=page.locator('#history');
  await host.hover();await page.mouse.wheel(0,750);
@@ -117,8 +129,33 @@ try{
  assert.equal(sameFrame,true,'a history refresh must preserve the live frame');
  await page.mouse.wheel(0,750);
  await page.waitForFunction(()=>document.querySelector('video').paused&&document.querySelector('[data-video-frame]').width===0);
+ await page.evaluate(()=>{document.querySelector('#history').scrollTop=750;mount('/cadence');});
+ await page.waitForSelector('.has-painted-video-frame>[data-video-frame]');
+ await page.waitForFunction(()=>document.querySelector('video').currentTime>.55);
+ const measureCadence=()=>page.evaluate(()=>new Promise(resolve=>{
+  const canvas=document.querySelector('[data-video-frame]'),context=canvas.getContext('2d');
+  const values=new Set(),draw=context.drawImage;
+  let start,nextSample=0,draws=0;
+  context.drawImage=function(...args){draws++;return draw.apply(this,args);};
+  function sample(now){
+   start??=now;
+   if(now>=nextSample){
+    values.add(context.getImageData(4,4,1,1).data[0]);
+    nextSample=now+100;
+   }
+   if(now-start<1100)requestAnimationFrame(sample);
+   else{
+    context.drawImage=draw;
+    resolve({rate:draws*1000/(now-start),differentPixels:values.size});
+   }
+  }
+  requestAnimationFrame(sample);
+ }));
+ const nativeCadence=await measureCadence();
+ assert.ok(nativeCadence.rate>=27&&nativeCadence.rate<=32&&nativeCadence.differentPixels>=2,
+   '30 fps preview should draw regularly and show changing frames: '+JSON.stringify(nativeCadence));
  assert.deepEqual(errors,[]);
  await page.evaluate(()=>player.destroy());
  await page.close();
- console.log(JSON.stringify({engine:process.env.DRG_BROWSER_ENGINE||'chromium',visibleDecodedColors:colors.size,originalRequests}));
+ console.log(JSON.stringify({engine:process.env.DRG_BROWSER_ENGINE||'chromium',visibleDecodedColors:colors.size,originalRequests,nativeCadence}));
 }finally{await browser.close();}

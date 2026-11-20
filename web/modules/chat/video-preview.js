@@ -14,7 +14,7 @@ export function inlineVideos(host){
    const surface=surfaces.get(video);
    if(surface){
      if(surface.request!==null)cancelAnimationFrame(surface.request);
-     surface.request=null;surface.time=null;surface.lastPaint=-Infinity;
+     surface.request=null;surface.time=null;surface.nextPaint=null;
      if(surface.canvas.width)surface.canvas.width=0;
      if(surface.canvas.height)surface.canvas.height=0;
    }
@@ -25,7 +25,7 @@ export function inlineVideos(host){
    let surface=surfaces.get(video);
    if(surface?.canvas!==canvas){
      if(surface)clearFrame(video);
-     surface={canvas,context:undefined,request:null,time:null,lastPaint:-Infinity};
+     surface={canvas,context:undefined,request:null,time:null,nextPaint:null};
      surfaces.set(video,surface);
    }
    if(surface.context===undefined&&desired.has(video)&&!video.paused&&video.readyState>=2){
@@ -41,20 +41,25 @@ export function inlineVideos(host){
      surface.request=null;
      if(!active())return;
      surface.request=requestAnimationFrame(paint);
-     if(!video.videoWidth||!video.videoHeight||now-surface.lastPaint<1000/24||video.currentTime===surface.time)return;
+     const position=video.currentTime;
+     if(!video.videoWidth||!video.videoHeight||position===surface.time)return;
+     // Keep a rolling 30 Hz deadline so a late display tick does not slow
+     // every following frame. The native video layer can stop reporting frames.
+     const interval=1000/30;
+     if(surface.nextPaint!==null&&now+1<surface.nextPaint)return;
+     surface.nextPaint=Math.max(surface.nextPaint??now,now-interval)+interval;
      const scale=Math.min(1,480/Math.max(video.videoWidth,video.videoHeight));
      const width=Math.max(1,Math.round(video.videoWidth*scale));
      const height=Math.max(1,Math.round(video.videoHeight*scale));
      const {canvas,context}=surface;
      if(canvas.width!==width)canvas.width=width;
      if(canvas.height!==height)canvas.height=height;
-     surface.lastPaint=now;
      try{
        context.drawImage(video,0,0,width,height);
        if(surface.time===null&&!context.getImageData(0,0,1,1).data[3])return;
      }
      catch{surface.context=null;clearFrame(video);update(video);return;}
-     surface.time=video.currentTime;
+     surface.time=position;
      if(!presented.has(video)){presented.add(video);update(video);}
    };
    surface.request=requestAnimationFrame(paint);

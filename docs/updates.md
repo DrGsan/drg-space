@@ -1,5 +1,11 @@
 # Updating DrG Space
 
+## 5.2.21
+
+The muted family-chat preview samples decoded frames at up to 30 frames per second. The separate viewer plays the original video stream at its native quality and cadence.
+
+Rebuild Space with the existing Compose files and volumes. No migration is required.
+
 ## 5.2.20
 
 Family chats draw decoded frames for the selected muted preview directly in the message tile. The same video stream supplies those frames. The existing poster covers the tile until a frame is drawn.
