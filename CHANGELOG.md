@@ -2,9 +2,9 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.2.20-rc.1] — 2026-11-20 — Family chat video previews
+## [5.2.20-rc.2] — 2026-11-20 — Family chat video previews
 
-- Keep the preview image visible if an inline video loses its picture during muted playback.
+- Show moving video frames during muted playback in the family chat feed.
 
 - **Installation:** Rebuild Space with the existing Compose files and volumes.
 - **Compatibility:** No migration is required.

@@ -38,7 +38,7 @@ try{
   playVideo=true;await page.evaluate(()=>show('video','portrait'));await page.emulateMedia({reducedMotion:'no-preference'});
   await page.waitForFunction(()=>document.querySelector('.chat-media-tile.is-preview-playing>video')?.readyState>=2);
   const videoLayers=()=>page.locator('.chat-media-tile').evaluate(tile=>{
-   const video=getComputedStyle(tile.querySelector('video'));
+   const video=getComputedStyle(tile.querySelector('[data-video-frame]'));
    const poster=getComputedStyle(tile.querySelector('[data-video-poster]'));
    return {posterVisible:poster.visibility==='visible',videoAbove:Number(video.zIndex)>Number(poster.zIndex)};
   });

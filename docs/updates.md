@@ -1,8 +1,8 @@
 # Updating DrG Space
 
-## 5.2.20-rc.1
+## 5.2.20-rc.2
 
-Family chat videos keep their existing preview under the playing frame. The image covers the tile while the video starts and can show again if the inline surface loses its picture.
+Family chats draw decoded frames for the selected muted preview directly in the message tile. The same video stream supplies those frames. The existing poster covers the tile until a frame is drawn.
 
 Rebuild Space with the existing Compose files and volumes. No migration is required.
 

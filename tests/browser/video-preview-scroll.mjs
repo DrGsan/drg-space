@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {build} from 'esbuild';
 import {readFile,mkdir} from 'node:fs/promises';
 import {chromium,webkit} from 'playwright';
-const bundle=await build({stdin:{contents:"export {inlineVideos} from './web/modules/chat/video-preview.js';export {albumMarkup} from './web/modules/chat/media.js';",resolveDir:process.cwd()},bundle:true,format:'iife',globalName:'Preview',write:false,loader:{'.css':'empty'}});
+const bundle=await build({stdin:{contents:"export {inlineVideos} from './web/modules/chat/video-preview.js';export {albumMarkup} from './web/modules/chat/media.js';export {renderMarkup} from './web/core/dom.js';",resolveDir:process.cwd()},bundle:true,format:'iife',globalName:'Preview',write:false,loader:{'.css':'empty'}});
 const styles=(await Promise.all(['web/modules/chat/media.css','web/modules/family-photos/family-photos.css'].map(p=>readFile(p,'utf8')))).join('\n');
 const bytes=await readFile('tests/fixtures/chat-video.mp4');
 const browser=await(process.env.DRG_BROWSER_ENGINE==='webkit'?webkit:chromium).launch();
@@ -55,7 +55,7 @@ try{
    assert.ok(frame[0]<55&&frame[1]>100&&frame[2]>100,'muted video should paint over its poster: '+frame.join(','));
    assert.equal(await page.evaluate(()=>video.muted),true);
    // Simulate the inline surface dropping out while the media clock still runs.
-   const lostSurface=await page.addStyleTag({content:'[data-video-preview]{opacity:0!important}'});
+   const lostSurface=await page.addStyleTag({content:'[data-video-preview],[data-video-frame]{opacity:0!important}'});
    const lastTime=await page.evaluate(()=>video.currentTime);
    await page.waitForFunction(lastTime=>!video.paused&&video.currentTime!==lastTime,lastTime);
    assert.deepEqual(await tilePixel(page),posterPixel,'a missing video surface should reveal the poster during playback');
@@ -71,4 +71,54 @@ try{
   if(process.env.DRG_MEDIA_REVIEW_OUT){await mkdir(process.env.DRG_MEDIA_REVIEW_OUT,{recursive:true});await page.screenshot({path:process.env.DRG_MEDIA_REVIEW_OUT+'/scroll-'+fallback+'-'+fail+'.png'});}
   await page.evaluate(()=>{player.destroy();window.player=null;});console.log(JSON.stringify({engine:process.env.DRG_BROWSER_ENGINE||'chromium',fallback,fail,originalRequests,unsafeFrames:result.observed.unsafeFrames,posterNodes:result.posterNodes}));await page.close();
  }
+
+ // Keep the browser's native video surface transparent and verify movement
+ // from two decoded colors in screenshots of the actual visible tile.
+ const moving=await readFile('tests/fixtures/chat-preview-motion.mp4');
+ const page=await browser.newPage({viewport:{width:390,height:800}});
+ let originalRequests=0;
+ const errors=[];page.on('pageerror',error=>errors.push(error.message));
+ await page.route('http://moving-preview.test/**',route=>{
+  const url=new URL(route.request().url());
+  if(url.pathname==='/motion'){originalRequests++;return route.fulfill({contentType:'video/mp4',body:moving});}
+  if(url.pathname==='/poster')return route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="160" height="90"><path fill="#467d91" d="M0 0h160v90H0z"/></svg>'});
+  return route.fulfill({contentType:'text/html',body:'<main id="history" class="fp-chat-history" style="height:600px;overflow:auto"></main>'});
+ });
+ await page.goto('http://moving-preview.test/');
+ await page.addStyleTag({content:styles+'\nbody{margin:0}.chat-media-album{width:320px}.chat-media-row{aspect-ratio:16/9}video[data-video-preview]{opacity:0!important}'});
+ await page.addScriptTag({content:bundle.outputFiles[0].text});
+ await page.evaluate(()=>{
+  const host=document.querySelector('#history');
+  const album=Preview.albumMarkup([{id:'one',kind:'video',width:160,height:90,url:'/motion',thumbnail_url:'/poster'}],'data-fp-chat-file',{imagePosters:true});
+  window.draw=text=>Preview.renderMarkup(host,'<div style="height:800px"></div>'+album+'<div style="height:800px">'+text+'</div>');
+  draw('original text');
+  window.player=Preview.inlineVideos(host);player.sync();
+ });
+ const host=page.locator('#history');
+ await host.hover();await page.mouse.wheel(0,750);
+ await page.waitForSelector('.has-painted-video-frame>[data-video-frame]');
+ const painted=page.locator('[data-video-frame]');
+ const colors=new Set(),deadline=Date.now()+5500;
+ while(colors.size<2&&Date.now()<deadline){
+  const [red,green,blue]=await tilePixel(page);
+  if(green>145&&red<75&&blue<100)colors.add('green');
+  if(red>145&&green<110&&blue>55)colors.add('pink');
+  await page.waitForTimeout(60);
+ }
+ assert.equal(colors.size,2,'both decoded colors must appear even with the native video element transparent');
+ assert.equal(await page.locator('video').evaluate(v=>v.muted&&!v.paused),true);
+ assert.equal(originalRequests,1,'the canvas should use the existing video stream');
+ assert.ok(await page.locator('[data-video-progress]').evaluate(el=>parseFloat(el.style.width)>0));
+ const sameFrame=await painted.evaluate(canvas=>{
+  const before=canvas.width;
+  draw('refreshed text');player.sync();
+  return canvas===document.querySelector('[data-video-frame]')&&canvas.width===before;
+ });
+ assert.equal(sameFrame,true,'a history refresh must preserve the live frame');
+ await page.mouse.wheel(0,750);
+ await page.waitForFunction(()=>document.querySelector('video').paused&&document.querySelector('[data-video-frame]').width===0);
+ assert.deepEqual(errors,[]);
+ await page.evaluate(()=>player.destroy());
+ await page.close();
+ console.log(JSON.stringify({engine:process.env.DRG_BROWSER_ENGINE||'chromium',visibleDecodedColors:colors.size,originalRequests}));
 }finally{await browser.close();}

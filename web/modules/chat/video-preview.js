@@ -3,7 +3,7 @@ import {recordingPlayers} from './recording-playback.js';
 export function inlineVideos(host){
  const recordings=recordingPlayers(host);
  const entries=new Set(),starting=new Set(),events=new AbortController(),signal=events.signal,reduced=matchMedia('(prefers-reduced-motion: reduce)');
- const presented=new WeakSet(),frameRequests=new Map();
+ const presented=new WeakSet(),frameRequests=new Map(),surfaces=new WeakMap();
  let desired=new Set(),suspended=false,recordingActive=false,capturing=false,closed=false;
  const animation=video=>video.hasAttribute('data-animation-preview');
  const clock=seconds=>{seconds=Math.max(0,Math.ceil(seconds||0));return Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');};
@@ -11,6 +11,53 @@ export function inlineVideos(host){
    const request=frameRequests.get(video);frameRequests.delete(video);presented.delete(video);
    if(request?.kind==='video')video.cancelVideoFrameCallback(request.id);
    else if(request)cancelAnimationFrame(request.id);
+   const surface=surfaces.get(video);
+   if(surface){
+     if(surface.request!==null)cancelAnimationFrame(surface.request);
+     surface.request=null;surface.time=null;surface.lastPaint=-Infinity;
+     if(surface.canvas.width)surface.canvas.width=0;
+     if(surface.canvas.height)surface.canvas.height=0;
+   }
+ }
+ function frameSurface(video,tile){
+   const canvas=tile.querySelector('[data-video-frame]');
+   if(!canvas)return null;
+   let surface=surfaces.get(video);
+   if(surface?.canvas!==canvas){
+     if(surface)clearFrame(video);
+     surface={canvas,context:undefined,request:null,time:null,lastPaint:-Infinity};
+     surfaces.set(video,surface);
+   }
+   if(surface.context===undefined&&desired.has(video)&&!video.paused&&video.readyState>=2){
+     surface.context=canvas.getContext('2d');
+   }
+   return surface.context===null?null:surface;
+ }
+ function paintFrames(video,surface){
+   const active=()=>!closed&&desired.has(video)&&host.contains(video)&&
+     !video.paused&&!video.seeking&&!video.error&&video.readyState>=2;
+   if(!surface.context||surface.request!==null||!active())return;
+   const paint=now=>{
+     surface.request=null;
+     if(!active())return;
+     surface.request=requestAnimationFrame(paint);
+     if(!video.videoWidth||!video.videoHeight||now-surface.lastPaint<1000/24||video.currentTime===surface.time)return;
+     const scale=Math.min(1,480/Math.max(video.videoWidth,video.videoHeight));
+     const width=Math.max(1,Math.round(video.videoWidth*scale));
+     const height=Math.max(1,Math.round(video.videoHeight*scale));
+     const {canvas,context}=surface;
+     if(canvas.width!==width)canvas.width=width;
+     if(canvas.height!==height)canvas.height=height;
+     surface.lastPaint=now;
+     try{
+       context.drawImage(video,0,0,width,height);
+       if(surface.time===null&&!context.getImageData(0,0,1,1).data[3])return;
+     }
+     catch{surface.context=null;clearFrame(video);update(video);return;}
+     surface.time=video.currentTime;
+     if(!presented.has(video)){presented.add(video);update(video);}
+   };
+   surface.request=requestAnimationFrame(paint);
  }
  function awaitFrame(video){
    if(closed||video.paused||video.seeking||video.error||presented.has(video)||frameRequests.has(video))return;
@@ -34,11 +81,16 @@ export function inlineVideos(host){
  function update(video){
    const tile=video.closest('.chat-media-tile');if(!tile)return;
    const imagePoster=tile.querySelector('[data-video-poster]');
-   if(imagePoster)awaitFrame(video);
-   tile.classList.toggle('is-preview-playing',!video.paused&&(!imagePoster||presented.has(video)));
+   const surface=frameSurface(video,tile);
+   if(surface)paintFrames(video,surface);
+   else if(imagePoster)awaitFrame(video);
+   const playing=!video.paused&&(!imagePoster||presented.has(video));
+   tile.classList.toggle('is-preview-playing',playing);
+   tile.classList.toggle('has-painted-video-frame',playing&&!!surface);
    if(animation(video))return;
-   const timer=tile.querySelector('[data-video-remaining]');if(timer&&Number.isFinite(video.duration))timer.textContent=clock(video.duration-video.currentTime);
-   const progress=tile.querySelector('[data-video-progress]');if(progress&&video.duration)progress.style.width=100*video.currentTime/video.duration+'%';
+   const position=surface?(surface.time??0):video.currentTime;
+   const timer=tile.querySelector('[data-video-remaining]');if(timer&&Number.isFinite(video.duration))timer.textContent=clock(video.duration-position);
+   const progress=tile.querySelector('[data-video-progress]');if(progress&&video.duration)progress.style.width=100*position/video.duration+'%';
  }
  function select(){
    if(closed)return;
