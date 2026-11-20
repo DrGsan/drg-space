@@ -1,5 +1,11 @@
 # Updating DrG Space
 
+## 5.2.20-rc.1
+
+Family chat videos keep their existing preview under the playing frame. The image covers the tile while the video starts and can show again if the inline surface loses its picture.
+
+Rebuild Space with the existing Compose files and volumes. No migration is required.
+
 ## 5.2.19
 
 Chat inboxes share one database session for message and call cursors, read markers, and the notification snapshot. The message cursor uses the room index. A new subscription schedules its own refresh and room-specific PostgreSQL signals wake inboxes for the affected room. Session revocation and the recovery checks still run independently.

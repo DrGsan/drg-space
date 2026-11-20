@@ -7,6 +7,18 @@ const bundle=await build({stdin:{contents:"export {inlineVideos} from './web/mod
 const styles=(await Promise.all(['web/modules/chat/media.css','web/modules/family-photos/family-photos.css'].map(p=>readFile(p,'utf8')))).join('\n');
 const bytes=await readFile('tests/fixtures/chat-video.mp4');
 const browser=await(process.env.DRG_BROWSER_ENGINE==='webkit'?webkit:chromium).launch();
+const posterPixel=[70,125,145,255];
+async function tilePixel(page){
+ const box=await page.locator('.chat-media-tile').boundingBox();
+ const clip={x:Math.floor(box.x+box.width*.27),y:Math.floor(box.y+box.height*.7),width:1,height:1};
+ const png=await page.screenshot({clip});
+ return page.evaluate(async encoded=>{
+  const image=new Image();image.src='data:image/png;base64,'+encoded;await image.decode();
+  const canvas=document.createElement('canvas');canvas.width=canvas.height=1;
+  const context=canvas.getContext('2d');context.drawImage(image,0,0,1,1);
+  return Array.from(context.getImageData(0,0,1,1).data);
+ },png.toString('base64'));
+}
 try{
  for(const fallback of [false,true])for(const fail of [false,true]){
   let release;const gate=new Promise(done=>release=done);let originalRequests=0;
@@ -23,12 +35,13 @@ try{
    if(fallback){HTMLVideoElement.prototype.requestVideoFrameCallback=undefined;HTMLVideoElement.prototype.cancelVideoFrameCallback=undefined;}
    const h=document.querySelector('#history');h.innerHTML='<div style="height:800px"></div>'+Preview.albumMarkup([{id:'one',kind:'video',width:320,height:180,url:'/original',thumbnail_url:'/poster'}],'data-fp-chat-file',{imagePosters:true})+'<div style="height:800px"></div>';
    window.video=h.querySelector('video');window.poster=h.querySelector('[data-video-poster]');window.player=Preview.inlineVideos(h);window.observed={unsafeFrames:0,frames:0};
-   const sample=()=>{if(!window.player)return;observed.frames++;if(getComputedStyle(poster).visibility==='hidden'&&video.readyState<2)observed.unsafeFrames++;requestAnimationFrame(sample);};requestAnimationFrame(sample);player.sync();
+   const sample=()=>{if(!window.player)return;observed.frames++;if(video.closest('.chat-media-tile').classList.contains('is-preview-playing')&&video.readyState<2)observed.unsafeFrames++;requestAnimationFrame(sample);};requestAnimationFrame(sample);player.sync();
   },{fallback});
   await page.waitForFunction(()=>poster.naturalWidth>0);assert.equal(originalRequests,0,'offscreen video must not start loading');
   await page.locator('#history').hover();await page.mouse.wheel(0,750);await page.waitForFunction(()=>!video.paused);await page.waitForTimeout(180);
   const held=await page.evaluate(()=>({readyState:video.readyState,poster:getComputedStyle(poster).visibility,rect:poster.closest('.chat-media-tile').getBoundingClientRect().toJSON()}));
   assert.equal(held.readyState,0);assert.equal(held.poster,'visible','slow autoplay must not uncover a black video surface');
+  assert.deepEqual(await tilePixel(page),posterPixel);
   if(process.env.DRG_MEDIA_REVIEW_OUT){await mkdir(process.env.DRG_MEDIA_REVIEW_OUT,{recursive:true});await page.screenshot({path:process.env.DRG_MEDIA_REVIEW_OUT+'/held-'+fallback+'-'+fail+'.png'});}
   // Leave and re-enter while play() is still waiting; no stale callback may hide it.
   await page.mouse.wheel(0,750);await page.waitForFunction(()=>video.paused);await page.mouse.wheel(0,-750);await page.waitForFunction(()=>!video.paused);
@@ -36,10 +49,22 @@ try{
   release();
   if(fail){await page.waitForFunction(()=>!!video.error);assert.equal(await page.evaluate(()=>getComputedStyle(poster).visibility),'visible','a failed original keeps its poster');}
   else{
-   await page.waitForFunction(()=>!video.paused&&video.readyState>=2&&getComputedStyle(poster).visibility==='hidden');
+   const playing=()=>!video.paused&&video.readyState>=2&&video.closest('.chat-media-tile').classList.contains('is-preview-playing');
+   await page.waitForFunction(playing);
+   const frame=await tilePixel(page);
+   assert.ok(frame[0]<55&&frame[1]>100&&frame[2]>100,'muted video should paint over its poster: '+frame.join(','));
+   assert.equal(await page.evaluate(()=>video.muted),true);
+   // Simulate the inline surface dropping out while the media clock still runs.
+   const lostSurface=await page.addStyleTag({content:'[data-video-preview]{opacity:0!important}'});
+   const lastTime=await page.evaluate(()=>video.currentTime);
+   await page.waitForFunction(lastTime=>!video.paused&&video.currentTime!==lastTime,lastTime);
+   assert.deepEqual(await tilePixel(page),posterPixel,'a missing video surface should reveal the poster during playback');
+   await lostSurface.evaluate(style=>style.remove());
+   assert.deepEqual(await tilePixel(page),frame,'the visible frame should resume covering the poster');
    await page.mouse.wheel(0,750);await page.waitForFunction(()=>video.paused);assert.equal(await page.evaluate(()=>getComputedStyle(poster).visibility),'visible','leaving returns to the poster');
-   await page.mouse.wheel(0,-750);await page.waitForFunction(()=>!video.paused&&getComputedStyle(poster).visibility==='hidden');
+   await page.mouse.wheel(0,-750);await page.waitForFunction(playing);
    await page.evaluate(()=>document.dispatchEvent(new CustomEvent('drg-media-viewer',{detail:{open:true}})));await page.waitForFunction(()=>video.paused);assert.equal(await page.evaluate(()=>getComputedStyle(poster).visibility),'visible');
+   assert.deepEqual(await tilePixel(page),posterPixel,'the poster should cover the paused video when the viewer opens');
   }
   const result=await page.evaluate(()=>({observed,rect:poster.closest('.chat-media-tile').getBoundingClientRect().toJSON(),posterNodes:document.querySelectorAll('[data-video-poster]').length}));
   assert.equal(result.observed.unsafeFrames,0);assert.equal(result.posterNodes,1);assert.equal(result.rect.width,held.rect.width);assert.equal(result.rect.height,held.rect.height);assert.deepEqual(errors,[]);

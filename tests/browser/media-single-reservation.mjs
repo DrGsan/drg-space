@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {build} from 'esbuild';
 import {readFile,mkdir} from 'node:fs/promises';
 import {chromium,webkit} from 'playwright';
-const bundle=await build({entryPoints:['web/modules/family-photos/index.js'],bundle:true,format:'iife',globalName:'MediaTest',write:false,loader:{'.css':'empty'}});
+const bundle=await build({stdin:{contents:"export {mountTelegramChat} from './web/modules/family-photos/index.js';export {modal} from './web/core/modal.js';",resolveDir:process.cwd()},bundle:true,format:'iife',globalName:'MediaTest',write:false,loader:{'.css':'empty'}});
 const styles=(await Promise.all(['web/style.css','web/modules/chat/workspace.css','web/modules/chat/media.css','web/modules/family-photos/family-photos.css'].map(f=>readFile(f,'utf8')))).join('\n');
 const videoBytes=await readFile('tests/fixtures/chat-video.mp4');
 const portrait=await readFile('tests/fixtures/chat-portrait.png'),portraitRatio=portrait.readUInt32BE(16)/portrait.readUInt32BE(20);
@@ -39,12 +39,24 @@ try{
   assert.equal(requests.filter(r=>r.original).length,0,'video proportions must use small posters, never original video downloads');
   // The poster layer must yield to actual playback, then return when paused.
   playVideo=true;await page.evaluate(()=>show('video','portrait'));await page.emulateMedia({reducedMotion:'no-preference'});
-  await page.waitForFunction(()=>{const v=document.querySelector('.chat-media-tile>video'),poster=document.querySelector('[data-video-poster]');return v&&!v.paused&&v.readyState>=2&&getComputedStyle(poster).visibility==='hidden';});
-  assert.equal(await page.locator('.chat-media-tile>video').evaluate(v=>getComputedStyle(v).visibility),'visible');
-  assert.equal(await page.locator('[data-video-poster]').evaluate(i=>getComputedStyle(i).visibility),'hidden');
+  await page.waitForFunction(()=>document.querySelector('.chat-media-tile.is-preview-playing>video')?.readyState>=2);
+  const videoLayers=()=>page.locator('.chat-media-tile').evaluate(tile=>{
+   const video=getComputedStyle(tile.querySelector('video'));
+   const poster=getComputedStyle(tile.querySelector('[data-video-poster]'));
+   return {posterVisible:poster.visibility==='visible',videoAbove:Number(video.zIndex)>Number(poster.zIndex)};
+  });
+  assert.deepEqual(await videoLayers(),{posterVisible:true,videoAbove:true});
   await page.emulateMedia({reducedMotion:'reduce'});await page.waitForFunction(()=>document.querySelector('.chat-media-tile>video').paused);
-  assert.equal(await page.locator('[data-video-poster]').evaluate(i=>getComputedStyle(i).visibility),'visible');
+  assert.deepEqual(await videoLayers(),{posterVisible:true,videoAbove:false});
+  await page.evaluate(()=>{ctx.modal=MediaTest.modal;});
+  await page.locator('.chat-media-tile').click();
+  const viewer=page.locator('.fp-viewer-dialog');
+  await page.waitForFunction(()=>document.querySelector('.fp-viewer-dialog video')?.currentTime>.1);
+  assert.equal(await viewer.locator('[data-video-fullscreen]').count(),1);
+  await viewer.locator('.modal-close').click();
+  assert.equal(await viewer.count(),0);
+  assert.deepEqual(await videoLayers(),{posterVisible:true,videoAbove:false});
   assert.deepEqual(errors,[]);await page.evaluate(()=>mounted.destroy());await page.close();
-  console.log(JSON.stringify({engine:process.env.DRG_BROWSER_ENGINE||'chromium',width,scenarios:'correct natural frame before bytes, unchanged frame after photo/video poster load, portrait/wide, refresh and actual playback/pause',thumbnailRequests:requests.filter(r=>!r.original).length,maxThumbnailResponseMs:Math.max(...requests.filter(r=>!r.original).map(r=>r.duration)),originalRequestsBeforePlayback:0,playback:'poster hides for actual video and returns on pause'}));
+  console.log(JSON.stringify({engine:process.env.DRG_BROWSER_ENGINE||'chromium',width,scenarios:'correct natural frame before bytes, unchanged frame after photo/video poster load, portrait/wide, refresh and actual playback/pause',thumbnailRequests:requests.filter(r=>!r.original).length,maxThumbnailResponseMs:Math.max(...requests.filter(r=>!r.original).map(r=>r.duration)),originalRequestsBeforePlayback:0,playback:'video covers the poster during playback and moves behind it on pause'}));
  }
 }finally{await browser.close();}
