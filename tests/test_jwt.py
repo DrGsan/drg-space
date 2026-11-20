@@ -18,14 +18,19 @@ def copied(access=None, refresh=None, csrf=''):
     return c
 
 
-def test_jwt_cookie_lifetime_claims_and_sensitive_data_stays_server_side():
+def test_jwt_cookie_lifetime_claims_and_sensitive_data_stays_server_side(monkeypatch):
+    # Token issuance reads the clock more than once. Keep the exact TTL
+    # assertions independent of whether issuing the cookies crosses a second.
+    stamp = m.now()
+    monkeypatch.setattr(m, 'now', lambda: stamp)
     c, _, _ = owner()
     token = c.cookies.get('drg_session')
     data = claims(token)
     assert data['exp'] - data['iat'] == ACCESS_SECONDS
     assert data['stage'] == 'full' and data['aud'] == 'drg-site:access'
     assert {'password', 'totp', 'login', 'role', 'settings'}.isdisjoint(data)
-    assert claims(c.cookies.get('drg_refresh'))['exp'] - data['iat'] == SESSION_SECONDS
+    refresh = claims(c.cookies.get('drg_refresh'))
+    assert refresh['exp'] - refresh['iat'] == SESSION_SECONDS
     with m.db() as db:
         assert db.execute('SELECT token FROM sessions').fetchone()[0] == m.digest(data['sid'])
         assert token not in repr([tuple(row) for row in db.execute('SELECT * FROM sessions')])
