@@ -24,7 +24,8 @@ docker info >/dev/null
 
 postgres_image=postgres:17-alpine@sha256:526f86d93c6ea08fd3f1fe5605650cacc781b2c6013169a0ad8f42c7d3d84f32
 redis_image=redis:8.8.0-alpine@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005
-run_dir=$(mktemp -d "${TMPDIR:-/tmp}/drg-extended.XXXXXXXX")
+# Keep the Unix socket path short even when TMPDIR has a long path.
+run_dir=$(mktemp -d /tmp/drg-extended.XXXXXXXX)
 label=drg.extended-run=${run_dir##*.}
 redis=drg-check-redis-${run_dir##*.}
 
@@ -66,21 +67,13 @@ initdb -D "$run_dir/postgres" -U drg_test --auth=scram-sha-256 \
     exit 1
 }
 rm -- "$run_dir/postgres-password"
-postgres_port=$("$python" - <<'PYTHON'
-import socket
-
-with socket.socket() as listener:
-    listener.bind(('127.0.0.1', 0))
-    print(listener.getsockname()[1])
-PYTHON
-)
-# Use TCP loopback directly. Leave the system PostgreSQL socket untouched.
+# A private Unix socket avoids TCP port churn in tests that reconnect often.
 pg_ctl -D "$run_dir/postgres" -l "$run_dir/postgres.log" -w \
-    -o "-h 127.0.0.1 -p $postgres_port -k ''" start >/dev/null || {
+    -o "-h '' -p 5432 -k '$run_dir'" start >/dev/null || {
     tail -30 "$run_dir/postgres.log" >&2
     exit 1
 }
-PGPASSWORD="$postgres_password" createdb -h 127.0.0.1 -p "$postgres_port" -U drg_test drg_test
+PGPASSWORD="$postgres_password" createdb -h "$run_dir" -p 5432 -U drg_test drg_test
 
 docker run --rm -d --name "$redis" --label "$label" \
     --tmpfs /data -p 127.0.0.1::6379 "$redis_image" redis-server --save '' --appendonly no >/dev/null
@@ -94,11 +87,11 @@ for attempt in {1..30}; do
 done
 redis_endpoint=$(docker port "$redis" 6379/tcp)
 [[ "$redis_endpoint" == 127.0.0.1:* ]]
-printf 'Extended checks use disposable PostgreSQL and Redis on loopback.\n'
+printf 'Extended checks use disposable PostgreSQL and Redis.\n'
 
 unset DATABASE_URL DATABASE_SCHEMA REDIS_URL FILE_STORAGE FAMILY_PHOTO_URL FAMILY_PHOTO_TOKEN
 export PYTHON_DOTENV_DISABLED=1
-export DRG_TEST_DATABASE_URL="postgresql://drg_test:$postgres_password@127.0.0.1:$postgres_port/drg_test"
+export DRG_TEST_DATABASE_URL="postgresql://drg_test:$postgres_password@localhost:5432/drg_test?host=$run_dir"
 export DRG_STORAGE_TEST_POSTGRES_URL="$DRG_TEST_DATABASE_URL"
 export DRG_TEST_REDIS_URL="redis://$redis_endpoint/0"
 export DRG_TEST_ENCRYPTION_ENABLED=true
