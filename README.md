@@ -103,6 +103,15 @@ python3 scripts/check-public-content.py
 
 The tests use disposable data. PostgreSQL tests require an explicitly supplied disposable database; never point test variables at production. Browser checks additionally require Playwright browsers and a current `npm run build`: styles are resolved through the asset manifest. Run `npx playwright test` for the default browser suite, `npm run test:i18n:browser` for the separate language suite, and `node tests/browser/expense-entry.mjs` for billing entry, shares and photo galleries. Python fixture storage and the supervised Playwright server are removed on normal shutdown; retain the configured graceful shutdown when using a custom runner. The full build/test CI is opt-in until repository administrators enable automatic runs and includes both browser suites. Documentation changes have a separate lightweight content check.
 
+Run the extended local check explicitly after installing the development dependencies and Playwright Chromium.
+
+```sh
+npx playwright install chromium
+bash scripts/check-extended-local.sh
+```
+
+This profile runs the full encrypted PostgreSQL pytest suite, including the real Redis cases and four Docker schema initialization cases, then builds the assets and runs the separate browser localization suite. It requires local Docker on a Unix socket and port 8002 free for the browser test server. The script starts pinned PostgreSQL and Redis containers with temporary storage and random loopback ports. It cleans up its containers and temporary results on exit. Run it in an isolated checkout if you want to keep an existing local asset build.
+
 ## Release history
 
 Read the [changelog](CHANGELOG.md) for release notes and the [update guide](docs/updates.md) for installation actions. The application version is maintained in `VERSION`.
