@@ -2,6 +2,14 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.2.19] — 2026-11-20 — Faster chat connections under load
+
+- Reduce background work when many chat tabs connect at once.
+- Refresh the inbox when messages arrive in a chat you belong to.
+
+- **Installation:** Rebuild Space with the existing Compose files and volumes.
+- **Compatibility:** No migration is required.
+
 ## [5.2.18] — 2026-11-20 — More responsive chats and notes under load
 
 - Deliver group messages with fewer repeated background queries.

@@ -104,9 +104,9 @@ class ProcessCoordinator:
     def unsubscribe(self, callback):
         self._callbacks.discard(callback)
 
-    def subscribe_changes(self, callback, *, fallback=1, note_changes=True):
+    def subscribe_changes(self, callback, *, fallback=1, note_changes=True, match_chat_rooms=None):
         """Durable-data consumers: signals, reconnect, and a bounded recovery poll."""
-        self._change_callbacks[callback]=(fallback,0,note_changes)
+        self._change_callbacks[callback]=(fallback,0,note_changes,match_chat_rooms)
         self._changed.set()
 
     def unsubscribe_changes(self, callback):
@@ -181,15 +181,22 @@ class ProcessCoordinator:
             self._changed.clear()
             signals,self._room_signals=self._room_signals,set()
             all_rooms,self._all_rooms=self._all_rooms,False
-            notes_only=bool(signals) and not all_rooms and all(signal.startswith('note:') for signal in signals)
+            chat_signals={signal for signal in signals if signal.startswith('chat:')}
+            note_signal=len(chat_signals)!=len(signals)
             stamp=clock()
             full=all_rooms or stamp>=recover_at
             if full:recover_at=stamp+1
             callbacks=[]
-            for callback,(fallback,deadline,note_changes) in tuple(self._change_callbacks.items()):
-                if (changed and (note_changes or not notes_only)) or stamp>=deadline:
+            for callback,(fallback,deadline,note_changes,match_chat_rooms) in tuple(self._change_callbacks.items()):
+                # Registration wakes the loop to schedule a single subscriber.
+                # Committed changes carry a room signal or all_rooms.
+                invalidated=changed and (
+                    all_rooms or note_changes and note_signal
+                    or chat_signals and (match_chat_rooms is None or match_chat_rooms(chat_signals))
+                )
+                if invalidated or stamp>=deadline:
                     callbacks.append((callback,()))
-                    self._change_callbacks[callback]=(fallback,stamp+(30 if self.listening else fallback),note_changes)
+                    self._change_callbacks[callback]=(fallback,stamp+(30 if self.listening else fallback),note_changes,match_chat_rooms)
             if full or signals:
                 callbacks.extend((callback,(None if full else signals,)) for callback in self._callbacks)
             for callback,args in callbacks:

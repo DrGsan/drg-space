@@ -1,4 +1,7 @@
 {
+  "release5_2_19Title": "Faster chat connections under load",
+  "release5_2_19Change1": "Reduce background work when many chat tabs connect at once.",
+  "release5_2_19Change2": "Refresh the inbox when messages arrive in a chat you belong to.",
   "release5_2_18Title": "More responsive chats and notes under load",
   "release5_2_18Change1": "Deliver group messages with fewer repeated background queries.",
   "release5_2_18Change2": "Show ordinary chats and family groups together when the conversation list opens.",

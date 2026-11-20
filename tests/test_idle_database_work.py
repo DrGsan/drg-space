@@ -10,7 +10,7 @@ import pytest
 
 from app.database import Database
 from app.data_crypto import DataCipher
-from app.multiprocess import ProcessCoordinator
+from app.multiprocess import ProcessCoordinator, room_signal
 from app.notifications import create_notifications_router, unread_count
 from app.storage import StorageGate
 from tests.test_multiprocess_realtime import FakeSocket, fail
@@ -115,6 +115,41 @@ def test_idle_inbox_uses_signals_recovery_and_independent_revocation_watchdog(tm
         finally:
             task.cancel();await asyncio.gather(task,return_exceptions=True)
             assert not worker._change_callbacks
+            await worker.stop()
+    asyncio.run(run())
+
+def test_chat_signals_target_matching_inboxes_without_waking_them_on_registration(tmp_path):
+    backend=Database(tmp_path,url='',cipher=DataCipher.ephemeral());backend.initialize()
+
+    async def run():
+        worker=ProcessCoordinator(backend,tmp_path,backend.cipher,StorageGate())
+        worker.listening=True
+        calls=[];changed=asyncio.Event()
+        def subscribe(name):
+            key=room_signal(worker.channel,'chat',name)
+            async def refresh():
+                calls.append(name)
+                changed.set()
+            worker.subscribe_changes(refresh,note_changes=False,match_chat_rooms=lambda signals:key in signals)
+
+        await worker.start()
+        try:
+            subscribe('first')
+            await asyncio.wait_for(changed.wait(),1)
+            assert calls==['first']
+            calls.clear();changed.clear()
+            subscribe('second')
+            await asyncio.wait_for(changed.wait(),1)
+            assert calls==['second']
+            calls.clear();changed.clear()
+            worker._invalidate(room_signal(worker.channel,'chat','first'))
+            await asyncio.wait_for(changed.wait(),1)
+            assert calls==['first']
+            calls.clear();changed.clear()
+            worker._invalidate('changed')
+            await asyncio.wait_for(changed.wait(),1)
+            assert calls==['first','second']
+        finally:
             await worker.stop()
     asyncio.run(run())
 

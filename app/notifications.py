@@ -204,23 +204,53 @@ def chat_is_foreground(c,uid,stamp,coordinator):
 
 def create_notifications_router(db,ready,tokens,rate,gate,now,fail,public_url,coordinator=None):
     r=Router();live_counts={};last_purge=[0]
-    def inbox(uid,after=None,before=None,*,deadline=False):
-        with db() as c:
-            if now()-last_purge[0]>=60:
-                c.execute('DELETE FROM notifications WHERE created<=?',(now()-RETENTION,));last_purge[0]=now()
-            members={row[0] for row in c.execute('SELECT space_id FROM space_members WHERE user_id=?',(uid,))}
-            rows=c.execute('SELECT * FROM notifications WHERE user_id=? AND (? IS NULL OR id>?) AND (? IS NULL OR id<?) ORDER BY id '+('ASC' if after is not None else 'DESC')+' LIMIT 100',(uid,after,after,before,before)).fetchall()
-            view=InboxView(c,uid,now(),members);view.prime(rows)
-            items=[item for row in rows if (item:=view.render(row)) is not None]
-            unread=unread_count(c,uid,view.stamp,members,view=view)
-            cursor=max((row['id'] for row in rows),default=after or 0) if after is not None else c.execute('SELECT COALESCE(MAX(id),0) FROM notifications WHERE user_id=?',(uid,)).fetchone()[0]
-            cleared={row['id']:row['chat_cleared'] for row in c.execute('SELECT s.id,s.chat_cleared FROM spaces s JOIN space_members m ON m.space_id=s.id WHERE m.user_id=? AND s.chat_cleared>0',(uid,))}
-            reads={row['space_id']:row['message_id'] for row in c.execute('SELECT r.space_id,r.message_id FROM chat_reads r JOIN space_members m ON m.space_id=r.space_id AND m.user_id=r.user_id WHERE r.user_id=?',(uid,))}
-            for sid,mid in cleared.items():reads[sid]=max(reads.get(sid,0),mid)
-            from app.modules.family_photo_events import read_map,has_access
-            reads.update({'telegram:'+gid:mid for gid,mid in read_map(view.settings).items() if view.user and has_access(view.settings,view.user['role'],gid)})
+    def inbox(c,uid,after=None,before=None):
+        if now()-last_purge[0]>=60:
+            c.execute('DELETE FROM notifications WHERE created<=?',(now()-RETENTION,));last_purge[0]=now()
+        rooms=c.execute(
+            'SELECT m.space_id,s.chat_cleared,r.message_id FROM space_members m '
+            'JOIN spaces s ON s.id=m.space_id '
+            'LEFT JOIN chat_reads r ON r.space_id=m.space_id AND r.user_id=m.user_id WHERE m.user_id=?',(uid,)
+        ).fetchall()
+        members={row['space_id'] for row in rooms}
+        rows=c.execute('SELECT * FROM notifications WHERE user_id=? AND (? IS NULL OR id>?) AND (? IS NULL OR id<?) ORDER BY id '+('ASC' if after is not None else 'DESC')+' LIMIT 100',(uid,after,after,before,before)).fetchall()
+        view=InboxView(c,uid,now(),members);view.prime(rows)
+        items=[item for row in rows if (item:=view.render(row)) is not None]
+        unread=unread_count(c,uid,view.stamp,members,view=view)
+        if after is None and before is not None:
+            cursor=c.execute('SELECT COALESCE(MAX(id),0) FROM notifications WHERE user_id=?',(uid,)).fetchone()[0]
+        else:
+            cursor=max((row['id'] for row in rows),default=after or 0)
+        cleared={row['space_id']:row['chat_cleared'] for row in rooms if row['chat_cleared']>0}
+        reads={row['space_id']:row['message_id'] for row in rooms if row['message_id'] is not None}
+        for sid,mid in cleared.items():reads[sid]=max(reads.get(sid,0),mid)
+        from app.modules.family_photo_events import read_map,has_access
+        reads.update({'telegram:'+gid:mid for gid,mid in read_map(view.settings).items() if view.user and has_access(view.settings,view.user['role'],gid)})
         result={'items':items,'unread':unread,'cursor':cursor,'more':len(rows)==100,'chat_cleared':cleared,'message_reads':reads}
-        return (result,view.next_expiry) if deadline else result
+        return result,view.next_expiry,members
+
+    def live_snapshot(uid,after=None,*,chat=False):
+        with db() as c:
+            result,expiry,members=inbox(c,uid,after)
+            latest=c.execute(
+                'SELECT COALESCE(MAX((SELECT m.id FROM messages m WHERE m.space_id=sm.space_id '
+                'ORDER BY m.id DESC LIMIT 1)),0) FROM space_members sm WHERE sm.user_id=?',(uid,)
+            ).fetchone()[0] if chat else None
+            # Only participant-scoped public state, never SDP/device payloads.
+            rows=c.execute(
+                "SELECT 0 AS source,id,status,answered,connected FROM calls WHERE (caller_id=? OR recipient_id=?) "
+                "AND status IN ('ringing','connecting','active') "
+                "UNION ALL SELECT 1,id,status,NULL,NULL FROM federation_calls "
+                "WHERE recipient_id=? AND status IN ('ringing','connecting','active') "
+                "UNION ALL SELECT 2,id,status,NULL,NULL FROM federation_call_links "
+                "WHERE user_id=? AND status IN ('preparing','ringing','connecting','active') ORDER BY source,id",
+                (uid,uid,uid,uid)
+            ).fetchall()
+        calls=[[],[],[]]
+        for row in rows:
+            calls[row[0]].append(tuple(row)[1:])
+        return result,expiry,latest,tuple(tuple(group) for group in calls),members
+
     @r.put('/api/notifications/preferences')
     def preferences(data:NotificationPreferences,request:Request):
         s=ready(request)
@@ -231,7 +261,8 @@ def create_notifications_router(db,ready,tokens,rate,gate,now,fail,public_url,co
         return data.model_dump()
     @r.get('/api/notifications')
     def listing(request:Request,after:int|None=Query(default=None,ge=0),before:int|None=Query(default=None,ge=1)):
-        s=ready(request);return inbox(s['user_id'],after,before)
+        s=ready(request)
+        with db() as c:return inbox(c,s['user_id'],after,before)[0]
     @r.post('/api/notifications/read-all')
     def read_all(request:Request):
         s=ready(request)
@@ -273,6 +304,15 @@ def create_notifications_router(db,ready,tokens,rate,gate,now,fail,public_url,co
         accepted=False;counted=None;lease=None;chat_active=False
         dirty=asyncio.Event();receiver=waker=None
         loop=asyncio.get_running_loop();pending_wake=None
+        chat_members=None;room_keys=set()
+        def update_room_keys(members):
+            nonlocal chat_members,room_keys
+            if coordinator and members!=chat_members:
+                from app.multiprocess import room_signal
+                chat_members=members
+                room_keys={room_signal(coordinator.channel,'chat',room) for room in members}
+        def match_chat_rooms(signals):
+            return chat_members is None or not room_keys.isdisjoint(signals)
         def wake():
             nonlocal pending_wake
             pending_wake=None;dirty.set()
@@ -291,16 +331,6 @@ def create_notifications_router(db,ready,tokens,rate,gate,now,fail,public_url,co
             if type(data['chat_active']) is not bool:fail(422,localized_message('invalidMessageSectionStatus'))
             chat_active=data['chat_active']
             if lease:await lease.update({'session_token':s['token'],'chat_active':chat_active,'seen':now()})
-        def message_cursor(uid):
-            with db() as c:
-                return c.execute('SELECT COALESCE(MAX(m.id),0) FROM messages m JOIN space_members sm ON sm.space_id=m.space_id WHERE sm.user_id=?',(uid,)).fetchone()[0]
-        def call_cursor(uid):
-            # Only participant-scoped public state, never SDP/device payloads.
-            with db() as c:
-                local=c.execute("SELECT id,status,answered,connected FROM calls WHERE (caller_id=? OR recipient_id=?) AND status IN ('ringing','connecting','active') ORDER BY id",(uid,uid)).fetchall()
-                incoming=c.execute("SELECT id,status,answered,connected FROM federation_calls WHERE recipient_id=? AND status IN ('ringing','connecting','active') ORDER BY id",(uid,)).fetchall()
-                outgoing=c.execute("SELECT id,status FROM federation_call_links WHERE user_id=? AND status IN ('preparing','ringing','connecting','active') ORDER BY id",(uid,)).fetchall()
-                return tuple(tuple(tuple(row) for row in rows) for rows in (local,incoming,outgoing))
         def auth():
             req=SimpleNamespace(cookies=ws.cookies,headers=ws.headers,method='GET',client=ws.client)
             return ready(req),req
@@ -320,14 +350,13 @@ def create_notifications_router(db,ready,tokens,rate,gate,now,fail,public_url,co
             hello=json.loads(await asyncio.wait_for(ws.receive_text(),10))
             if not isinstance(hello,dict) or hello.get('type')!='auth':fail(403,localized_message('connectionConfirmationRequired'))
             tokens.check_csrf(SimpleNamespace(headers={'x-csrf-token':str(hello.get('csrf',''))}),s['csrf'])
-            if coordinator:coordinator.subscribe_changes(invalidate,note_changes=False)
+            if coordinator:coordinator.subscribe_changes(invalidate,note_changes=False,match_chat_rooms=match_chat_rooms)
             async with gate.shared_wait():
                 s,req=await blocking(auth)
                 await activity(hello,s)
                 dirty.clear()
-                initial,next_refresh=await blocking(inbox,s['user_id'],deadline=True)
-                chat_cursor=await blocking(message_cursor,s['user_id'])
-                calls_cursor=await blocking(call_cursor,s['user_id'])
+                initial,next_refresh,chat_cursor,calls_cursor,members=await blocking(live_snapshot,s['user_id'],chat=True)
+                update_room_keys(members)
             cursor=initial['cursor'];unread=initial['unread'];cleared=initial['chat_cleared'];reads=initial['message_reads'];await ws.send_json({'type':'ready','call_events':True,**initial})
             receiver=asyncio.create_task(ws.receive_text())
             waker=asyncio.create_task(dirty.wait())
@@ -356,10 +385,10 @@ def create_notifications_router(db,ready,tokens,rate,gate,now,fail,public_url,co
                     interval=coordinator.recovery_interval if coordinator else 1
                     refresh=changed or now()>=next_refresh or interval==1
                     if refresh:
-                        updates,next_refresh=await blocking(inbox,current['user_id'],cursor,deadline=True)
+                        updates,next_refresh,latest,latest_calls,members=await blocking(live_snapshot,current['user_id'],cursor,chat=chat_active)
+                        update_room_keys(members)
                         next_refresh=min(next_refresh,now()+interval)
-                        latest=await blocking(message_cursor,current['user_id']) if chat_active else chat_cursor
-                        latest_calls=await blocking(call_cursor,current['user_id'])
+                        if not chat_active:latest=chat_cursor
                 if data and data.get('type')=='activity':await ws.send_json({'type':'activity','chat_active':chat_active})
                 if data and data.get('type')=='ping':await ws.send_json({'type':'pong'})
                 if not refresh:continue
