@@ -1,6 +1,6 @@
 # Updating DrG Space
 
-## 5.2.21-rc.1
+## 5.2.21
 
 The muted family-chat preview samples decoded frames at up to 30 frames per second. The separate viewer plays the original video stream at its native quality and cadence.
 

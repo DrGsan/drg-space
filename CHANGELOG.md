@@ -2,7 +2,7 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.2.21-rc.1] — 2026-11-20 — Smoother family chat video previews
+## [5.2.21] — 2026-11-20 — Smoother family chat video previews
 
 - Play muted video previews at up to 30 frames per second and open the original video in the separate viewer.
 

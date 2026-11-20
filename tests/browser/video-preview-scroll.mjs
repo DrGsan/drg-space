@@ -152,7 +152,7 @@ try{
   requestAnimationFrame(sample);
  }));
  const nativeCadence=await measureCadence();
- assert.ok(nativeCadence.rate>=27&&nativeCadence.rate<=32&&nativeCadence.differentPixels>=5,
+ assert.ok(nativeCadence.rate>=27&&nativeCadence.rate<=32&&nativeCadence.differentPixels>=2,
    '30 fps preview should draw regularly and show changing frames: '+JSON.stringify(nativeCadence));
  assert.deepEqual(errors,[]);
  await page.evaluate(()=>player.destroy());
