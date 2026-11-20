@@ -95,10 +95,13 @@
 .fp-chat-history.fp-stable-history{overflow-anchor:none;scroll-behavior:auto}
 .fp-chat-history .chat-media-tile.has-image-poster{isolation:isolate}
 .fp-chat-history .chat-media-tile.has-image-poster>video{position:absolute;inset:0;visibility:visible}
+/* Keep the poster behind playback in case the inline video surface is not painted. */
 .fp-chat-history .chat-media-tile.has-image-poster>[data-video-poster]{position:relative;z-index:1}
-.fp-chat-history .chat-media-tile.has-image-poster>:is(.chat-media-play,.chat-video-timer,.chat-video-progress){z-index:2}
-.fp-chat-history .chat-media-tile.has-image-poster.is-preview-playing>video{visibility:visible}
-.fp-chat-history .chat-media-tile.has-image-poster.is-preview-playing>[data-video-poster]{visibility:hidden}
+.fp-chat-history .chat-media-tile.has-image-poster.is-preview-playing>video{z-index:2}
+.fp-chat-history .chat-media-tile.has-image-poster>[data-video-frame]{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none;visibility:hidden}
+.fp-chat-history .chat-media-tile.has-image-poster.is-preview-playing.has-painted-video-frame>video{z-index:auto}
+.fp-chat-history .chat-media-tile.has-image-poster.is-preview-playing.has-painted-video-frame>[data-video-frame]{visibility:visible;z-index:2}
+.fp-chat-history .chat-media-tile.has-image-poster>:is(.chat-media-play,.chat-video-timer,.chat-video-progress){z-index:3}
 
 /* Album cells reserve their mosaic before lazy previews decode. */
 .fp-chat-history .chat-media-album:not(.is-single) .chat-media-row{flex:none;min-height:0}

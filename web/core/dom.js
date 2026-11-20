@@ -21,6 +21,8 @@ function patch(node, next) {
   if(node.hasAttribute('data-recording') && node.getAttribute('data-recording-identity') === next.getAttribute('data-recording-identity') && node.querySelector('[data-recording-player]'))return;
   // The canvas player owns this subtree. Keep a loaded animation through polls.
   if(node.hasAttribute('data-fp-animation')&&node.getAttribute('data-fp-animation')===next.getAttribute('data-fp-animation')&&node.getAttribute('data-animation-url')===next.getAttribute('data-animation-url')&&node.querySelector('canvas'))return;
+  // Inline playback owns this canvas's decoded frame and backing dimensions.
+  if(node.matches('canvas[data-video-frame]')&&next.hasAttribute('data-video-frame'))return;
   // A reply jump briefly highlights its existing article; background updates
   // must not dismiss that highlight before its timer finishes.
   if (node.classList.contains('is-highlighted') && next.classList.contains('chat-message')) next.classList.add('is-highlighted');

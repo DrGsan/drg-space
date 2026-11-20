@@ -1,5 +1,11 @@
 # Updating DrG Space
 
+## 5.2.20
+
+Family chats draw decoded frames for the selected muted preview directly in the message tile. The same video stream supplies those frames. The existing poster covers the tile until a frame is drawn.
+
+Rebuild Space with the existing Compose files and volumes. No migration is required.
+
 ## 5.2.19
 
 Chat inboxes share one database session for message and call cursors, read markers, and the notification snapshot. The message cursor uses the room index. A new subscription schedules its own refresh and room-specific PostgreSQL signals wake inboxes for the affected room. Session revocation and the recovery checks still run independently.

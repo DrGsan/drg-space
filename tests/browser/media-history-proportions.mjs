@@ -36,12 +36,16 @@ try{
   assert.equal(requests.filter(r=>r.original).length,0,'video proportions must use small posters, never original video downloads');
   // The poster layer must yield to actual playback, then return when paused.
   playVideo=true;await page.evaluate(()=>show('video','portrait'));await page.emulateMedia({reducedMotion:'no-preference'});
-  await page.waitForFunction(()=>{const v=document.querySelector('.chat-media-tile>video');return v&&!v.paused&&v.readyState>=2;});
-  assert.equal(await page.locator('.chat-media-tile>video').evaluate(v=>getComputedStyle(v).visibility),'visible');
-  assert.equal(await page.locator('[data-video-poster]').evaluate(i=>getComputedStyle(i).visibility),'hidden');
+  await page.waitForFunction(()=>document.querySelector('.chat-media-tile.is-preview-playing>video')?.readyState>=2);
+  const videoLayers=()=>page.locator('.chat-media-tile').evaluate(tile=>{
+   const video=getComputedStyle(tile.querySelector('[data-video-frame]'));
+   const poster=getComputedStyle(tile.querySelector('[data-video-poster]'));
+   return {posterVisible:poster.visibility==='visible',videoAbove:Number(video.zIndex)>Number(poster.zIndex)};
+  });
+  assert.deepEqual(await videoLayers(),{posterVisible:true,videoAbove:true});
   await page.emulateMedia({reducedMotion:'reduce'});await page.waitForFunction(()=>document.querySelector('.chat-media-tile>video').paused);
-  assert.equal(await page.locator('[data-video-poster]').evaluate(i=>getComputedStyle(i).visibility),'visible');
+  assert.deepEqual(await videoLayers(),{posterVisible:true,videoAbove:false});
   assert.deepEqual(errors,[]);await page.evaluate(()=>mounted.destroy());await page.close();
-  console.log(JSON.stringify({engine:process.env.DRG_BROWSER_ENGINE||'chromium',width,scenarios:'cold photo/video portrait/wide, loaded visible geometry, refresh, portrait video album',thumbnailRequests:requests.filter(r=>!r.original).length,maxThumbnailResponseMs:Math.max(...requests.filter(r=>!r.original).map(r=>r.duration)),originalRequestsBeforePlayback:0,playback:'poster hides for actual video and returns on pause'}));
+  console.log(JSON.stringify({engine:process.env.DRG_BROWSER_ENGINE||'chromium',width,scenarios:'cold photo/video portrait/wide, loaded visible geometry, refresh, portrait video album',thumbnailRequests:requests.filter(r=>!r.original).length,maxThumbnailResponseMs:Math.max(...requests.filter(r=>!r.original).map(r=>r.duration)),originalRequestsBeforePlayback:0,playback:'video covers the poster during playback and moves behind it on pause'}));
  }
 }finally{await browser.close();}
