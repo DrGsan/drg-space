@@ -44,10 +44,13 @@ class ChatWorkspace {
   async init(){
     this.host.innerHTML=`<div class="chat-shell"><div class="chat-welcome"><p role="status">${tHtml("chat:loadingConversations")}</p></div></div>`;
     try{
+      this.telegramRoomsReady=!this.ctx.moduleEnabled('family_photos');
       const telegramReady=watchTelegramRooms(this.ctx,items=>{
-        if(this.disposed)return;this.telegramSpaces=items;this.drawRooms();
+        if(this.disposed)return;
+        this.telegramSpaces=items;this.telegramRoomsReady=true;this.drawRooms();
       },{signal:this.mediaAbort.signal}).then(watcher=>{if(this.disposed)watcher?.destroy();else this.telegramRooms=watcher;});
-      const [data]=await Promise.all([this.ctx.api('/chat/rooms'),telegramReady]);if(this.disposed)return;this.spaces=data.items;this.ctx.state.spaces=this.spaces;if(this.sid&&this.spaces.find(s=>s.id===this.sid)?.deletion&&$('#message-body',this.host)){await this.open(this.sid);}
+      const data=await this.ctx.api('/chat/rooms');
+      if(this.disposed)return;this.spaces=data.items;this.ctx.state.spaces=this.spaces;if(this.sid&&this.spaces.find(s=>s.id===this.sid)?.deletion&&$('#message-body',this.host)){await this.open(this.sid);}
       this.host.innerHTML=`<div class="chat-shell"><div class="chat-workspace"><aside class="chat-sidebar" tabindex="-1"><div class="chat-nav-head"><button id="chat-main-menu" class="chat-main-menu" aria-label="${tHtml("chat:mainMenu")}" title="${tHtml("chat:mainMenu")}">${chatIcon('back')}<span>${tHtml("chat:home")}</span></button>${this.ctx.notesInboxButton||''}</div><button type="button" class="chat-push-setup" data-chat-push hidden>${tHtml("chat:enableNotificationsWhenTheAppIsClosed")}</button><div class="chat-sidebar-heading"><h1>${tHtml("chat:messages")}</h1><label class="mobile-chat-section"><span class="sr-only">${tHtml("chat:messagesSection")}</span><select data-mobile-chat-section aria-label="${tHtml("chat:messagesSection")}"><option value="chats">${tHtml("chat:messages")}</option><option value="contacts">${tHtml("chat:contacts")}</option><option value="calls">${tHtml("chat:calls")}</option></select><span aria-hidden="true">⌄</span></label>${iconButton('search',tText("chat:searchConversations"),'data-open-room-search aria-expanded="false" aria-controls="chat-list-search"','mobile-room-search')}${iconButton('compose',tText("chat:newConversation"),'data-new-chat')}</div><label class="chat-search" id="chat-list-search">${chatIcon('search')}<input type="search" data-chat-room-search aria-label="${tHtml("chat:searchConversations")}" placeholder="${tHtml("chat:searchConversations")}" autocomplete="off">${iconButton('close',tText("chat:closeChatSearch"),'data-close-room-search','mobile-room-search')}</label><div class="chat-tabs" role="tablist" aria-label="${tHtml("chat:filterConversations")}">${[['all',tText("chat:all")],['unread',tText("chat:new")],['favorites',tText("chat:favourites")],['direct',tText("chat:personal")],['groups',tText("chat:groups")]].map(([id,title])=>`<button type="button" role="tab" data-chat-filter="${id}" aria-selected="${id==='all'}">${title}</button>`).join('')}</div><div class="chat-room-list" data-chat-rooms role="navigation" aria-label="${tHtml("chat:conversations")}"></div><footer class="chat-sidebar-footer chat-section-tabs" role="tablist" aria-label="${tHtml("chat:messagesSections")}">${[['contacts','contact',tText("chat:contacts")],['calls','phone',tText("chat:calls")],['chats','message',tText("chat:chats")],['settings','settings',tText("chat:settings")]].map(([id,icon,label])=>`<button type="button" role="tab" data-chat-section="${id}" aria-label="${label}" title="${label}" aria-selected="false" ${id==='calls'&&!(callsController.available||callsController.guestAvailable)?'hidden':''}>${chatIcon(icon)}<span>${label}</span></button>`).join('')}</footer></aside><main id="chat-main" class="chat-main"><div class="page-welcome chat-welcome chat-empty-selection"><p>${tHtml("chat:selectWhoYouWantToWriteTo")}</p></div></main></div></div>`;
       this.shell=$('.chat-shell',this.host);const pushButton=$('[data-chat-push]',this.host);this.ctx.push?.state().then(state=>{if(!this.disposed){pushButton.hidden=state.enabled;pushButton.textContent=state.supported&&state.configured?tText("chat:enableNotificationsWhenTheAppIsClosed"):tText("chat:configureNotificationsOnThisDevice");}}).catch(()=>{});pushButton.onclick=async()=>{pushButton.disabled=true;try{await this.ctx.push.enable();pushButton.hidden=true;this.ctx.toast(tText("chat:notificationsOnThisDeviceAreEnabled"));}catch(error){this.ctx.toast(error.message);this.ctx.navigate('settings');}finally{pushButton.disabled=false;}};$('#chat-main-menu',this.host).onclick=()=>this.ctx.navigate('home');
       this.host.querySelectorAll('[data-chat-section]').forEach(b=>b.onclick=()=>this.selectSection(b.dataset.chatSection));$('[data-new-chat]',this.host).onclick=()=>this.tab==='calls'?this.newCall():this.tab==='contacts'?this.addContact():this.newChat();
@@ -72,6 +75,9 @@ class ChatWorkspace {
       const notificationChange=e=>{this.telegramSpaces=this.telegramSpaces.map(s=>s.id===e.detail?.id?{...s,mute_until:e.detail.mute_until}:s);this.drawRooms();};document.addEventListener('drg-chat-notifications',notificationChange);this.cleanups.push(()=>document.removeEventListener('drg-chat-notifications',notificationChange));
       if(wanted?.startsWith('telegram:')&&this.ctx.moduleEnabled('family_photos'))await this.open(wanted);
       else if(this.spaces.some(s=>s.id===wanted))await this.open(wanted);
+      // A group opened directly can load history while the list still waits
+      // for its first complete catalog.
+      await telegramReady;
     }catch(e){this.mediaAbort.abort();if(!this.disposed){this.host.innerHTML=`<div class="chat-shell"><div class="chat-welcome"><h2>${tHtml("chat:failedToLoadChats")}</h2><p>${esc(e.message)}</p><button class="secondary" data-chat-retry>${tHtml("chat:retry")}</button><button class="text-link" id="chat-main-menu">${tHtml("chat:mainMenu")}</button></div></div>`;$('[data-chat-retry]',this.host).onclick=()=>mountChat(this.host,this.ctx,{listOnly:this.listOnly});$('#chat-main-menu',this.host).onclick=()=>this.ctx.navigate('home');}}
   }
   stopAudio(){this.host.querySelectorAll("audio").forEach(audio=>{audio.pause();audio.removeAttribute("src");audio.load();});}
@@ -85,6 +91,10 @@ class ChatWorkspace {
   drawRooms(){
     if(this.disposed||!this.shell)return;
     this.roomDateDay=new Date().toDateString();
+    if(this.tab==='chats'&&!this.telegramRoomsReady){
+      renderMarkup($('[data-chat-rooms]',this.host),`<div class="chat-list-empty"><p role="status">${tHtml("chat:loadingConversations")}</p></div>`);
+      return;
+    }
     for(const s of this.spaces)if(s.kind==='friends')s.name=personName(this.other(s));
     const rooms=this.allRooms(),counts=unreadRoomCounts(rooms);
     this.host.querySelectorAll('[data-chat-filter]').forEach(button=>{

@@ -1,5 +1,17 @@
 # Updating DrG Space
 
+## 5.2.18
+
+Chat workers reuse recipient and room reads, batch inbox wake-ups, and use room-specific PostgreSQL signals. Message writes and shared room reads run outside the WebSocket event loop. Each outgoing event keeps its access checks, and periodic reconciliation covers reconnects and missed signals.
+
+The conversation list shows ordinary chats and family groups together. A directly opened family conversation can show its history while the list and sending status load. The owner check for a personal note avoids the full workspace access index. The note catalog takes a write lock only when trash cleanup is needed.
+
+Rebuild Space with the existing Compose files, environment, encryption keys and volumes. No migration, new settings or Media update is required. For the base installation:
+
+```sh
+docker compose up -d --build --no-deps app
+```
+
 ## 5.2.17
 
 The Notion page picker overlaps independent metadata requests within the existing workspace request budget. App workers sharing a data volume reuse the same encrypted catalog for up to five minutes. The catalog is scoped to the current authorization. Link coverage is read live each time.

@@ -6,16 +6,18 @@ from app.workspace_management import is_manager
 import asyncio, base64, json, secrets
 from contextlib import suppress
 from types import SimpleNamespace
+from weakref import WeakValueDictionary
 from typing import Annotated
 from app.http import Router, Request, WebSocket, WebSocketDisconnect, HTTPError, Query
 from pydantic import BaseModel, Field, ConfigDict, StrictBool
-from app.notifications import notify,actor,chat_is_foreground,RETENTION as NOTIFICATION_RETENTION
+from app.notifications import notify,actor,foreground_chat_users,RETENTION as NOTIFICATION_RETENTION
 from app.chat_storage import cutoff,encode,decode,envelope,serial_message,serial_messages,attachment_room,MAX_ATTACHMENT,DRAFT_SECONDS,EDIT_SECONDS,ATTACHMENT_PATTERN,CHAT_TIMERS,retire,history_version,HISTORY_VERSION_PREFIX,deletion_key
 from app.collaboration import MAX_STATE, load_doc, project, links_ok
 from app.modules.social import note_access, space_access
 from app.modules.notion import require_role
-from app.multiprocess import PeerCollision, PeerLimit, PeerSuperseded
+from app.multiprocess import PeerCollision, PeerLimit, PeerSuperseded, room_signal
 from app.redis_cache import CACHE_SECONDS
+from app.storage import blocking
 
 class Message(BaseModel):
     model_config=ConfigDict(extra='forbid')
@@ -48,6 +50,7 @@ class ChatPreferences(BaseModel):
 
 def create_realtime_router(db,ready,guards,tokens,protection,gate,now,fail,public_url,*,coordinator=None):
     router=Router();rooms={}
+    chat_locks=WeakValueDictionary()
     def auth(ws,kind,target):
         req=SimpleNamespace(cookies=ws.cookies,headers=ws.headers,method='GET',client=ws.client)
         protection.check(req)
@@ -65,7 +68,7 @@ def create_realtime_router(db,ready,guards,tokens,protection,gate,now,fail,publi
         existing=c.execute('SELECT m.*,u.login AS sender FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.space_id=? AND m.sender_id=? AND m.client_id=?',(sid,uid,data.client_id)).fetchone()
         if existing:
             if existing['created']<=cutoff(now()) or existing['expires'] and existing['expires']<=now():fail(409,localized_message('theMessageHasExpiredCreateANewMessage'))
-            return serial_message(c,existing,now())|{'sender_profile':actor(c,uid,now())}
+            return serial_message(c,existing,now())|{'sender_profile':actor(c,uid,now())},True
         if not data.body.strip() and not data.attachments:fail(422,localized_message('enterAMessageOrAttachAFile'))
         if len(set(data.attachments))!=len(data.attachments):fail(422,localized_message('reAttachment'))
         if data.reply_to is not None and not c.execute('SELECT 1 FROM messages WHERE id=? AND space_id=? AND created>? AND (expires=0 OR expires>?)',(data.reply_to,sid,cutoff(now()),now())).fetchone():fail(404,localized_message('theMessageIsNotAvailableForReply'))
@@ -78,11 +81,13 @@ def create_realtime_router(db,ready,guards,tokens,protection,gate,now,fail,publi
         cursor=c.execute('INSERT INTO messages(space_id,sender_id,client_id,body,created,expires) VALUES(?,?,?,?,?,?)',(sid,uid,data.client_id,encode(data.body.strip(),data.attachments,data.reply_to),stamp,stamp+ttl if ttl else 0))
         for fid in data.attachments:c.execute('UPDATE files SET version=?,updated=? WHERE id=?',(cursor.lastrowid+1,now(),fid))
         saved=serial_message(c,c.execute('SELECT m.*,u.login AS sender FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.id=?',(cursor.lastrowid,)).fetchone(),now())
-        for member in c.execute('SELECT user_id FROM space_members WHERE space_id=? AND user_id!=?',(sid,uid)).fetchall():
-            if chat_is_foreground(c,member[0],stamp,coordinator):continue
-            notify(c,member[0],'message',{'space_id':sid,'message_id':saved['id'],'actor_id':uid,'actor':saved['sender'],'mentioned':any(m['id']==member[0] for m in saved['mentions']),'preview':data.body.strip()[:180] or 'Вложение'},now())
+        recipients=[row[0] for row in c.execute('SELECT user_id FROM space_members WHERE space_id=? AND user_id!=?',(sid,uid))]
+        foreground=foreground_chat_users(c,recipients,stamp,coordinator)
+        for recipient in recipients:
+            if recipient in foreground:continue
+            notify(c,recipient,'message',{'space_id':sid,'message_id':saved['id'],'actor_id':uid,'actor':saved['sender'],'mentioned':any(m['id']==recipient for m in saved['mentions']),'preview':data.body.strip()[:180] or 'Вложение'},now())
         saved['sender_profile']=actor(c,uid,now())
-        return saved
+        return saved,False
     def enqueue(peer,event):
         peer['queue'].put_nowait(event)
         # A delta or ACK at version N does not prove the peer received edits
@@ -94,71 +99,101 @@ def create_realtime_router(db,ready,guards,tokens,protection,gate,now,fail,publi
         return {r['user_id']:r['message_id'] for r in c.execute('SELECT r.user_id,r.message_id FROM chat_reads r JOIN space_members m ON m.space_id=r.space_id AND m.user_id=r.user_id WHERE r.space_id=?',(sid,))}
     def live_presence(state,kind):
         return state if kind!='chat' or state and state.get('until',0)>now() else None
-    def chat_catchup(peer,target):
+    def read_chat_updates(target,message_cursors,edit_cursors):
+        stamp=now()
         with db() as c:
-            state=dict(c.execute('SELECT chat_ttl,chat_cleared FROM spaces WHERE id=?',(target,)).fetchone())
+            state=c.execute('SELECT chat_ttl,chat_cleared FROM spaces WHERE id=?',(target,)).fetchone()
+            if not state:return None
+            state=dict(state)
             state['history_version']=history_version(c,target)
-            if state!=peer.get('chat_state'):
-                peer['chat_state']=state;enqueue(peer,{'type':'chat_state',**state})
             reads=receipts(c,target)
-            if reads!=peer.get('reads'):
-                peer['reads']=reads;enqueue(peer,{'type':'reads','reads':reads})
-            rows=c.execute('SELECT m.*,u.login AS sender FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.space_id=? AND m.created>? AND (m.expires=0 OR m.expires>?) AND m.id>? ORDER BY m.id ASC LIMIT 128',(target,cutoff(now()),now(),peer['chat_cursor'])).fetchall()
-            for row in rows:
-                enqueue(peer,{'type':'message','message':serial_message(c,row,now())|{'sender_profile':actor(c,row['sender_id'],now())}})
-                peer['chat_cursor']=row['id']
-            # Revisions are allocated under the same transaction lock as writes.
-            # They form a room-wide edit cursor, independent of message IDs and
-            # wall-clock seconds, including multiple edits in the same second.
-            rows=c.execute('SELECT m.*,u.login AS sender FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.space_id=? AND m.created>? AND (m.expires=0 OR m.expires>?) AND m.revision>? ORDER BY m.revision ASC LIMIT 128',(target,cutoff(now()),now(),peer['edit_cursor'])).fetchall()
-            for row in rows:
-                enqueue(peer,{'type':'message_edited','message':serial_message(c,row,now())|{'sender_profile':actor(c,row['sender_id'],now())}})
-                peer['edit_cursor']=row['revision']
-    async def publish(room,event,exclude=None):
-        for peer in tuple(rooms.get(room,())):
+            parameters=(target,cutoff(stamp),stamp)
+            messages={cursor:c.execute('SELECT m.*,u.login AS sender FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.space_id=? AND m.created>? AND (m.expires=0 OR m.expires>?) AND m.id>? ORDER BY m.id ASC LIMIT 128',(*parameters,cursor)).fetchall() for cursor in message_cursors}
+            # Edits have an independent, room-wide cursor. A newer message ID
+            # cannot prove that an older message's newest edit was delivered.
+            edits={cursor:c.execute('SELECT m.*,u.login AS sender FROM messages m JOIN users u ON u.id=m.sender_id WHERE m.space_id=? AND m.created>? AND (m.expires=0 OR m.expires>?) AND m.revision>? ORDER BY m.revision ASC LIMIT 128',(*parameters,cursor)).fetchall() for cursor in edit_cursors}
+            rows={row['id']:row for batches in (messages,edits) for batch in batches.values() for row in batch}
+            payloads={item['id']:item for item in serial_messages(c,list(rows.values()),stamp)}
+        return state,reads,messages,edits,payloads
+
+    async def chat_catchup(room,peers,replay=None):
+        # Publication and reconciliation can overlap while the database work
+        # runs in a thread. Serialize cursor reads and queue updates per room.
+        lock=chat_locks.get(room)
+        if lock is None:chat_locks[room]=lock=asyncio.Lock()
+        async with lock:
+            peers=[peer for peer in peers if peer.get('chat_ready') and not peer['stop'].is_set()]
+            if not peers:return
+            snapshot=await blocking(read_chat_updates,room[1],{peer['chat_cursor'] for peer in peers},
+                                    {peer['edit_cursor'] for peer in peers})
+            if snapshot is None:return
+            state,reads,messages,edits,payloads=snapshot
+            for peer in peers:
+                if peer['stop'].is_set():continue
+                try:
+                    if state!=peer.get('chat_state'):
+                        peer['chat_state']=state;enqueue(peer,{'type':'chat_state',**state})
+                    if reads!=peer.get('reads'):
+                        peer['reads']=reads;enqueue(peer,{'type':'reads','reads':reads})
+                    previous=peer['chat_cursor']
+                    for row in messages[previous]:
+                        enqueue(peer,{'type':'message','message':payloads[row['id']]})
+                        peer['chat_cursor']=row['id']
+                    for row in edits[peer['edit_cursor']]:
+                        enqueue(peer,{'type':'message_edited','message':payloads[row['id']]})
+                        peer['edit_cursor']=row['revision']
+                    if replay and replay['message']['id']<=previous:enqueue(peer,replay)
+                except asyncio.QueueFull:peer['stop'].set()
+
+    async def publish(room,event,exclude=None,*,retry=False):
+        peers=tuple(rooms.get(room,()))
+        if coordinator and room[0]=='chat' and event['type'] in ('message','reads','chat_state'):
+            # A commit may be signalled before its handler resumes. Read the
+            # durable sequence; only an explicit retry replays an old ID.
+            await chat_catchup(room,peers,event if retry else None)
+            return
+        for peer in peers:
             if peer is exclude:continue
             try:
-                auth(peer['ws'],*room)
+                await blocking(auth,peer['ws'],*room)
+                if peer['stop'].is_set():continue
                 if room[0]=='note' and event.get('epoch'):
                     if peer['epoch'] and peer['epoch']!=event['epoch']:
                         await peer['ws'].close(code=4409);peer['stop'].set();continue
                     peer['epoch']=event['epoch']
-                if coordinator and room[0]=='chat' and event['type']=='message':
-                    # A later commit may be published first by another worker.
-                    # Catch up canonically instead of skipping a message gap.
-                    previous=peer['chat_cursor'];chat_catchup(peer,room[1])
-                    # Preserve an explicit idempotent retry acknowledgement.
-                    # Browser consumers merge messages by their durable ID.
-                    if event['message']['id']<=previous:enqueue(peer,event)
-                else:
-                    if coordinator and event['type']=='presence':
-                        if event['state'] is None:peer['presence_seen'].pop(event['client_id'],None)
-                        else:peer['presence_seen'][event['client_id']]=event['state']
-                    enqueue(peer,event)
+                if coordinator and event['type']=='presence':
+                    if event['state'] is None:peer['presence_seen'].pop(event['client_id'],None)
+                    else:peer['presence_seen'][event['client_id']]=event['state']
+                enqueue(peer,event)
             except (HTTPError,asyncio.QueueFull):
                 # Do not leak even one event to a removed member or revoked session.
                 peer['stop'].set()
-    async def reconcile():
-        if not rooms:return
+    async def reconcile(signals=None):
+        active=[(room,tuple(peers)) for room,peers in rooms.items()
+                if signals is None or room_signal(coordinator.channel,*room) in signals]
+        if not active:return
         registered=await coordinator.peers('realtime')
         live={r['token'] for r in registered}
+        remote_rooms={}
+        for record in registered:remote_rooms.setdefault(record['room'],[]).append(record)
         try:
             async with gate.shared():
-                for room,peers in tuple(rooms.items()):
+                for room,peers in active:
                     kind,target=room
-                    remote=[r for r in registered if r['room']==room]
+                    remote=remote_rooms.get(room,())
+                    for peer in peers:
+                        if peer['lease'].token not in live:peer['stop'].set()
+                    if kind=='chat':await chat_catchup(room,peers)
                     document=None
                     if kind=='note':
                         # Idle sockets poll only the small generation/version
                         # tuple, not a potentially 1.5-MB encrypted document.
                         with db() as c:current=c.execute('SELECT d.epoch,n.version FROM collaborative_docs d JOIN notes n ON n.id=d.note_id WHERE d.note_id=?',(target,)).fetchone()
-                    for peer in tuple(peers):
+                    for peer in peers:
                         if peer['stop'].is_set():continue
                         try:
-                            auth(peer['ws'],kind,target)
-                            if peer['lease'].token not in live:
-                                peer['stop'].set();continue
                             if kind=='note':
+                                auth(peer['ws'],kind,target)
                                 if peer['epoch'] and (not current or current['epoch']!=peer['epoch']):
                                     await peer['ws'].close(code=4409);peer['stop'].set();continue
                                 if current and (peer['epoch'] is None or current['version']>peer['canonical_version']):
@@ -168,7 +203,6 @@ def create_realtime_router(db,ready,guards,tokens,protection,gate,now,fail,publi
                                         await peer['ws'].close(code=4409);peer['stop'].set();continue
                                     peer['epoch']=document['epoch']
                                     enqueue(peer,{'type':'sync','state':base64.b64encode(document['state']).decode(),'epoch':document['epoch'],'version':document['version']})
-                            else:chat_catchup(peer,target)
                             presence={r['cid']:state for r in remote if r['token']!=peer['lease'].token and (state:=live_presence(r['metadata'].get('presence'),kind)) is not None}
                             old=peer['presence_seen']
                             for cid in old.keys()-presence.keys():enqueue(peer,{'type':'presence','client_id':cid,'state':None})
@@ -382,12 +416,21 @@ def create_realtime_router(db,ready,guards,tokens,protection,gate,now,fail,publi
 
         if after is None:items.reverse()
         return {**state,'reads':reads,'items':items,'more':len(rows)>100,'edits':edits,'edit_more':edit_more,'edit_cursor':edit_cursor,'server_time':now(),'retention_cutoff':cutoff(now()),'retention_months':3,'max_attachment_bytes':MAX_ATTACHMENT}
+    def save_message(sid,data,request,uid):
+        protection.rate(request,'chat-send',60,subject=uid)
+        with db() as c:
+            c.execute('BEGIN IMMEDIATE');space_access(c,sid,uid,fail)
+            c.realtime_room=('chat',sid)
+            return message(c,sid,uid,data)
+
+    def send_http(sid,data,request):
+        s=guards('chat')(request)
+        return save_message(sid,data,request,s['user_id'])
+
     @router.post('/api/chat/{sid}/messages')
     async def send(sid:str,data:Message,request:Request):
-        s=guards('chat')(request);protection.rate(request,'chat-send',60,subject=s['user_id'])
-        with db() as c:
-            c.execute('BEGIN IMMEDIATE');space_access(c,sid,s['user_id'],fail);saved=message(c,sid,s['user_id'],data)
-        await publish(('chat',sid),{'type':'message','message':saved})
+        saved,retry=await blocking(send_http,sid,data,request)
+        await publish(('chat',sid),{'type':'message','message':saved},retry=retry)
         return saved
     from app.reactions import Reaction
     @router.post('/api/chat/{sid}/messages/{mid}/reactions')
@@ -492,27 +535,29 @@ def create_realtime_router(db,ready,guards,tokens,protection,gate,now,fail,publi
                     old['stop'].set();rooms[room].remove(old)
             peer={'ws':ws,'uid':s['user_id'],'login':s['login'],'cid':cid,'presence':None,'queue':asyncio.Queue(256),'stop':asyncio.Event(),'epoch':None,'canonical_version':0,'chat_cursor':0,'edit_cursor':0,'presence_seen':{},'lease':lease}
             rooms.setdefault(room,[]).append(peer)
+            def authorized_generation(epoch):
+                auth(ws,kind,target)
+                if kind!='note' or not epoch:return True
+                with db() as c:current=c.execute('SELECT epoch FROM collaborative_docs WHERE note_id=?',(target,)).fetchone()
+                return bool(current and current[0]==epoch)
+
             async def write():
                 while not peer['stop'].is_set():
                     event=await peer['queue'].get()
                     async with gate.shared_wait():
-                        auth(ws,kind,target)
                         event_epoch=event.get('epoch') or (peer['epoch'] if event['type']=='ack' else None)
-                        if kind=='note' and event_epoch:
-                            with db() as c:current=c.execute('SELECT epoch FROM collaborative_docs WHERE note_id=?',(target,)).fetchone()
-                            if not current or current[0]!=event_epoch:
-                                await ws.close(code=4409);peer['stop'].set();return
+                        if not await blocking(authorized_generation,event_epoch):
+                            await ws.close(code=4409);peer['stop'].set();return
+                        if peer['stop'].is_set():return
                     try:await asyncio.wait_for(ws.send_json(event),5)
                     finally:peer['queue'].task_done()
             async def watch():
                 while not peer['stop'].is_set():
                     await asyncio.sleep(2)
                     async with gate.shared_wait():
-                        auth(ws,kind,target)
-                        if kind=='chat' and not coordinator:chat_catchup(peer,target)
-                        if kind=='note' and peer['epoch']:
-                            with db() as c:current=c.execute('SELECT epoch FROM collaborative_docs WHERE note_id=?',(target,)).fetchone()
-                            if not current or current[0]!=peer['epoch']:await ws.close(code=4409);peer['stop'].set();return
+                        if not await blocking(authorized_generation,peer['epoch']):
+                            await ws.close(code=4409);peer['stop'].set();return
+                        if kind=='chat' and not coordinator:await chat_catchup(room,(peer,))
             writer=asyncio.create_task(write());monitor=asyncio.create_task(watch())
             async with gate.shared_wait():
                 auth(ws,kind,target)
@@ -531,6 +576,7 @@ def create_realtime_router(db,ready,guards,tokens,protection,gate,now,fail,publi
                         with db() as c:
                             peer['chat_cursor']=c.execute('SELECT COALESCE(MAX(id),0) FROM messages WHERE space_id=?',(target,)).fetchone()[0]
                             peer['edit_cursor']=c.execute('SELECT chat_revision FROM spaces WHERE id=?',(target,)).fetchone()[0]
+                    peer['chat_ready']=True
                     peer['queue'].put_nowait({'type':'ready'})
                 if coordinator:
                     others=await coordinator.peers('realtime',room)
@@ -547,7 +593,7 @@ def create_realtime_router(db,ready,guards,tokens,protection,gate,now,fail,publi
                 data=json.loads(raw)
                 if not isinstance(data,dict):fail(422,localized_message('invalidMessage'))
                 async with gate.shared_wait():
-                    current,request=auth(ws,kind,target)
+                    current,request=await blocking(auth,ws,kind,target)
                     if data.get('type')=='presence':
                         protection.rate(request,'presence',1500,subject=current['user_id'])
                         state=data.get('state')
@@ -575,10 +621,9 @@ def create_realtime_router(db,ready,guards,tokens,protection,gate,now,fail,publi
                     if data.get('type')=='ping':peer['queue'].put_nowait({'type':'pong'});return
                     if kind=='chat':
                         if data.get('type')!='message':fail(422,localized_message('unknownAction'))
-                        parsed=Message.model_validate({k:data[k] for k in ('body','client_id','attachments','reply_to') if k in data});protection.rate(request,'chat-send',60,subject=current['user_id'])
-                        with db() as c:
-                            c.execute('BEGIN IMMEDIATE');space_access(c,target,current['user_id'],fail);saved=message(c,target,current['user_id'],parsed)
-                        await publish(room,{'type':'message','message':saved});return
+                        parsed=Message.model_validate({k:data[k] for k in ('body','client_id','attachments','reply_to') if k in data})
+                        saved,retry=await blocking(save_message,target,parsed,request,current['user_id'])
+                        await publish(room,{'type':'message','message':saved},retry=retry);return
                     if data.get('type') not in ('init','update'):fail(422,localized_message('unknownAction'))
                     protection.rate(request,'collaboration',1500,subject=current['user_id'])
                     encoded=data.get('update')

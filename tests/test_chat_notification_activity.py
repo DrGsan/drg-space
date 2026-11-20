@@ -8,7 +8,7 @@ from tests.test_security import reset
 from app import main as m
 from app.http import WebSocketDisconnect
 from app.multiprocess import ProcessCoordinator
-from app.notifications import CHAT_ACTIVITY_TTL,chat_is_foreground
+from app.notifications import CHAT_ACTIVITY_TTL,chat_is_foreground,foreground_chat_users
 from tests.test_social import next_event
 from tests.test_web_push import queued,message,push_service
 
@@ -68,6 +68,27 @@ def test_activity_is_shared_between_workers_expires_and_rechecks_session():
             db.execute('UPDATE sessions SET expires=? WHERE token=?',(stamp-1,token))
             assert not chat_is_foreground(db,uid,stamp,m.process_coordinator)
     finally:asyncio.run(lease.close())
+
+
+def test_foreground_batch_checks_the_live_session_owner_once(monkeypatch):
+    sender,recipient,_,_,_=queued()
+    first=sender.get('/api/me').json()['id']
+    second=recipient.get('/api/me').json()['id']
+    with m.db() as db:
+        token=db.execute("SELECT token FROM sessions WHERE user_id=? AND stage='full'",(first,)).fetchone()[0]
+    stamp=m.now()
+    worker=ProcessCoordinator(m.database,m.DATA,m.data_cipher,m.storage_gate)
+    calls=[]
+    def peers(scope):
+        calls.append(scope)
+        return [
+            {'uid':uid,'room':('inbox',uid),'metadata':{'chat_active':True,'session_token':token,'seen':stamp}}
+            for uid in (first,second)
+        ]
+    monkeypatch.setattr(worker,'peers_sync',peers)
+    with m.db() as db:
+        assert foreground_chat_users(db,(first,second),stamp,worker)=={first}
+    assert calls==['inbox']
 
 
 @pytest.mark.parametrize('value',['true',1,None])

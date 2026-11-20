@@ -44,7 +44,7 @@ try{
    const ctx={state:{me:{...me,settings:{}}},moduleEnabled:()=>true,navigate(){},modal:MediaReactions.modal,toast(text){mediaFixture.lastToast=text;},async api(path,method='GET',body){
     if(path==='/chat/rooms')return {items:structuredClone(rooms)};
     if(path==='/chat/typing')return {rooms:{},server_time:Date.now()/1000};
-    if(path==='/family-photos/groups')return {items:[{id:'-1001',title:'Тестовый архив',can_send:true}],status:{can_send:true,worker_online:true,bot_messaging:true}};
+    if(path==='/family-photos/groups'||path==='/family-photos/groups?previews=1')return {items:[{id:'-1001',title:'Тестовый архив',can_send:true,latest_message_id:messages.at(-1).id,last_message:null}],status:{can_send:true,worker_online:true,bot_messaging:true}};
     if(path.endsWith('/reactions')&&method==='POST'){
      mediaFixture.requests.push({path,body});const id=Number(path.split('/').at(-2)),message=messages.find(m=>m.id===id),group=message.reactions.find(r=>r.emoji===body.emoji);
      if(group.people.some(p=>p.id==='me'))group.people=group.people.filter(p=>p.id!=='me');else group.people.push(me);group.count=group.people.length;message.reaction_revision++;

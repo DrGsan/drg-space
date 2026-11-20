@@ -44,6 +44,7 @@ def record_preview(c,row):
 
 
 def can_manage(c,n,uid):
+    if not n['space_id']:return n['user_id']==uid
     from app.note_access import access_index
     index=access_index(c)
     # Authorship grants content editing; work-space access is centrally managed.
@@ -53,6 +54,7 @@ def can_manage(c,n,uid):
 def page_role(c,n,uid):
     from app.notion_sync.access import readonly
     if readonly(c,n):return 'viewer'
+    if not n['space_id'] and n['user_id']==uid:return 'editor'
     from app.note_access import access_index
     return access_index(c).role(n,uid)
 

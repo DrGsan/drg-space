@@ -14,6 +14,7 @@ from app.storage import blocking
 
 RETENTION=7*86400
 CHAT_ACTIVITY_TTL=30
+INBOX_WAKE_DELAY=0.35
 class NotificationPreferences(BaseModel):
     model_config=ConfigDict(extra='forbid')
     sound:bool=True
@@ -178,13 +179,28 @@ def unread_count(c,uid,stamp,members=None,*,view=None):
     if cache and not c.realtime_dirty:cache.put(ticket,count,view.next_expiry,stamp)
     return count
 
-def chat_is_foreground(c,uid,stamp,coordinator):
-    if coordinator is None:return False
-    for peer in coordinator.peers_sync('inbox',('inbox',uid)):
+def foreground_chat_users(c,uids,stamp,coordinator):
+    users=set(uids)
+    if coordinator is None or not users:return set()
+    candidates={}
+    for peer in coordinator.peers_sync('inbox'):
+        uid=peer['uid']
         data=peer['metadata']
-        if data.get('chat_active') is True and stamp-CHAT_ACTIVITY_TTL<data.get('seen',0)<=stamp:
-            if c.execute("SELECT 1 FROM sessions WHERE token=? AND user_id=? AND stage='full' AND expires>?",(data.get('session_token'),uid,stamp)).fetchone():return True
-    return False
+        token=data.get('session_token')
+        if uid in users and peer['room']==('inbox',uid) and token and data.get('chat_active') is True and stamp-CHAT_ACTIVITY_TTL<data.get('seen',0)<=stamp:
+            candidates.setdefault(token,set()).add(uid)
+    active=set()
+    tokens=list(candidates)
+    for start in range(0,len(tokens),200):
+        batch=tokens[start:start+200]
+        placeholders=','.join('?' for _ in batch)
+        rows=c.execute("SELECT token,user_id FROM sessions WHERE token IN ("+placeholders+") AND stage='full' AND expires>?",(*batch,stamp))
+        active.update(row['user_id'] for row in rows if row['user_id'] in candidates[row['token']])
+    return active
+
+
+def chat_is_foreground(c,uid,stamp,coordinator):
+    return uid in foreground_chat_users(c,(uid,),stamp,coordinator)
 
 def create_notifications_router(db,ready,tokens,rate,gate,now,fail,public_url,coordinator=None):
     r=Router();live_counts={};last_purge=[0]
@@ -256,7 +272,19 @@ def create_notifications_router(db,ready,tokens,rate,gate,now,fail,public_url,co
     async def live(ws:WebSocket):
         accepted=False;counted=None;lease=None;chat_active=False
         dirty=asyncio.Event();receiver=waker=None
-        async def invalidate():dirty.set()
+        loop=asyncio.get_running_loop();pending_wake=None
+        def wake():
+            nonlocal pending_wake
+            pending_wake=None;dirty.set()
+        async def invalidate():
+            nonlocal pending_wake
+            if not coordinator.listening or not INBOX_WAKE_DELAY:
+                if pending_wake:pending_wake.cancel()
+                wake()
+            elif pending_wake is None and not dirty.is_set():
+                # PostgreSQL's global signal can fire several times for one
+                # active room. Short batching keeps the independent watchdog.
+                pending_wake=loop.call_later(INBOX_WAKE_DELAY,wake)
         async def activity(data,s):
             nonlocal chat_active
             if 'chat_active' not in data:return
@@ -292,7 +320,7 @@ def create_notifications_router(db,ready,tokens,rate,gate,now,fail,public_url,co
             hello=json.loads(await asyncio.wait_for(ws.receive_text(),10))
             if not isinstance(hello,dict) or hello.get('type')!='auth':fail(403,localized_message('connectionConfirmationRequired'))
             tokens.check_csrf(SimpleNamespace(headers={'x-csrf-token':str(hello.get('csrf',''))}),s['csrf'])
-            if coordinator:coordinator.subscribe_changes(invalidate)
+            if coordinator:coordinator.subscribe_changes(invalidate,note_changes=False)
             async with gate.shared_wait():
                 s,req=await blocking(auth)
                 await activity(hello,s)
@@ -351,6 +379,7 @@ def create_notifications_router(db,ready,tokens,rate,gate,now,fail,public_url,co
         except WebSocketDisconnect:pass
         finally:
             if coordinator:coordinator.unsubscribe_changes(invalidate)
+            if pending_wake:pending_wake.cancel()
             tasks=[t for t in (receiver,waker) if t is not None]
             for task in tasks:task.cancel()
             await asyncio.gather(*tasks,return_exceptions=True)

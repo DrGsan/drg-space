@@ -240,6 +240,7 @@ class Connection:
         self.backend, self.raw = backend, raw
         self.quota_guard=False;self.quota_disabled=False;self.quota_deltas={};self.quota_recount=set()
         self.realtime_dirty=False
+        self.realtime_room=None
 
     def execute(self,query,parameters=()):
         if self.quota_guard or self.quota_disabled:return self._execute(query,parameters)

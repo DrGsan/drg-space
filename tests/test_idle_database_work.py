@@ -99,8 +99,11 @@ def test_idle_inbox_uses_signals_recovery_and_independent_revocation_watchdog(tm
             assert statements==[], 'Idle pings/watchdog must not rebuild the inbox.'
             with backend.connection() as c:
                 c.execute('INSERT INTO notifications(user_id,kind,payload,created) VALUES(?,?,?,?)',(uid,'session','{}',stamp))
-            for callback in tuple(worker._change_callbacks):await callback()
+            for _ in range(4):
+                for callback in tuple(worker._change_callbacks):await callback()
+                await asyncio.sleep(.04)
             event=await socket.event('notifications');assert event['unread']==1
+            assert sum('SELECT * FROM notifications WHERE' in sql for sql in statements)==1
             # Lost LISTEN falls back to polling, including changes made during
             # the gap, even without an incoming client message.
             worker.listening=False

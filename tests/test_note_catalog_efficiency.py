@@ -16,6 +16,24 @@ def catalog(c,revision=''):
     return r.json()
 
 
+def test_private_note_read_and_save_do_not_build_workspace_access_index(monkeypatch):
+    c,_,_=owner()
+    guest,_=member(c)
+    identity=note(c)
+    from app.note_access import AccessIndex
+
+    def unexpected_index(*_):
+        pytest.fail('A private note does not require a workspace access index')
+
+    monkeypatch.setattr(AccessIndex,'__init__',unexpected_index)
+    current=c.get('/api/notes/'+identity)
+    assert current.status_code==200
+    saved=c.put('/api/notes/'+identity,json={'title':'Updated','body':'Owned content','version':current.json()['version']})
+    assert saved.status_code==200 and saved.json()['role']=='editor'
+    assert saved.json()['manage'] and saved.json()['title']=='Updated'
+    assert guest.get('/api/notes/'+identity).status_code==404
+
+
 def test_thousand_note_catalog_is_batched_and_unchanged_transfer_is_small(monkeypatch):
     c,s,p,service,stamp,rid,mapping,patches=enabled()
     with m.db() as db:

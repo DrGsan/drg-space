@@ -6,7 +6,7 @@ main.py. Markdown remains a portable projection; blocks are the rich document.
 from app.i18n import message as localized_message
 import json, re, secrets
 from urllib.parse import urlparse
-from app.retention import purge_trash
+from app.retention import purge_trash,trash_needs_purge
 from app.http import Router, Request,Query
 from app.modules.social import note_access, space_access
 from app.note_access import access_index,participants,profile,visible_rows
@@ -153,7 +153,9 @@ def create_notes_router(db,ready,now,fail,data_dir=None,publication_update=None,
     def list_pages(request:Request,trash:bool=False,catalog:bool=False,catalog_revision:str|None=Query(default=None,max_length=64)):
         s=ready(request)
         with db() as c:
-            c.execute('BEGIN IMMEDIATE');purge_trash(c,now())
+            stamp=now()
+            if trash_needs_purge(c,stamp):
+                c.execute('BEGIN IMMEDIATE');purge_trash(c,stamp)
             columns='id,user_id,space_id,title,created,updated,parent_id,icon,cover,favorite,locked,full_width,deleted,trash_batch,position,version' if catalog else '*'
             rows=visible_rows(c,s['user_id'],columns,include_deleted=trash)
             from app.notion_sync.access import preload,pending
@@ -222,6 +224,8 @@ def create_notes_router(db,ready,now,fail,data_dir=None,publication_update=None,
             if collaborative(c,n):fail(409,localized_message('sharedPagesAreEditedThroughASharedEditor'))
             snapshot(c,n)
             # A Markdown-only edit explicitly invalidates the previous rich projection.
+            # With no rich links this transaction only saves page content.
+            if data.blocks is None:c.realtime_room=('note',nid)
             c.execute('UPDATE notes SET title=?,body=?,blocks=?,updated=?,version=version+1 WHERE id=?',(data.title,data.body,json.dumps(data.blocks) if data.blocks is not None else None,now(),nid))
             return serialize(owned(c,nid,s['user_id']),c,s['user_id'],s)
 

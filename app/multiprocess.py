@@ -26,12 +26,18 @@ def channel_for(schema, storage_id):
     return 'drg_' + hashlib.sha256((schema + ':' + storage_id).encode()).hexdigest()[:48]
 
 
+def room_signal(channel, kind, target):
+    # Payloads share the existing LISTEN channel without exposing room IDs.
+    return kind + ':' + hashlib.blake2s((channel + ':' + target).encode(), digest_size=16).hexdigest()
+
+
 def notify_transaction(connection):
     """Called before commit; PostgreSQL publishes only a committed invalidation."""
     backend = connection.backend
     if backend.kind == 'postgres' and getattr(backend, 'storage_id', None):
-        connection.raw.execute('SELECT pg_notify(%s,%s)',
-                               (channel_for(backend.schema, backend.storage_id), 'changed'))
+        channel=channel_for(backend.schema,backend.storage_id)
+        payload=room_signal(channel,*connection.realtime_room) if connection.realtime_room else 'changed'
+        connection.raw.execute('SELECT pg_notify(%s,%s)',(channel,payload))
 
 
 class PeerLimit(Exception):
@@ -86,18 +92,21 @@ class ProcessCoordinator:
         self._change_callbacks = {}
         self.listening = False
         self._changed = asyncio.Event()
+        self._all_rooms = True
+        self._room_signals = set()
         self._subscription_ready = asyncio.Event()
 
     def subscribe(self, callback):
+        # Reconcile the named rooms, or all rooms on a recovery pass.
         self._callbacks.add(callback)
         self._changed.set()
 
     def unsubscribe(self, callback):
         self._callbacks.discard(callback)
 
-    def subscribe_changes(self, callback, *, fallback=1):
+    def subscribe_changes(self, callback, *, fallback=1, note_changes=True):
         """Durable-data consumers: signals, reconnect, and a bounded recovery poll."""
-        self._change_callbacks[callback]=(fallback,0)
+        self._change_callbacks[callback]=(fallback,0,note_changes)
         self._changed.set()
 
     def unsubscribe_changes(self, callback):
@@ -137,36 +146,55 @@ class ProcessCoordinator:
                     delay=1
                     self.listening=True
                     self._subscription_ready.set()
-                    self._changed.set()  # Subscribe first, then resync the gap.
-                    async for _notification in connection.notifies():
-                        self._changed.set()
+                    self._invalidate('changed')  # Subscribe first, then resync the gap.
+                    async for notification in connection.notifies():
+                        self._invalidate(notification.payload)
             except (psycopg.Error, OSError):
                 self.listening=False
                 logger.warning('Worker invalidation connection unavailable; retrying.')
                 self._subscription_ready.set()  # Fall back to reconciliation.
-                self._changed.set()
+                self._invalidate('changed')
                 await asyncio.sleep(delay)
                 delay=min(30,delay*2)
             finally:
                 self.listening=False
 
+    def _invalidate(self, payload):
+        if payload.startswith(('chat:','note:')) and len(payload)==37 and len(self._room_signals)<1024:
+            self._room_signals.add(payload)
+        else:
+            self._all_rooms=True
+            self._room_signals.clear()
+        self._changed.set()
+
     async def _reconcile(self):
         if self.database.kind == 'postgres':
             await self._subscription_ready.wait()
+        clock=asyncio.get_running_loop().time
+        recover_at=clock()
         while True:
-            with suppress(asyncio.TimeoutError):
-                await asyncio.wait_for(self._changed.wait(), 1)
+            delay=recover_at-clock()
+            if delay>0:
+                with suppress(asyncio.TimeoutError):
+                    await asyncio.wait_for(self._changed.wait(),delay)
             changed=self._changed.is_set()
             self._changed.clear()
-            callbacks=tuple(self._callbacks)
-            stamp=asyncio.get_running_loop().time()
-            for callback,(fallback,deadline) in tuple(self._change_callbacks.items()):
-                if changed or stamp>=deadline:
-                    callbacks+=(callback,)
-                    self._change_callbacks[callback]=(fallback,stamp+(30 if self.listening else fallback))
-            for callback in callbacks:
+            signals,self._room_signals=self._room_signals,set()
+            all_rooms,self._all_rooms=self._all_rooms,False
+            notes_only=bool(signals) and not all_rooms and all(signal.startswith('note:') for signal in signals)
+            stamp=clock()
+            full=all_rooms or stamp>=recover_at
+            if full:recover_at=stamp+1
+            callbacks=[]
+            for callback,(fallback,deadline,note_changes) in tuple(self._change_callbacks.items()):
+                if (changed and (note_changes or not notes_only)) or stamp>=deadline:
+                    callbacks.append((callback,()))
+                    self._change_callbacks[callback]=(fallback,stamp+(30 if self.listening else fallback),note_changes)
+            if full or signals:
+                callbacks.extend((callback,(None if full else signals,)) for callback in self._callbacks)
+            for callback,args in callbacks:
                 try:
-                    await callback()
+                    await callback(*args)
                 except asyncio.CancelledError:
                     raise
                 except Exception:
@@ -217,32 +245,36 @@ class ProcessCoordinator:
         finally:
             temporary.unlink(missing_ok=True)
 
+    def _record(self, path):
+        """Read a single peer under the registry guard, clearing dead leases."""
+        token = path.stem
+        try:
+            fd = os.open(path, os.O_RDWR | os.O_CLOEXEC | os.O_NOFOLLOW)
+        except FileNotFoundError:
+            return None
+        try:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                state = self._path(token)
+                if not state.exists():  # Superseded but still open TCP socket.
+                    return None
+                if state.is_symlink():
+                    raise StorageError('Invalid worker peer metadata.')
+                record = json.loads(self.cipher.open(state.read_bytes(),
+                                    'worker-peer:' + self.channel + ':' + token))
+                record['token'] = token
+                record['room'] = tuple(record['room'])
+                return record
+            self._path(token).unlink(missing_ok=True)
+            path.unlink(missing_ok=True)
+            return None
+        finally:
+            os.close(fd)
+
     def _records(self):
         """Called under the registry guard; collect dead workers and leases."""
-        records = []
-        for path in self.root.glob('*.lease'):
-            token = path.stem
-            fd = os.open(path, os.O_RDWR | os.O_CLOEXEC | os.O_NOFOLLOW)
-            try:
-                try:
-                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                except BlockingIOError:
-                    state = self._path(token)
-                    if not state.exists():  # Superseded but still open TCP socket.
-                        continue
-                    if state.is_symlink():
-                        raise StorageError('Invalid worker peer metadata.')
-                    record = json.loads(self.cipher.open(state.read_bytes(),
-                                        'worker-peer:' + self.channel + ':' + token))
-                    record['token'] = token
-                    record['room'] = tuple(record['room'])
-                    records.append(record)
-                else:
-                    self._path(token).unlink(missing_ok=True)
-                    path.unlink(missing_ok=True)
-            finally:
-                os.close(fd)
-        return records
+        return [record for path in self.root.glob('*.lease') if (record := self._record(path)) is not None]
 
     def _register(self, scope, uid, room, cid, metadata):
         with self._guard():
@@ -277,7 +309,7 @@ class ProcessCoordinator:
 
     def _update(self, token, metadata):
         with self._guard():
-            record = next((r for r in self._records() if r['token'] == token), None)
+            record = self._record(self.root / (token + '.lease'))
             if record is None:
                 raise PeerSuperseded()
             record['metadata'] = metadata
@@ -286,7 +318,7 @@ class ProcessCoordinator:
 
     def _current(self, token):
         with self._guard():
-            return any(r['token'] == token for r in self._records())
+            return self._record(self.root / (token + '.lease')) is not None
 
     def _remove(self, token):
         with self._guard():

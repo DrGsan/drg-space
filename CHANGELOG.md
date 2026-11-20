@@ -2,6 +2,16 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.2.18] — 2026-11-20 — More responsive chats and notes under load
+
+- Deliver group messages with fewer repeated background queries.
+- Show ordinary chats and family groups together when the conversation list opens.
+- Open a linked family conversation while the list and send status are still loading.
+- Keep personal notes responsive while chats and background updates are active.
+
+- **Installation:** Rebuild Space with the existing Compose files and volumes.
+- **Compatibility:** No migration is required.
+
 ## [5.2.17] — 2026-11-19 — Faster Notion page selection
 
 - Open the Notion page picker faster by overlapping independent catalog requests.

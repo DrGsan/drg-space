@@ -3,6 +3,7 @@ import json
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 TRASH_SECONDS = 30 * 86400
+LEGACY_NOTE_DELETION = 'note-deletion:%'
 
 def device_timezone(value):
     try:
@@ -48,11 +49,16 @@ def purge_tasks(c, uid, settings, stamp):
         return True
     return False
 
+
+def trash_needs_purge(c, stamp):
+    return bool(c.execute('SELECT 1 FROM notes WHERE deleted<=? LIMIT 1',(stamp-TRASH_SECONDS,)).fetchone()
+                or c.execute('SELECT 1 FROM app_settings WHERE key LIKE ? LIMIT 1',(LEGACY_NOTE_DELETION,)).fetchone())
+
 def purge_trash(c, stamp):
     expired = {r['id'] for r in c.execute('SELECT id FROM notes WHERE deleted IS NOT NULL AND deleted<=?', (stamp-TRASH_SECONDS,))}
     # Retire the short-lived 3.0.x override without changing trash timestamps.
-    if c.execute('SELECT 1 FROM app_settings WHERE key LIKE ? LIMIT 1',('note-deletion:%',)).fetchone():
-        c.execute('DELETE FROM app_settings WHERE key LIKE ?',('note-deletion:%',))
+    if c.execute('SELECT 1 FROM app_settings WHERE key LIKE ? LIMIT 1',(LEGACY_NOTE_DELETION,)).fetchone():
+        c.execute('DELETE FROM app_settings WHERE key LIKE ?',(LEGACY_NOTE_DELETION,))
     if not expired:return
     # A database must remain until its retained records also expire.
     for row in c.execute('SELECT database_id,note_id FROM database_records'):

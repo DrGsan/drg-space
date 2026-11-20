@@ -246,10 +246,13 @@ export async function mountFamilyPhotos(host,ctx){
 
 export async function watchTelegramRooms(ctx,onChange,{signal}={}){
   if(!ctx.moduleEnabled('family_photos')||signal?.aborted)return null;
-  let closed=false,timer=null,lastRooms=[],running=null,controller=null,revision=0,resume=false;
+  let closed=false,timer=null,lastRooms=[],running=null,controller=null,revision=0,resume=false,loaded=false;
   const stop=()=>{clearTimeout(timer);timer=null;revision++;controller?.abort();};
   const destroy=()=>{if(closed)return;closed=true;resume=false;stop();document.removeEventListener('drg-family-read',read);document.removeEventListener('visibilitychange',visible);signal?.removeEventListener('abort',destroy);};
-  const read=event=>{if(closed)return;lastRooms=lastRooms.map(room=>room.group_id===event.detail?.group_id?{...room,unread:0}:room);onChange(lastRooms);};
+  const publish=items=>{lastRooms=items;loaded=true;onChange(lastRooms);};
+  // A direct conversation can be read before the first catalog arrives.
+  // Only a completed catalog request makes the conversation list ready.
+  const read=event=>{if(closed||!loaded)return;publish(lastRooms.map(room=>room.group_id===event.detail?.group_id?{...room,unread:0}:room));};
   const refresh=()=>{
     if(closed||document.hidden)return Promise.resolve();
     clearTimeout(timer);timer=null;
@@ -278,8 +281,12 @@ export async function watchTelegramRooms(ctx,onChange,{signal}={}){
           }catch{if(!valid())return;items[index]=null;}
         }};
         await Promise.all(Array.from({length:Math.min(4,data.items.length)},worker));
-        if(valid()){lastRooms=items.filter(Boolean);onChange(lastRooms);}
-      }catch{if(valid())onChange([]);}
+        if(valid())publish(items.filter(Boolean));
+      }catch(error){
+        // A temporary failure should not remove family rows from a list
+        // already on screen. Access errors invalidate the previous snapshot.
+        if(valid()&&(!loaded||[401,403,404,423].includes(error?.status)))publish([]);
+      }
     })().finally(()=>{
       running=null;if(controller===abort)controller=null;
       if(closed||document.hidden)return;
@@ -395,8 +402,14 @@ export function mountTelegramChat(host,ctx,gid,onBack){
     // Pause only automatic reads; hiding must not abort a user's queued send.
     const pollRequest=path=>ctx.api(path,'GET',undefined,true,{}, {signal:readAbort.signal});
     try{
-      const version=revision;
-      const notificationVersion=notificationRevision,data=await pollRequest('/family-photos/groups');if(!valid())return;
+      const version=revision,notificationVersion=notificationRevision;
+      const groupsRequest=pollRequest('/family-photos/groups');
+      // Both endpoints check access. Keep the result private until the group
+      // catalog confirms that this conversation is still available.
+      const [data,initialPage]=await Promise.all([
+        groupsRequest,loaded?null:pollRequest(base(gid)+'/messages'),
+      ]);
+      if(!valid())return;
       const group=data.items.find(g=>g.id===gid);if(!group){denied(Object.assign(new Error(tText("family_photos:groupAccessIsRestricted")),{status:403}));return;}
       if(notificationVersion===notificationRevision&&!savingNotifications){muteUntil=group.mute_until||0;drawNotifications();}
       renderMarkup($('[data-fp-identity]',host),`${telegramAvatar(group)}<span><h2 data-fp-title>${esc(group.title)}</h2></span>`);
@@ -413,18 +426,25 @@ export function mountTelegramChat(host,ctx,gid,onBack){
         summary.textContent=connectionLabel(group.connection)+(group.connection.last_success?(" "+tText("family_photos:verified2", {value0:(new Date(group.connection.last_success*1000).toLocaleTimeString(locale(),{hour:'2-digit',minute:'2-digit'}))})+""):'');
         summary.title=group.connection.last_success?tText("family_photos:lastSuccessfulVerification", {value0:(new Date(group.connection.last_success*1000).toLocaleString(locale()))}):'';
       }else{renderMarkup(notice,esc(fallback));notice.hidden=!fallback;}
-      let rows=[],hasMore=true,cursor=0;
-      do{const page=await pollRequest(base(gid)+'/messages'+(cursor?'?before='+cursor:''));if(!valid()||version!==revision)return;rows=[...page.items,...rows];hasMore=page.more;cursor=rows[0]?.id||0;}while(hasMore&&rows.length<Math.max(items.length,50));
+      let rows=[],hasMore=true,cursor=0,firstPage=initialPage;
+      do{
+        const page=firstPage??await pollRequest(base(gid)+'/messages'+(cursor?'?before='+cursor:''));
+        firstPage=null;
+        if(!valid()||version!==revision)return;
+        rows=[...page.items,...rows];hasMore=page.more;cursor=rows[0]?.id||0;
+      }while(hasMore&&rows.length<Math.max(items.length,50));
       if(!valid()||version!==revision)return;
       if(items.some(m=>!rows.some(n=>n.id===m.id)))viewer?.destroy();
       items=rows;more=hasMore;before=rows[0]?.id||0;
+      const firstPaint=!loaded;
+      if(firstPaint){draw(true);loaded=true;}
       const queue=await pollRequest(base(gid)+(data.status.bot_messaging?'/site-sends':'/outbox'));if(!valid()||version!==revision)return;
       pending.clear();
       for(const delivery of queue.items){const id=delivery.id,p={...delivery};pending.set(id,p);
         if(delivery.state==='delivered'&&items.some(m=>m.id===delivery.message_id))pending.delete(id);
         else p.label=delivery.state==='uncertain'?tText("family_photos:deliveryNotConfirmedCheckTelegramBeforeResending"):delivery.state==='failed'?tText("family_photos:telegramRejectedTheMessage"):delivery.state==='delivered'?tText("family_photos:deliveredToTelegramWaitingForSynchronization"):tText("family_photos:awaitingSending");
       }
-      draw(initial);loaded=true;
+      draw(initial&&!firstPaint);
       await markRead();
       if(initial&&ctx.state.telegramMessage){const mid=ctx.state.telegramMessage;ctx.state.telegramMessage=null;await jump(mid);}
     }catch(error){if(valid())denied(error);}

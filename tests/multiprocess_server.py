@@ -38,9 +38,9 @@ app = main.app
 
 
 def _pausable(callback):
-    async def invoke():
+    async def invoke(signals=None):
         if not (main.DATA / '__test_reconcile_hold').exists():
-            await callback()
+            await callback(signals)
     return invoke
 
 

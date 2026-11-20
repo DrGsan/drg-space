@@ -16,7 +16,7 @@ from app.database import Database
 from app.data_crypto import DataCipher
 from app.http import HTTPError, WebSocketDisconnect
 from app.modules.realtime import create_realtime_router
-from app.multiprocess import ProcessCoordinator, PeerCollision, PeerLimit, channel_for
+from app.multiprocess import ProcessCoordinator, PeerCollision, PeerLimit, channel_for, room_signal
 from app.notifications import create_notifications_router
 from app.storage import StorageGate
 
@@ -91,6 +91,38 @@ def test_invalidation_channels_isolate_storage_and_schema():
     assert channel_for('drg','one')!=channel_for('other','one')
     assert len(channel_for('drg','one'))<63
     assert 'one' not in channel_for('drg','one')
+
+
+def test_room_signals_skip_unrelated_rooms_and_note_saves_do_not_wake_inbox(tmp_path):
+    async def run():
+        worker=coordinator(database(tmp_path))
+        reconciled=asyncio.Queue()
+        durable=asyncio.Queue()
+        inbox=asyncio.Queue()
+        worker.subscribe(reconciled.put)
+        worker.subscribe_changes(lambda:durable.put(True),fallback=30)
+        worker.subscribe_changes(lambda:inbox.put(True),fallback=30,note_changes=False)
+        await worker.start()
+        try:
+            assert await asyncio.wait_for(reconciled.get(),1) is None
+            assert durable.get_nowait() and inbox.get_nowait()
+
+            note=room_signal(worker.channel,'note','private-page')
+            assert 'private-page' not in note
+            worker._invalidate(note)
+            assert await asyncio.wait_for(reconciled.get(),1)=={note}
+            assert durable.get_nowait() and inbox.empty()
+
+            chat=room_signal(worker.channel,'chat','active-chat')
+            worker._invalidate(chat)
+            assert await asyncio.wait_for(reconciled.get(),1)=={chat}
+            assert durable.get_nowait() and inbox.get_nowait()
+
+            # The periodic recovery covers an absent notification.
+            assert await asyncio.wait_for(reconciled.get(),2) is None
+        finally:
+            await worker.stop()
+    asyncio.run(run())
 
 
 def test_cancel_all_during_registration_finishes_thread_and_releases_lease(tmp_path):

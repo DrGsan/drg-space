@@ -24,7 +24,10 @@ try{
      signal?.addEventListener('abort',cancel,{once:true});state.pending.push(end);
      if(signal?.aborted)cancel();
     });
-    if(path.split('?')[0]==='/family-photos/groups')return {items:structuredClone(state.groups)};
+    if(path.split('?')[0]==='/family-photos/groups'){
+     if(state.catalogError)throw Object.assign(new Error('Catalog request failed'),{status:state.catalogError});
+     return {items:structuredClone(state.groups)};
+    }
     const id=path.split('/')[3],group=state.groups.find(g=>g.id===id);
     if(group.denied)throw Object.assign(new Error('Denied'),{status:403});
     return {items:group.latest_message_id===0?[]:[{id:group.latest_message_id||10,created:1700000000,sender:'Synthetic',text:'Message',media:[]}]};
@@ -64,6 +67,11 @@ try{
  await page.evaluate(()=>{visible(true);visible(false);visible(false);state.hold=false;state.pending.splice(0).forEach(done=>done());});
  await page.clock.runFor(100);
  assert.equal(await page.evaluate(()=>state.changes.length),rapidChanges+1,'rapid hide/resume publishes only one fresh round');
+ await page.evaluate(()=>{state.catalogError=503;visible(false);});await page.clock.runFor(100);
+ assert.equal(await page.evaluate(()=>state.changes.length),rapidChanges+1,'temporary failure keeps already visible family rooms');
+ await page.evaluate(()=>{state.catalogError=403;visible(false);});await page.clock.runFor(100);
+ assert.deepEqual(await page.evaluate(()=>state.changes.at(-1)),[],'revoked access drops previously visible rooms');
+ await page.evaluate(()=>{state.catalogError=null;});
  await page.evaluate(()=>{state.hold=true;visible(false);});await page.clock.runFor(100);
  await page.evaluate(()=>{owner.abort();state.pending.splice(0).forEach(done=>done());});await page.clock.runFor(100);
  const ended=await page.evaluate(()=>state.paths.length);await page.evaluate(()=>visible(false));await page.clock.runFor(45000);

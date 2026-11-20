@@ -113,7 +113,9 @@ def access_index(c):
     if getattr(c,'note_access_index',None) is None:c.note_access_index=AccessIndex(c)
     return c.note_access_index
 
-def can_view(c,n,uid):return access_index(c).visible(n,uid)
+def can_view(c,n,uid):
+    if not n['space_id']:return n['user_id']==uid
+    return access_index(c).visible(n,uid)
 def participants(c,n):return access_index(c).participants(n)
 def visible_ids(c,uid):
     index=access_index(c)

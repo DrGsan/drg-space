@@ -1,4 +1,9 @@
 {
+  "release5_2_18Title": "More responsive chats and notes under load",
+  "release5_2_18Change1": "Deliver group messages with fewer repeated background queries.",
+  "release5_2_18Change2": "Show ordinary chats and family groups together when the conversation list opens.",
+  "release5_2_18Change3": "Open a linked family conversation while the list and send status are still loading.",
+  "release5_2_18Change4": "Keep personal notes responsive while chats and background updates are active.",
   "release5_2_17Title": "Faster Notion page selection",
   "release5_2_17Change1": "Open the Notion page picker faster by overlapping independent catalog requests.",
   "release5_2_17Change2": "Share the encrypted catalog between app workers to avoid repeated Notion requests.",
