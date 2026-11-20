@@ -1,6 +1,6 @@
 {
-  "release5_2_20_rc_2Title": "Family chat video previews",
-  "release5_2_20_rc_2Change1": "Show moving video frames during muted playback in the family chat feed.",
+  "release5_2_20Title": "Family chat video previews",
+  "release5_2_20Change1": "Show moving video frames during muted playback in the family chat feed.",
   "release5_2_19Title": "Faster chat connections under load",
   "release5_2_19Change1": "Reduce background work when many chat tabs connect at once.",
   "release5_2_19Change2": "Refresh the inbox when messages arrive in a chat you belong to.",

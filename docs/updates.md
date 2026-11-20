@@ -1,6 +1,6 @@
 # Updating DrG Space
 
-## 5.2.20-rc.2
+## 5.2.20
 
 Family chats draw decoded frames for the selected muted preview directly in the message tile. The same video stream supplies those frames. The existing poster covers the tile until a frame is drawn.
 
