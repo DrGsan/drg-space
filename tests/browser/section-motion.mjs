@@ -157,6 +157,18 @@ async function flow(browser,fixtures,{width,mobile=false,reduce=false,video}) {
     await page.keyboard.press('Escape');
     await expect(page.locator('[data-toggle-2fa]')).toBeFocused();
     await expect(page.locator('.modal-overlay')).toHaveCount(0);
+    if(!baseline&&!video){
+      await page.evaluate(()=>{
+        const trigger=document.querySelector('[data-toggle-2fa]');
+        trigger.click();
+        document.querySelector('.modal-close').click();
+        trigger.click();
+      });
+      await expect(page.locator('.modal-overlay')).toHaveCount(1);
+      await expect(page.locator('.modal [name=password]')).toHaveCount(1);
+      await page.keyboard.press('Escape');
+      await expect(page.locator('.modal-overlay')).toHaveCount(0);
+    }
     await navigate(page,'personal-data',mobile);
     await expect(page.locator('[data-transfer-result]')).toBeAttached();
     if(video){await elapsed(500);return;}
