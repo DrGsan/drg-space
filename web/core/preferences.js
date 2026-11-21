@@ -1,4 +1,3 @@
-import {revealSurface} from './surface-motion.js';
 import {esc} from './ui.js';
 import {sidebarIcon} from './sidebar-icons.js';
 import {readSession,writeSession} from './navigation.js';
@@ -22,7 +21,7 @@ export function preferenceSections(container,sections,{userId,scope}={}){
     const summary=document.createElement('summary');
     summary.innerHTML=`<span class="preference-icon">${sidebarIcon(section.icon)}</span><span class="preference-label"><strong>${esc(section.title)}</strong><span class="preference-description">${esc(section.description)}</span></span><span class="preference-status" data-preference-status hidden></span>`;
     panel.classList.add('preference-body');rows.append(details);details.append(summary,panel);details.open=open.has(section.id);
-    details.addEventListener('toggle',()=>{if(!details.isConnected)return;if(details.open){open.add(section.id);revealSurface(panel,section.id);}else{open.delete(section.id);revealSurface(panel,null);}writeSession(key,JSON.stringify([...open]));});
+    details.addEventListener('toggle',()=>{if(!details.isConnected)return;if(details.open)open.add(section.id);else open.delete(section.id);writeSession(key,JSON.stringify([...open]));});
   }
   container.closest('#view-content')?.classList.add('preferences-surface');
 }

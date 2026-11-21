@@ -1,6 +1,6 @@
 import {tText,tHtml} from '../../core/i18n.js';
 import {$,esc} from '../../core/ui.js';
-import {modal,topModal} from '../../core/modal.js';
+import {modal} from '../../core/modal.js';
 import './photos.css';
 const base=(event,token)=>token?'/api/shared-expenses/'+encodeURIComponent(token):'/api/expenses/'+event.id;
 export function expensePhotos(event,editable=false,token=null){
@@ -35,7 +35,7 @@ export function bindExpensePhotos(host,event,{token=null,remove=null}={}){
   }
   $('[data-previous]',dialog).onclick=()=>show(index-1);$('[data-next]',dialog).onclick=()=>show(index+1);
   dialog.querySelectorAll('[data-photo-index]').forEach(button=>button.onclick=()=>show(Number(button.dataset.photoIndex)));
-  const key=event=>{if(topModal()!==dialog)return;if(event.key==='ArrowLeft'){event.preventDefault();show(index-1);}if(event.key==='ArrowRight'){event.preventDefault();show(index+1);}};
+  const key=event=>{if([...document.querySelectorAll('.modal-overlay')].at(-1)!==dialog)return;if(event.key==='ArrowLeft'){event.preventDefault();show(index-1);}if(event.key==='ArrowRight'){event.preventDefault();show(index+1);}};
   document.addEventListener('keydown',key);dialog.addEventListener('close',()=>{closed=true;document.removeEventListener('keydown',key);});
   image.onpointerdown=e=>start={x:e.clientX,y:e.clientY};image.onpointerup=e=>{if(start&&Math.abs(e.clientX-start.x)>50&&Math.abs(e.clientX-start.x)>Math.abs(e.clientY-start.y))show(index+(e.clientX<start.x?1:-1));start=null;};image.ondragstart=e=>e.preventDefault();
   $('[data-delete-photo]',dialog)?.addEventListener('click',async()=>{const button=$('[data-delete-photo]',dialog);button.disabled=true;try{await remove(event.photos[index]);$('.modal-close',dialog).click();}finally{button.disabled=false;}});

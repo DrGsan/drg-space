@@ -1,4 +1,3 @@
-import {revealSurface} from '../../core/surface-motion.js';
 import {tText,tHtml} from "../../core/i18n.js";
 import {$} from '../../core/ui.js';
 import {sectionHeader} from '../../core/section-header.js';
@@ -13,13 +12,8 @@ export function adminWorkspace(host,ctx,mount){
   host.closest('#view-content')?.classList.add('preferences-surface');
   host.prepend(locked.querySelector(':scope>.page-heading'));
   function reveal(value){
-    const changed=unlocked!==value;
     unlocked=value;locked.hidden=value;content.hidden=!value;content.inert=!value;
-    if(changed){
-      revealSurface(content,value?'administration':null);
-      revealSurface(locked,value?null:'locked');
-    }
-    for(const modal of owned)if(modal.isConnected&&!modal.hasAttribute('data-closing')){modal.inert=!value;modal.style.visibility=value?'':'hidden';}
+    for(const modal of owned)if(modal.isConnected){modal.inert=!value;modal.style.visibility=value?'':'hidden';}
   }
   function accept(data){deadline=Date.now()+Math.max(0,data.expires_at-data.server_time)*1000;lastTouch=Date.now();reveal(true);}
   function prompt(){
@@ -29,16 +23,14 @@ export function adminWorkspace(host,ctx,mount){
       const dialog=unlockDialog=ctx.modal(`<h2>${tHtml("admin:enterAdministration2")}</h2><p>${tHtml("admin:toManageEnterAdministratorPasswordAccessWillBe")}</p><form data-admin-unlock><label>${tHtml("admin:administratorPassword")}<input name="password" type="password" autocomplete="current-password" maxlength="256" required></label><p class="hint" role="status" data-unlock-error></p><button type="submit" class="primary">${tHtml("admin:enterAdministration3")}</button></form>`);
       dialog.classList.add('admin-unlock-dialog');
       let settled=false;
-      const cancel=()=>{if(!settled){settled=true;reject(new Error(tText("admin:administrationAccessCancelled")));}};
-      const observer=new MutationObserver(()=>{if(!dialog.isConnected){observer.disconnect();cancel();}});
+      const observer=new MutationObserver(()=>{if(!dialog.isConnected){observer.disconnect();if(!settled){settled=true;reject(new Error(tText("admin:administrationAccessCancelled")));}}});
       observer.observe(document.body,{childList:true});
-      dialog.addEventListener('close',()=>{observer.disconnect();cancel();},{once:true});
       const form=$('form',dialog),input=$('[name=password]',form),button=$('[type=submit]',form);
       form.onsubmit=async event=>{
         event.preventDefault();if(button.disabled)return;button.disabled=true;
         try{
           const data=await ctx.api('/admin/access/unlock','POST',{password:input.value});
-          if(!alive||settled||!dialog.isConnected)return;
+          if(!alive||!dialog.isConnected)return;
           accept(data);settled=true;observer.disconnect();$('.modal-close',dialog).click();resolve(data);
         }catch(error){if(dialog.isConnected)$('[data-unlock-error]',dialog).textContent=error.message;}
         finally{input.value='';button.disabled=false;}

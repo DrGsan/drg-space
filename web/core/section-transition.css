@@ -1,0 +1,13 @@
+/* Keep the live navigation interactive when both sections share a layout. */
+:root.section-switching:not(.section-switching-layout) { view-transition-name:none; }
+:root.section-switching:not(.section-switching-layout) .workspace > .content { view-transition-name:drg-section; }
+:root.section-switching::view-transition { pointer-events:none; }
+:root.section-switching::view-transition-group(root),
+:root.section-switching::view-transition-old(root),
+:root.section-switching::view-transition-new(root),
+:root.section-switching::view-transition-group(drg-section),
+:root.section-switching::view-transition-old(drg-section),
+:root.section-switching::view-transition-new(drg-section) {
+  animation-duration:210ms;
+  animation-timing-function:ease-in-out;
+}

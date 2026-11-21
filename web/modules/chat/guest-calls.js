@@ -1,4 +1,3 @@
-import {revealSurface} from '../../core/surface-motion.js';
 import {tText,tHtml,locale} from "../../core/i18n.js";
 import {$,esc} from '../../core/ui.js';
 import {renderMarkup} from '../../core/dom.js';
@@ -69,8 +68,7 @@ export async function mountGuestCall(host,token,{brand='',toast=()=>{}}={}){
         finished:message=>{if(card.isConnected)$('[data-guest-lobby-status]',card).textContent=message||tText("chat:youHaveLeftTheCallYouCanReconnect");}});
     };
     window.addEventListener('pagehide',()=>clearTimeout(expiry),{once:true});
-    revealSurface(card,'lobby');
-  }catch(error){card.innerHTML=`<h1>${tHtml("chat:invitationNotAvailable")}</h1><p class="muted">${esc(error.message)}</p><a href="/" class="secondary">${tHtml("chat:goToHome")}</a>`;revealSurface(card,'error');}
+  }catch(error){card.innerHTML=`<h1>${tHtml("chat:invitationNotAvailable")}</h1><p class="muted">${esc(error.message)}</p><a href="/" class="secondary">${tHtml("chat:goToHome")}</a>`;}
 }
 
 function startGuestCall(options){if(current)return;current=new GuestCall(options);current.start();}

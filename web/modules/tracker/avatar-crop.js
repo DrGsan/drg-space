@@ -1,4 +1,3 @@
-import {revealSurface} from '../../core/surface-motion.js';
 import {tText} from '../../core/i18n.js';
 const t=key=>tText('tracker:'+key);
 // A separate modal leaves the project form and its unsaved values intact.
@@ -19,7 +18,7 @@ export async function cropProjectAvatar(blob){
    const close=value=>{dialog.close();dialog.remove();resolve(value);};
    dialog.addEventListener('cancel',e=>{e.preventDefault();close(null);});dialog.querySelector('[data-cancel]').onclick=()=>close(null);
    dialog.querySelector('[data-apply]').onclick=()=>{const result=document.createElement('canvas');result.width=result.height=256;result.getContext('2d').drawImage(canvas,0,0,256,256);result.toBlob(close,'image/png');};
-   document.body.append(dialog);dialog.showModal();draw();revealSurface(dialog,'avatar-crop');
+   document.body.append(dialog);dialog.showModal();draw();
   });
  }finally{image.src='';URL.revokeObjectURL(url);}
 }

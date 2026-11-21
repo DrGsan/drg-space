@@ -1,4 +1,3 @@
-import {revealSurface} from '../../core/surface-motion.js';
 import {tText,tHtml,locale} from "../../core/i18n.js";
 import {watchNoteCatalog} from './catalog-refresh.js';
 import {notionImportDialog} from '../portability/notion.js';
@@ -253,7 +252,6 @@ class NotesWorkspace {
             `<button data-template="${t.id}" class="template-card"><span>${t.icon}</span><strong>${t.name}</strong></button>`,
         )
         .join("")}</div><p class="hint">${tHtml("notes:typeToAddABlockDragBlocksBy")}</p></div>`;
-    revealSurface($("#notion-page",this.host),'welcome');
     $("#create-first-page", this.host).onclick = () => this.newPage();
     this.host.querySelectorAll("[data-template]").forEach(
       (b) =>
@@ -593,7 +591,6 @@ class NotesWorkspace {
     $("#notion-page", this.host).classList.toggle("has-cover", !!page.cover);
     $("#notion-page", this.host).innerHTML =
       pageLayout(page,{breadcrumbs:this.breadcrumbs(),participants:page.space_id?this.participantAvatars(page):''});
-    revealSurface(screen,'note:'+page.id);
     if(page.kind==='database'){const heading=document.createElement('div');heading.className='database-page-heading';const title=$('#page-title',this.host);title.before(heading);heading.append($('#change-icon',this.host),title);}
     this.viewPreferences=readPageView(this.state.me?.id,page.id);
     const participants=$('#page-participants',this.host);if(participants)participants.onclick=()=>permissionsDialog(page,this.ctx,()=>this.refresh());

@@ -1,4 +1,3 @@
-import {revealSurface} from '../../core/surface-motion.js';
 import {tText,tHtml,locale} from "../../core/i18n.js";
 import {messageFooter,attachmentMarkup} from '../chat/message-layout.js';
 import {telegramComposer} from './composer.js';
@@ -76,7 +75,7 @@ export async function mountFamilyPhotos(host,ctx){
   familyPhotosController.destroy();
   const scope={closed:false,viewer:null,timer:null,syncTimer:null,abort:new AbortController(),destroy(){this.closed=true;this.abort.abort();document.removeEventListener('visibilitychange',visible);clearTimeout(this.timer);clearTimeout(this.syncTimer);this.viewer?.destroy();this.pagination?.destroy();this.monthNavigation?.destroy();}};
   active=scope;
-  let groups=[],gid=null,files=[],more=false,loading=null,seq=0,revision=0,syncStatus=null,galleryVersions=false,galleryVersion=null,refreshing=false,syncing=null,query='',syncExpanded=false,galleryPending=false;
+  let groups=[],gid=null,files=[],more=false,loading=null,seq=0,revision=0,syncStatus=null,galleryVersions=false,galleryVersion=null,refreshing=false,syncing=null,query='',syncExpanded=false;
   let indexAvailable=false,indexItems=[],indexVersion=null,indexLoaded=false,indexError=false,indexChecked=0,indexLoading=null,windowEnd=0;
   const timezone=Intl.DateTimeFormat().resolvedOptions().timeZone||'UTC';
   host.innerHTML=`<div class="page-heading"><p class="eyebrow">${tHtml("family_photos:familyPhotos")}</p><h1>${tHtml("family_photos:familyPhotos2")}<span class="hello-dot">.</span></h1></div><div data-fp-main><p role="status">${tHtml("family_photos:connectingToFamilyPhotos")}</p></div><p class="hint" data-fp-version hidden></p>`;
@@ -118,7 +117,6 @@ export async function mountFamilyPhotos(host,ctx){
     galleryVersion=null;
     if(blocked(e)){files=[];scope.abort.abort();clearTimeout(scope.timer);clearTimeout(scope.syncTimer);}
     renderMarkup(main,`<section class="panel"><h2>${blocked(e)?tText("family_photos:accessIsRestricted"):tText("family_photos:serviceIsTemporarilyUnavailable")}</h2><p>${esc(e.message)}</p><button class="secondary" data-fp-retry>${tHtml("family_photos:retry")}</button></section>`);
-    revealSurface(main,'error');
     $('[data-fp-retry]',main).onclick=()=>mountFamilyPhotos(host,ctx);
   };
   const paintSync=(target,status,group)=>{
@@ -130,8 +128,7 @@ export async function mountFamilyPhotos(host,ctx){
     const group=groups.find(g=>g.id===gid);
     const days=familyTimeline(files,query),months=indexItems;
     const tiles=items=>items.map(({file,index})=>`<button class="fp-tile ${file.state==='paused'?'is-unavailable':''}" data-fp-media-id="${esc(file.id)}" data-fp-file="${index}" aria-label="${esc((file.kind==='video'?tText("family_photos:video2"):tText("family_photos:photo"))+' · '+day(file.created)+' · '+file.sender)}">${thumb(file)?`<img src="${esc(thumb(file))}" alt="" loading="lazy">`:`<span>${placeholder(file)}</span>`}${file.kind==='video'&&file.state!=='paused'?`<span class="fp-video-mark" aria-hidden="true">${chatIcon('play')}</span>`:''}${file.album_id?`<span class="fp-album-mark" title="${tHtml("family_photos:photoFromAlbum")}" aria-hidden="true">${chatIcon('image')}</span>`:''}<span class="fp-tile-label">${esc(file.sender)} · ${esc(time(file.created))}</span></button>`).join('');
-    renderMarkup(main,`<div class="fp-toolbar fp-timeline-toolbar"><label class="fp-group-picker">${chatIcon('users')}<select data-fp-group-select aria-label="${tHtml("family_photos:familyGroups")}">${groups.map(g=>`<option value="${esc(g.id)}" ${g.id===gid?'selected':''}>${esc(g.title)}</option>`).join('')}</select></label>${ctx.moduleEnabled('chat')&&gid?`<button class="secondary fp-open-chat" data-fp-chat>${chatIcon('message')}<span>${tHtml("family_photos:toConversation")}</span></button>`:''}<label class="fp-gallery-search">${chatIcon('search')}<input type="search" data-fp-search value="${esc(query)}" placeholder="${tHtml("family_photos:searchLoadedPhotos")}" aria-label="${tHtml("family_photos:searchLoadedPhotos")}"></label><div data-fp-state>${syncMarkup(syncStatus,group,{disclosure:true,open:syncExpanded})}</div></div>${group?.copy_created?`<p class="hint fp-copy-note">${tHtml("family_photos:copyFromReadOnly", {value0:(esc(new Date(group.copy_created*1000).toLocaleString(locale()))), value1:(group.copy_complete?'':(" "+tText("family_photos:incompleteHistoryOrMedia")+""))})}</p>`:''}<div class="fp-timeline-layout"><div class="fp-timeline">${days.map(d=>`<section class="fp-day-section" data-fp-day="${esc(d.key)}"><header class="fp-day-heading"><h2>${esc(d.label)}</h2><span>${esc(familyMediaCount(d.items))}</span></header><div class="fp-grid">${tiles(d.items)}</div></section>`).join('')}${!days.length?`<section class="panel fp-empty" ${galleryPending?'role="status"':''}>${galleryPending?tHtml('family_photos:loadingGallery'):files.length?tHtml('family_photos:noMatchingPhotos'):tHtml("family_photos:photosAndVideosWillAppearHereAsThey")}</section>`:''}${more?(query?`<button type="button" class="secondary fp-load" data-fp-more>${tHtml('family_photos:loadMorePhotos')}</button>`:'<div class="page-edge" data-page-edge role="status"></div>'):''}</div>${indexAvailable?`<nav class="fp-date-rail" aria-label="${tHtml('family_photos:jumpToMonth')}">${indexError?`<button type="button" data-fp-index-retry>${tHtml('family_photos:retryMonthIndex')}</button>`:!indexLoaded?`<span role="status">${tHtml('family_photos:loadingMonths')}</span>`:''}${months.map(d=>`<button type="button" id="fp-month-${esc(d.key)}" data-fp-jump="${esc(d.key)}" data-fp-month="${esc(d.key)}" ${scope.monthNavigation.current()===d.key?'aria-current="location"':''}>${esc(new Date(d.key+'-15T12:00:00').toLocaleDateString(locale(),{month:'short',year:'numeric'}))}</button>`).join('')}</nav>`:''}</div>`);
-    if(!galleryPending)revealSurface(main,JSON.stringify([gid,windowEnd]));
+    renderMarkup(main,`<div class="fp-toolbar fp-timeline-toolbar"><label class="fp-group-picker">${chatIcon('users')}<select data-fp-group-select aria-label="${tHtml("family_photos:familyGroups")}">${groups.map(g=>`<option value="${esc(g.id)}" ${g.id===gid?'selected':''}>${esc(g.title)}</option>`).join('')}</select></label>${ctx.moduleEnabled('chat')&&gid?`<button class="secondary fp-open-chat" data-fp-chat>${chatIcon('message')}<span>${tHtml("family_photos:toConversation")}</span></button>`:''}<label class="fp-gallery-search">${chatIcon('search')}<input type="search" data-fp-search value="${esc(query)}" placeholder="${tHtml("family_photos:searchLoadedPhotos")}" aria-label="${tHtml("family_photos:searchLoadedPhotos")}"></label><div data-fp-state>${syncMarkup(syncStatus,group,{disclosure:true,open:syncExpanded})}</div></div>${group?.copy_created?`<p class="hint fp-copy-note">${tHtml("family_photos:copyFromReadOnly", {value0:(esc(new Date(group.copy_created*1000).toLocaleString(locale()))), value1:(group.copy_complete?'':(" "+tText("family_photos:incompleteHistoryOrMedia")+""))})}</p>`:''}<div class="fp-timeline-layout"><div class="fp-timeline">${days.map(d=>`<section class="fp-day-section" data-fp-day="${esc(d.key)}"><header class="fp-day-heading"><h2>${esc(d.label)}</h2><span>${esc(familyMediaCount(d.items))}</span></header><div class="fp-grid">${tiles(d.items)}</div></section>`).join('')}${!days.length?`<section class="panel fp-empty">${files.length?tHtml('family_photos:noMatchingPhotos'):tHtml("family_photos:photosAndVideosWillAppearHereAsThey")}</section>`:''}${more?(query?`<button type="button" class="secondary fp-load" data-fp-more>${tHtml('family_photos:loadMorePhotos')}</button>`:'<div class="page-edge" data-page-edge role="status"></div>'):''}</div>${indexAvailable?`<nav class="fp-date-rail" aria-label="${tHtml('family_photos:jumpToMonth')}">${indexError?`<button type="button" data-fp-index-retry>${tHtml('family_photos:retryMonthIndex')}</button>`:!indexLoaded?`<span role="status">${tHtml('family_photos:loadingMonths')}</span>`:''}${months.map(d=>`<button type="button" id="fp-month-${esc(d.key)}" data-fp-jump="${esc(d.key)}" data-fp-month="${esc(d.key)}" ${scope.monthNavigation.current()===d.key?'aria-current="location"':''}>${esc(new Date(d.key+'-15T12:00:00').toLocaleDateString(locale(),{month:'short',year:'numeric'}))}</button>`).join('')}</nav>`:''}</div>`);
     const picker=$('[data-fp-group-select]',main);if(picker)picker.onchange=()=>select(picker.value);
     main.querySelectorAll('[data-fp-file]').forEach(b=>b.onclick=()=>{scope.viewer?.destroy();scope.viewer=openFamilyViewer(ctx,files,Number(b.dataset.fpFile),{more:more?loadMore:null,onMessage:ctx.moduleEnabled('chat')?openMessage:null});});
     scope.monthNavigation.update();
@@ -160,7 +157,6 @@ export async function mountFamilyPhotos(host,ctx){
     const groupChanged=gid!==value;windowEnd=until;
     if(groupChanged){indexItems=[];indexVersion=null;indexLoaded=false;indexError=false;indexChecked=0;indexLoading=null;}
     scope.viewer?.destroy();query='';syncExpanded=false;gid=value;ctx.state.familyPhotoGroup=value;seq++;revision++;files=[];more=false;syncStatus=null;galleryVersion=null;clearTimeout(scope.syncTimer);const current=seq;pollSync();
-    galleryPending=Boolean(gid);
     draw();
     if(!gid)return;
     try{
@@ -170,9 +166,9 @@ export async function mountFamilyPhotos(host,ctx){
         !indexLoaded?loadIndex(current):null
       ]);
       if(scope.closed||scope.abort.signal.aborted||current!==seq)return;
-      galleryPending=false;files=result.items;more=result.more;galleryVersion=token?.version||null;draw();
+      files=result.items;more=result.more;galleryVersion=token?.version||null;draw();
     }
-    catch(e){if(current===seq){galleryPending=false;fail(e);}}
+    catch(e){fail(e);}
   };
   main.addEventListener('click',event=>{const target=event.target.closest('[data-fp-target-group]');if(target&&groups.some(group=>group.id===target.dataset.fpTargetGroup))select(target.dataset.fpTargetGroup);});
   // A cheap scoped status request updates independently of photos/history.

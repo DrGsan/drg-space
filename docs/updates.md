@@ -1,8 +1,8 @@
 # Updating DrG Space
 
-## 5.2.22-rc.1
+## 5.2.22-rc.2
 
-Workspace sections and dialogs ease in on navigation. Loaded content appears in its final layout. The interface honors the system's Reduce Motion setting.
+Section navigation crossfades between the previous and new workspace views. Browsers without View Transitions and devices set to Reduce Motion switch directly.
 
 Rebuild Space with the existing Compose files, environment, encryption keys and volumes. No database migration, new setting, storage change or Media update is required. For the base installation:
 
