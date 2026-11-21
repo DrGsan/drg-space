@@ -131,7 +131,12 @@ async function flow(browser,fixtures,{width,mobile=false,reduce=false,video}) {
     viewport:{width,height:900},reducedMotion:reduce?'reduce':'no-preference',serviceWorkers:'block',recordVideo:video});
   try {
     const page=await context.newPage(),errors=[];
-    page.on('pageerror',error=>errors.push(error.message));
+    page.on('pageerror',error=>{
+      // WebKit can report the keepalive presence send when the test replaces
+      // the old document with a direct link. All application errors still fail.
+      if(browser.browserType()===webkit&&error.message.endsWith('/api/presence due to access control checks.'))return;
+      errors.push(error.message);
+    });
     page.setDefaultTimeout(10000);
     await setupPage(page,mobile);
     await page.goto('/');
