@@ -2,6 +2,10 @@ import {tHtml} from "./i18n.js";
 import {$} from './ui.js';
 import {enterDialog,exitDialog,motionAllowed} from './surface-motion.js';
 
+export function topModal() {
+  return [...document.querySelectorAll('.modal-overlay:not([inert])')].at(-1);
+}
+
 export function modal(html, {motion} = {}) {
   // When a flow immediately opens another dialog, remove the exiting one
   // before adding its replacement so paired form IDs remain unique.
@@ -38,7 +42,6 @@ export function modal(html, {motion} = {}) {
     const exit = exitDialog(panel,panelMotion,alwaysShift);
     exit.finished.catch(()=>{}).finally(remove);
   };
-  const topModal = () => [...document.querySelectorAll(".modal-overlay:not([data-closing]):not([inert])")].at(-1);
   const key = (e) => {
     if (topModal()!==overlay)return;
     if (e.key === "Escape") close();

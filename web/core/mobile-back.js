@@ -1,6 +1,6 @@
 import {mobileApp} from './mobile.js';
 
-const visible=element=>!!element&&!element.disabled&&element.getClientRects().length>0&&getComputedStyle(element).visibility!=='hidden';
+const visible=element=>!!element&&!element.disabled&&!element.closest('[inert]')&&element.getClientRects().length>0&&getComputedStyle(element).visibility!=='hidden';
 const blocked='.modal-overlay,[aria-modal="true"],[role="dialog"]:not(.voice-call.is-minimized),[role="menu"],[data-chat-emoji-panel],[data-attach-menu]';
 const controls='input,textarea,select,button,a,summary,video,audio,canvas,iframe,[contenteditable]:not([contenteditable="false"]),[role="slider"],[draggable="true"],[data-no-back-swipe]';
 // Reuse the visible button's existing save/permissions/back behavior. A gesture
