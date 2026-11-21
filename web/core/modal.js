@@ -3,6 +3,12 @@ import {$} from './ui.js';
 import {enterDialog,exitDialog,motionAllowed} from './surface-motion.js';
 
 export function modal(html, {motion = true} = {}) {
+  // When a flow immediately opens another dialog, remove the exiting one
+  // before adding its replacement so paired form IDs remain unique.
+  document.querySelectorAll('.modal-overlay[data-closing]').forEach(previous=>{
+    previous.getAnimations({subtree:true}).forEach(animation=>animation.cancel());
+    previous.remove();
+  });
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
   overlay.innerHTML =
