@@ -15,7 +15,7 @@ import {peopleTable} from './tables.js';
 import {personAvatar,personPresence,personName} from '../../core/people.js';
 import { $, esc, formBind } from '../../core/ui.js';
 import {mountFederationPeople} from '../federation/people.js';
-const mounts=new WeakMap(),tableViews=new WeakMap();
+const mounts=new WeakMap(),tableViews=new WeakMap(),snapshots=new WeakMap();
 export async function mountSocial(host,ctx){
   if(!tableViews.has(host))tableViews.set(host,new Map());
   const views=tableViews.get(host);
@@ -25,7 +25,9 @@ export async function mountSocial(host,ctx){
   }
   try {
     const data=await ctx.api('/social');if(!host.isConnected||mounts.get(host)!==sequence)return;
+    const snapshot=JSON.stringify(data);
     ctx.state.spaces=data.spaces;
+    if(snapshots.get(host)===snapshot)return;
     const spaces=data.spaces.filter(s=>['family','friends'].includes(s.kind));
     const card=(s,index)=>`<article class="panel social-card" data-social-panel="${index}">${s.deletion?'<div data-space-deletion="'+esc(s.id)+'"></div>':`${s.kind==='family'?`<div data-space-people="${esc(s.id)}"></div>`:`<div class="social-members">${s.members.filter(m=>m.id!==ctx.state.me.id).map(m=>`<div class="social-member">${personAvatar(m)}<span><strong>${m.id!==ctx.state.me.id?`<button type="button" class="text-link person-name-button" data-person-name="${esc(m.id)}" aria-label="${tHtml("social:personalNameFor", {value0:(esc(m.login))})}" title="${tHtml("social:changeYourOwnName")}">${esc(personName(m))}</button>`:esc(personName(m))}</strong><small>@${esc(m.login)}</small>${personPresence(m)}</span></div>`).join('')}</div>`}<div class="social-actions">${ctx.moduleEnabled('notes')?`<button class="primary compact" data-space-notes="${esc(s.id)}">${tHtml("social:sharedNotes")}</button>`:''}${ctx.moduleEnabled('chat')?`<button class="secondary compact" data-space-chat="${esc(s.id)}">${tHtml("social:chat")}</button>`:''}${s.kind==='family'&&(s.manage??s.owner)?`<button class="text-link" data-invite="${esc(s.id)}">${tHtml("social:participant")}</button><button class="text-link" data-rename="${esc(s.id)}">${tHtml("social:rename")}</button><button class="text-link" data-family-avatar="${esc(s.id)}">${(!s.template||s.template==='family')?tText("social:familyPhoto"):tText("social:spacePhoto")}</button>`:''}${s.kind==='family'?`<button class="text-link" data-manage-space="${esc(s.id)}">${(s.manage??s.owner)?tText("social:administration"):['project','organization'].includes(s.template)?tText("social:participantsAndTeams"):tText("social:members")}</button>`:''}</div><button class="text-link danger-link" data-leave="${esc(s.id)}">${s.kind==='friends'?tText("social:removeFromFriends"):s.owner?tText("social:deleteWorkspace"):tText("social:exitWorkspace")}</button>`}</article>`;
     const pending=data.requests.map(q=>`<div class="social-request"><div><strong>${esc(personName(personForLogin(q.incoming?q.sender:q.recipient)))}</strong><p class="hint">${q.kind==='family'?tText("social:space", {value0:(esc(q.space_name))}):tText("social:addToFriends")} · ${q.incoming?tText("social:invitingYou"):tText("social:invitationSent")}</p></div><div>${q.incoming?`<button class="primary compact" data-accept="${esc(q.id)}">${tHtml("social:accept")}</button>`:''}<button class="secondary compact" data-decline="${esc(q.id)}">${q.incoming?tText("social:decline"):tText("social:cancel")}</button></div></div>`).join('');
@@ -97,6 +99,7 @@ export async function mountSocial(host,ctx){
       const space=data.spaces.find(s=>s.id===b.dataset.leave);const whole=space.kind==='friends'||space.owner;
       if(confirm(whole?tText("social:scheduleWorkspaceDeletionAllItsDataWillBe", {value0:(deletionPeriod(space))}):tText("social:exitWorkspaceYourAccessToSharedNotesAnd")))act(()=>ctx.api(whole?'/social/spaces/'+space.id:`/social/spaces/${space.id}/members/${ctx.state.me.id}`,'DELETE'));
     });
+    snapshots.set(host,snapshot);
   }catch(e){
     if(!host.isConnected||mounts.get(host)!==sequence)return;
     if($('#refresh-social',host)){ctx.toast(e.message);return;}

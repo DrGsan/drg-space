@@ -1,5 +1,6 @@
 // Keep layout and hit testing in their final position while content appears.
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const compactScreen = matchMedia('(max-width: 760px)');
 const revealed = new WeakMap();
 const running = new Set();
 export const motionAllowed = () => !document.hidden && !reducedMotion.matches;
@@ -33,17 +34,13 @@ export function revealSurface(surface, screen) {
 
 export function enterDialog(panel) {
   if (!motionAllowed()) return;
-  return play(panel, 'dialog-entry', [
-    {opacity:0, transform:'translateY(18px) scale(.985)'},
-    {opacity:1, transform:'none'},
-  ], {duration:420, easing:'cubic-bezier(.22,1,.36,1)'});
+  const start = compactScreen.matches ? {opacity:0} : {opacity:0, transform:'translateY(18px) scale(.985)'};
+  return play(panel, 'dialog-entry', [start, {opacity:1, transform:'none'}], {duration:420, easing:'cubic-bezier(.22,1,.36,1)'});
 }
 
 export function exitDialog(panel, entrance) {
   const {opacity,transform} = getComputedStyle(panel);
   entrance?.cancel();
-  return play(panel, 'dialog-exit', [
-    {opacity, transform},
-    {opacity:0, transform:'translateY(10px) scale(.99)'},
-  ], {duration:180, easing:'cubic-bezier(.4,0,1,1)', fill:'forwards'});
+  const end = compactScreen.matches ? {opacity:0} : {opacity:0, transform:'translateY(10px) scale(.99)'};
+  return play(panel, 'dialog-exit', [{opacity,transform},end], {duration:180, easing:'cubic-bezier(.4,0,1,1)', fill:'forwards'});
 }
