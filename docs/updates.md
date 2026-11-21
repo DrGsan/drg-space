@@ -1,6 +1,6 @@
 # Updating DrG Space
 
-## 5.2.22-rc.2
+## 5.2.22
 
 Section navigation crossfades between the previous and new workspace views. Browsers without View Transitions and devices set to Reduce Motion switch directly.
 

@@ -2,7 +2,7 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.2.22-rc.2] — 2026-11-21 — Smoother section switching
+## [5.2.22] — 2026-11-21 — Smoother section switching
 
 - Smooth out switching between sections from the sidebar and the Web App navigation.
 
