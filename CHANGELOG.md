@@ -2,6 +2,14 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.2.22-rc.1] — 2026-11-21 — Smoother workspace transitions
+
+- Ease in sections, dialogs, and newly opened content while keeping its final layout.
+- Keep Drive navigation steady during folder loading and show a loading state before family gallery results.
+
+- **Installation:** Rebuild Space with the existing Compose files and volumes.
+- **Compatibility:** No migration is required.
+
 ## [5.2.21] — 2026-11-20 — Smoother family chat video previews
 
 - Play muted video previews at up to 30 frames per second and open the original video in the separate viewer.

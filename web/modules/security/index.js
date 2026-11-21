@@ -1,3 +1,4 @@
+import {revealSurface} from '../../core/surface-motion.js';
 import {tText,tHtml} from "../../core/i18n.js";
 import {sectionHeader} from '../../core/section-header.js';
 import {mountPasskeySettings} from '../../core/passkeys.js';
@@ -44,6 +45,7 @@ export async function mountSecurity(host, ctx) {
     $("[data-sessions]", host).innerHTML = rows.map((row) =>
       `<div class="share-row"><div class="session-details"><strong>${esc(row.name||row.device||tText("security:unknownDevice"))}</strong>${row.name?`<span class="small muted">${esc(row.device||'')}</span>`:''}<span class="small muted">${row.current?(""+tText("security:currentSession")+" "):''}${row.online?(""+tText("security:online")+" "):''}${row.last_seen?tText("security:lastActivity", {value0:(date(row.last_seen))}):tText("security:activityNotRecorded")}</span><span class="small muted">IP: ${esc(row.ip||tText("security:noData"))}</span><span class="small muted">${tHtml("security:createdUntil", {value0:(date(row.created)), value1:(date(row.expires))})}</span></div><div class="session-actions"><button class="text-link" data-name-session="${esc(row.id)}">${tHtml("security:name")}</button>${row.current?`<span class="tag">${tHtml("security:thisSession")}</span>`:`<button class="text-link danger" data-revoke-session="${esc(row.id)}" ${row.can_revoke?'':tText("security:disabledTitleUseAnOldDeviceOrWait")}>${tHtml("security:endSession")}</button>`}</div></div>`
     ).join("");
+    revealSurface($('[data-sessions]',host),'sessions');
     host.querySelectorAll('[data-name-session]').forEach(button=>{button.onclick=()=>{
       const row=rows.find(item=>item.id===button.dataset.nameSession);if(!row)return;
       const modal=ctx.modal(`<h2>${tHtml("security:sessionName")}</h2><p class="muted">${tHtml("security:anEmptyNameWillReturnAnAutomaticName", {value0:(esc(row.device||tText("security:device")))})}</p><form data-session-name><label>${tHtml("security:name")}<input name="name" maxlength="80" value="${esc(row.name||'')}" autocomplete="off" placeholder="${tHtml("security:forExampleAHomeMacbook")}"></label><button class="primary" type="submit">${tHtml("security:save")}</button></form>`);

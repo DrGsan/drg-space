@@ -1,44 +1,37 @@
 import {tHtml} from "./i18n.js";
 import {$} from './ui.js';
+import {enterDialog,exitDialog,motionAllowed} from './surface-motion.js';
 
-export function modal(html, {motion = false} = {}) {
+export function modal(html, {motion = true} = {}) {
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
   overlay.innerHTML =
     `<section class="modal" role="dialog" aria-modal="true"><button class="modal-close icon-btn" aria-label="${tHtml("common:close")}">×</button>${html}</section>`;
   document.body.append(overlay);
   const panel = $('.modal', overlay);
-  const reduced = () => document.hidden || matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let panelMotion;
-  if (motion && !reduced()) panelMotion = panel.animate([
-    {opacity:0, transform:'translateY(18px) scale(.985)'},
-    {opacity:1, transform:'none'},
-  ], {duration:420, easing:'cubic-bezier(.22,1,.36,1)'});
+  const panelMotion = motion ? enterDialog(panel) : undefined;
   const prev = document.activeElement;
   let closed = false;
   const close = () => {
     if (closed) return;
     if (!overlay.dispatchEvent(new Event('beforeclose', {cancelable:true}))) return;
     closed = true;
-    const remove = () => {
-      const top = [...document.querySelectorAll('.modal-overlay')].at(-1) === overlay;
-      overlay.remove();
-      document.removeEventListener("keydown", key);
-      if (top && prev?.isConnected) prev.focus({preventScroll:true});
-      overlay.dispatchEvent(new Event("close"));
-    };
-    if (!motion || reduced()) { panelMotion?.cancel(); remove(); return; }
+    const top = topModal() === overlay;
+    overlay.dataset.closing = '';
+    overlay.inert = true;
+    overlay.style.pointerEvents = 'none';
+    document.removeEventListener("keydown", key);
+    if (top && prev?.isConnected) prev.focus({preventScroll:true});
+    overlay.dispatchEvent(new Event("close"));
+    const remove = () => overlay.remove();
+    if (!motion || !motionAllowed()) { panelMotion?.cancel(); remove(); return; }
     // Start from the displayed frame when Escape interrupts the entrance.
-    const current = getComputedStyle(panel), opacity = current.opacity, transform = current.transform;
-    panelMotion?.cancel();
-    panel.inert = true;
-    panelMotion = panel.animate([
-      {opacity, transform}, {opacity:0, transform:'translateY(10px) scale(.99)'},
-    ], {duration:180, easing:'cubic-bezier(.4,0,1,1)', fill:'forwards'});
-    panelMotion.finished.catch(()=>{}).finally(remove);
+    const exit = exitDialog(panel,panelMotion);
+    exit.finished.catch(()=>{}).finally(remove);
   };
+  const topModal = () => [...document.querySelectorAll(".modal-overlay:not([data-closing]):not([inert])")].at(-1);
   const key = (e) => {
-    if ([...document.querySelectorAll(".modal-overlay")].at(-1)!==overlay)return;
+    if (topModal()!==overlay)return;
     if (e.key === "Escape") close();
     if (e.key === "Tab") {
       const items = [

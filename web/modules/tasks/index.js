@@ -1,3 +1,4 @@
+import {revealSurface} from '../../core/surface-motion.js';
 import {tText,tHtml,locale} from "../../core/i18n.js";
 import {personName,personLabel} from '../../core/people.js';
 import {mobileApp} from '../../core/mobile.js';
@@ -184,6 +185,7 @@ class TaskWorkspace{
    const days=[...new Set(data.roots.map(task=>task.day||data.selected.find(child=>child.parent_id===task.id)?.day||''))].sort();groups=days.map(day=>({title:day?titleDay(day):tText("tasks:noDate"),rows:data.roots.filter(task=>(task.day||data.selected.find(child=>child.parent_id===task.id)?.day||'')===day)}));
   }else groups=[{title:'',rows:data.roots}];
   $('[data-task-rows]',this.host).innerHTML=data.roots.length?groups.map(group=>`<section class="tasks-row-group">${group.title?`<h2>${esc(group.title)}</h2>`:''}<ul class="tasks-reminder-list">${group.rows.map(task=>row(task)).join('')}</ul></section>`).join(''):`<div class="tasks-empty">${taskIcon(this.view.id==='completed'?'check':'list')}<h2>${this.query.trim()?tText("tasks:noResults"):this.view.id==='completed'?tText("tasks:noCompletedReminders"):this.view.id==='today'?tText("tasks:allForToday"):this.view.id==='flagged'?tText("tasks:noRemindersWithFlag"):tText("tasks:listIsCurrentlyEmpty")}</h2><p>${this.query.trim()?tText("tasks:tryADifferentNameNoteOrTag"):this.view.id==='completed'?tText("tasks:completedRemindersWillAppearHere"):tText("tasks:addAReminderBelowTheDateCanBe")}</p></div>`;
+  revealSurface($('[data-task-rows]',this.host),JSON.stringify([this.view.kind,this.view.id,this.view.day,this.view.scope]));
   this.host.querySelectorAll('[data-select-task]').forEach(button=>button.onclick=()=>button.hasAttribute('data-toggle-task-children')?this.toggleChildren(button.dataset.selectTask,button):this.selectTask(button.dataset.selectTask));
   this.host.querySelectorAll('[data-expand-task]').forEach(button=>button.onclick=()=>this.toggleChildren(button.dataset.expandTask,button));
   this.host.querySelectorAll('[data-task-done]').forEach(input=>input.onchange=()=>this.toggleTask(input));
@@ -257,12 +259,13 @@ class TaskWorkspace{
  renderProperties(){
   if(this.disposed)return;
   const panel=this.panel;this.properties.hidden=!panel;this.shell.classList.toggle('has-properties',!!panel);$('[data-close-properties]',this.host).hidden=!panel;
-  if(!panel){this.properties.innerHTML='';return;}
+  if(!panel){this.properties.innerHTML='';revealSurface(this.properties,null);return;}
   const header=title=>`<header class="tasks-properties-head"><h2>${title}</h2><button type="button" class="tasks-icon-button" data-close-task-properties aria-label="${tHtml("tasks:closeProperties")}">${taskIcon('close')}</button></header>`;
   if(panel.kind==='move')this.renderMoveProperties(header);
   else if(panel.kind==='task')this.renderTaskProperties(header);
   else if(panel.kind==='create-list')this.renderCreateProperties(header);
   else this.renderListProperties(header);
+  revealSurface(this.properties,panel.kind+':'+(panel.id||''));
   $('[data-close-task-properties]',this.properties).onclick=()=>this.closePanel();
  }
  renderTaskProperties(header){

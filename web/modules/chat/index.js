@@ -1,3 +1,4 @@
+import {revealSurface} from '../../core/surface-motion.js';
 import {tText,tHtml,locale} from "../../core/i18n.js";
 import {messageFooter as footer,attachmentMarkup,attachmentSize as sizeLabel} from './message-layout.js';
 import {reactionsMarkup,bindReactions,hasReactions,reactionFooter} from './reactions.js';
@@ -68,6 +69,7 @@ class ChatWorkspace {
       const stopTyping=()=>{if(document.hidden||!document.hasFocus())this.stopTyping();};document.addEventListener('visibilitychange',stopTyping);window.addEventListener('blur',stopTyping);this.cleanups.push(()=>document.removeEventListener('visibilitychange',stopTyping),()=>window.removeEventListener('blur',stopTyping));
       this.poll=setInterval(()=>{if(!document.hidden){this.refreshRooms().catch(()=>{});this.catchup?.().catch(()=>{});}},20000);
       this.cleanups.push(bindChatViewport(this.shell));
+      revealSurface(this.shell,'rooms');
       const keydown=e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();if(matchMedia('(max-width:760px)').matches)this.shell.classList.remove('room-open');if(mobileApp())this.listSearch(true);$('[data-chat-room-search]',this.host).focus();}if(e.key==='Escape'){if(mobileApp()&&!this.shell.classList.contains('room-open')&&this.shell.classList.contains('is-list-searching')){this.listSearch(false,true);return;}if(this.messageMenu){this.closeMessageMenu(true);return;}if(this.editing){this.cancelEdit();return;}this.closeSearch();this.closeMenus();}};this.host.addEventListener('keydown',keydown);this.cleanups.push(()=>this.host.removeEventListener('keydown',keydown));
       const outside=e=>{if(!e.target.closest('[data-chat-menu],[data-chat-menu-panel],[data-chat-emoji],[data-chat-emoji-panel],[data-attach-chat],[data-attach-menu],.chat-message-menu,[data-message-menu]'))this.closeMenus();};document.addEventListener('pointerdown',outside);this.cleanups.push(()=>document.removeEventListener('pointerdown',outside));
       const focused=()=>this.markVisibleRead();this.host.addEventListener('focusin',focused);this.cleanups.push(()=>this.host.removeEventListener('focusin',focused));
@@ -110,6 +112,7 @@ class ChatWorkspace {
     if(this.tab==='contacts'){this.drawContacts();return;}if(this.tab==='calls'){this.drawCalls();return;}
     const items=filterRooms(rooms,this.filter,this.query),list=$('[data-chat-rooms]',this.host);list.setAttribute('aria-label',tText("chat:conversations"));
     renderMarkup(list,items.map(s=>`<button type="button" class="chat-room ${s.id===this.sid?'active':''}" data-room="${esc(s.id)}" aria-pressed="${s.id===this.sid}" title="${esc(s.name)}"><span class="chat-room-avatar">${this.avatar(s)}</span><span class="chat-room-copy"><span class="chat-room-title"><strong>${esc(s.name)}</strong>${roomMuted(s)?`<span class="chat-room-muted" aria-label="${tHtml("chat:notificationsAreDisabled")}" title="${tHtml("chat:notificationsAreDisabled")}">${chatIcon('bellOff')}</span>`:''}${s.favorite?`<span class="chat-room-star" aria-label="${tHtml("chat:favourites")}">${chatIcon('star')}</span>`:''}</span><span class="chat-room-preview">${s.kind==='family'&&s.last_message?`${esc(personName(s.last_message.sender_profile||{login:s.last_message.sender}))}: `:''}${esc(messagePreview(s.last_message))}</span></span><span class="chat-room-meta">${s.last_message?`<time datetime="${new Date(s.last_message.created*1000).toISOString()}">${roomDate(s.last_message.created)}</time>`:''}${s.unread?`<span class="chat-room-unread" aria-label="${tHtml("chat:unread", {value0:(s.unread)})}">${s.unread>99?'99+':s.unread}</span>`:s.pinned?`<span class="chat-room-pin" aria-label="${tHtml("chat:pinned")}">${chatIcon('pin')}</span>`:''}</span></button>`).join('')||`<div class="chat-list-empty"><p>${this.query?tText("chat:chatNotFound"):this.filter==='favorites'?tText("chat:addChatToFavoritesUsingTheStarIcon"):this.filter==='unread'?tText("chat:noNewMessages"):rooms.length?tText("chat:thereAreNoChatsInThisSectionYet"):tText("chat:addAFriendOrCreateASpace")}</p>${!rooms.length?`<button class="text-link" id="chat-social">${tHtml("chat:peopleAndGroups")}</button>`:''}</div>`);
+    revealSurface(list,'conversations');
     list.querySelectorAll('[data-room]').forEach(b=>b.onclick=()=>this.open(b.dataset.room).catch(e=>this.ctx.toast(e.message)));const social=$('#chat-social',this.host);if(social)social.onclick=()=>this.ctx.navigate('social');this.drawTyping();
   }
   listSearch(open,focus=false){
@@ -175,7 +178,9 @@ class ChatWorkspace {
     this.messagePress?.();this.sid='telegram:'+gid;this.ctx.state.chatSpace=this.sid;
     this.shell.classList.add('room-open');this.drawRooms();
     this.mediaViewer?.destroy();
-    this.telegramChat=mountTelegramChat($('#chat-main',this.host),this.ctx,gid,()=>this.backToList());
+    const main=$('#chat-main',this.host);
+    this.telegramChat=mountTelegramChat(main,this.ctx,gid,()=>this.backToList());
+    revealSurface(main,this.sid);
   }
   async open(sid){
     this.stopAudio();
@@ -187,6 +192,7 @@ class ChatWorkspace {
     this.clearedThrough=0;this.retentionCutoff=0;this.sid=sid;this.ctx.state.chatSpace=sid;this.messages=[];this.last=0;this.oldest=null;this.searchQuery='';this.searchItems=[];this.reply=null;this.editing=null;this.retry=null;this.pending=[];this.uploading=false;this.catchingUp=false;this.syncCursor=0;this.wantedCatchup=false;this.shell.classList.add('room-open');this.drawRooms();
 
     $('#chat-main',this.host).innerHTML=`<header class="chat-header">${iconButton('back',tText("chat:toChatList"),'data-chat-back','chat-back')}<button type="button" class="chat-header-identity" data-chat-info>${this.avatar(space)}<span><h2>${esc(space.name)}</h2><span class="chat-header-subtitle">${space.kind==='friends'?personPresence(this.other(space)):tText("common:memberCount", {count:(space.members.length)})}<span id="chat-status" role="status">${tHtml("chat:connecting3")}</span></span></span></button><div class="chat-header-actions">${space.kind==='friends'?iconButton('phone',tText("chat:call4"),'data-chat-call '+(callsController.available?'':'hidden')):''}${iconButton('search',tText("chat:searchInConversation"),'data-open-chat-search')}${iconButton('star',space.favorite?tText("chat:removeChatFromFavorites"):tText("chat:addChatToFavorites"),`data-chat-favorite aria-pressed="${space.favorite}"`)}${iconButton('more',tText("chat:chatActions"),'data-chat-menu aria-expanded="false"')}<div class="chat-menu" data-chat-menu-panel hidden></div></div></header><p class="chat-retention chat-retention-inline">${tHtml("chat:last3MonthsHistoryOldMessagesAndAttachments")}</p><div class="chat-search-bar" data-conversation-search hidden><label>${chatIcon('search')}<input type="search" data-chat-search aria-label="${tHtml("chat:messageSearch")}" placeholder="${tHtml("chat:searchInConversation")}" maxlength="120" autocomplete="off"></label><span class="chat-search-count" role="status"></span>${iconButton('close',tText("chat:closeSearch"),'data-close-chat-search')}</div><div id="chat-messages" class="chat-messages" role="log" aria-label="${tHtml("chat:messageHistory")}" aria-live="polite"><p class="chat-empty" role="status">${tHtml("chat:loadingMessages")}</p></div>${chatComposerMarkup()}`;
+    revealSurface($('#chat-main',this.host),sid);
     if(space.deletion){
       $('[data-chat-back]',this.host).onclick=()=>this.backToList();
       const identity=$('[data-chat-info]',this.host);identity.disabled=true;

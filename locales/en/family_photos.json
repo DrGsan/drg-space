@@ -1,4 +1,5 @@
 {
+  "loadingGallery": "Loading gallery…",
   "removeAttachment": "Remove attachment: {{value0}}",
   "previewVideoBeforeSending": "Preview video before sending",
   "removeAllAttachments": "Remove all attachments",

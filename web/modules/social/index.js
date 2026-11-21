@@ -1,3 +1,4 @@
+import {revealSurface} from '../../core/surface-motion.js';
 import {tText,tHtml} from "../../core/i18n.js";
 import {catalog} from '../../core/catalog.js';
 import {editNickname} from '../../core/nickname-editor.js';
@@ -19,7 +20,9 @@ export async function mountSocial(host,ctx){
   if(!tableViews.has(host))tableViews.set(host,new Map());
   const views=tableViews.get(host);
   const sequence=(mounts.get(host)||0)+1;mounts.set(host,sequence);
-  host.innerHTML=`<p class="muted">${tHtml("social:loadingPeopleAndGroups")}</p>`;sectionHeader(host,ctx);
+  if(!host.childElementCount){
+    host.innerHTML=`<p class="muted" role="status">${tHtml("social:loadingPeopleAndGroups")}</p>`;sectionHeader(host,ctx);
+  }
   try {
     const data=await ctx.api('/social');if(!host.isConnected||mounts.get(host)!==sequence)return;
     ctx.state.spaces=data.spaces;
@@ -82,6 +85,7 @@ export async function mountSocial(host,ctx){
       $('[data-invitation-links]',el).onclick=()=>{const space=spaces.find(s=>s.id===b.dataset.invite);$('.modal-close',el).click();invitationLinks(ctx,space);};
       formBind($('#invite-space',el),async f=>{await ctx.api('/social/spaces/'+b.dataset.invite+'/invites','POST',{login:f.get('login')});$('.modal-close',el).click();await refresh();});
     });
+    revealSurface(host,'people');
     host.querySelectorAll('[data-manage-space]').forEach(b=>b.onclick=()=>manageSpace(ctx,spaces.find(s=>s.id===b.dataset.manageSpace),refresh));
     host.querySelectorAll('[data-family-avatar]').forEach(b=>b.onclick=()=>editFamilyAvatar(ctx,spaces.find(s=>s.id===b.dataset.familyAvatar),refresh));
     host.querySelectorAll('[data-rename]').forEach(b=>b.onclick=()=>{
@@ -93,5 +97,9 @@ export async function mountSocial(host,ctx){
       const space=data.spaces.find(s=>s.id===b.dataset.leave);const whole=space.kind==='friends'||space.owner;
       if(confirm(whole?tText("social:scheduleWorkspaceDeletionAllItsDataWillBe", {value0:(deletionPeriod(space))}):tText("social:exitWorkspaceYourAccessToSharedNotesAnd")))act(()=>ctx.api(whole?'/social/spaces/'+space.id:`/social/spaces/${space.id}/members/${ctx.state.me.id}`,'DELETE'));
     });
-  }catch(e){if(host.isConnected&&mounts.get(host)===sequence){host.innerHTML=`<p class="muted">${esc(e.message)}</p>`;sectionHeader(host,ctx);}}
+  }catch(e){
+    if(!host.isConnected||mounts.get(host)!==sequence)return;
+    if($('#refresh-social',host)){ctx.toast(e.message);return;}
+    host.innerHTML=`<p class="muted" role="alert">${esc(e.message)}</p>`;sectionHeader(host,ctx);revealSurface(host,'error');
+  }
 }

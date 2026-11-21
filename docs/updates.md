@@ -1,5 +1,15 @@
 # Updating DrG Space
 
+## 5.2.22-rc.1
+
+Workspace sections and dialogs ease in on navigation. Loaded content appears in its final layout. The interface honors the system's Reduce Motion setting.
+
+Rebuild Space with the existing Compose files, environment, encryption keys and volumes. No database migration, new setting, storage change or Media update is required. For the base installation:
+
+```sh
+docker compose up -d --build --no-deps app
+```
+
 ## 5.2.21
 
 The muted family-chat preview samples decoded frames at up to 30 frames per second. The separate viewer plays the original video stream at its native quality and cadence.

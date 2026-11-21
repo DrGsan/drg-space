@@ -1,3 +1,4 @@
+import {revealSurface} from '../../core/surface-motion.js';
 import {fileShare} from './sharing.js';
 import {tText,tHtml,locale} from "../../core/i18n.js";
 import './drive.css';
@@ -84,6 +85,7 @@ export async function mountFiles(host,ctx){
       vaultController.destroy();restoreView=null;
       const selected=new Set(),showError=e=>ctx.toast(e.message),targetParent=view==='active'?parent:null;
       show(driveShell(data,view,parent));
+      revealSurface($(".drive-main",host),JSON.stringify([view,parent]));
       if(view==='secret'){
         const bottom=host.closest('.workspace')?.querySelector('.drive-mobile-tabs');
         [...host.querySelectorAll('[data-files-view]'),...(bottom?.querySelectorAll('[data-mobile-files-view]')||[])].forEach(b=>b.onclick=()=>load({view:b.dataset.filesView||b.dataset.mobileFilesView,parent:null}));
@@ -346,7 +348,10 @@ export async function mountFiles(host,ctx){
       if(e.status===404&&view==='active'&&parent){await load({view:'active',parent:null});return;}
       const panel=$('.drive-panel',host);
       if(panel){for(const [el,disabled] of pendingControls||[])if(el.isConnected)el.disabled=disabled;pendingControls=null;restoreView?.();panel.removeAttribute('aria-busy');const status=$('[data-file-status]',host);if(status)status.textContent=e.message;ctx.toast(e.message);}
-      else show('<p class=drive-loading role=alert>'+esc(e.message)+'</p>');
+      else {
+        show('<p class=drive-loading role=alert>'+esc(e.message)+'</p>');
+        revealSurface($('.drive-loading',host),'error');
+      }
     }}
   };
   await load();

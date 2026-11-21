@@ -1,3 +1,4 @@
+import {revealSurface} from './core/surface-motion.js';
 import {showAppUpdate} from './core/app-update.js';
 import {tText,tHtml} from "./core/i18n.js";
 import {accountLanguageChanged,locale,translateSystemText} from './core/i18n.js';
@@ -290,6 +291,7 @@ function enrollment() {
   };
   $('#skip-enrollment')?.addEventListener('click',async()=>{try{await finish(await api('/2fa/skip','POST'));}catch(error){toast(error.message);}});
   mountEnrollment($("#enroll-flow"),context(),finish,tText("app:openWorkspace"));
+  revealSurface(root.firstElementChild,'enrollment');
 }
 async function logout() {
   try {
@@ -362,6 +364,7 @@ async function loadWorkspace() {
     if(root.querySelector('.workspace')){toast(e.message);return;}
     root.querySelector('#auth-form')?.dispatchEvent(new Event('drg-auth-close'));
     root.innerHTML=`<main class="enroll workspace-error"><section class="auth-card" aria-labelledby="workspace-error-title"><h2 id="workspace-error-title" tabindex="-1">${tHtml("app:couldNotLoadWorkspace")}</h2><p class="workspace-error-message" role="status">${esc(e.message)}</p><div class="workspace-error-actions"><button class="primary" data-workspace-retry>${tHtml("app:tryLoadingAgain")}</button>${moduleEnabled(state,'chat')?`<button class="secondary" data-workspace-chat>${tHtml("app:openMessages")}</button>`:''}<a class="text-link" href="/">${tHtml("app:goToHome")}</a></div></section></main>`;
+    revealSurface($('.workspace-error .auth-card',root),'workspace-error');
     $('#workspace-error-title').focus();
     $('[data-workspace-retry]').onclick=async e=>{const button=e.currentTarget;button.disabled=true;try{await loadWorkspace();}finally{if(button.isConnected)button.disabled=false;}};
     $('[data-workspace-chat]')?.addEventListener('click',()=>{state.view='chat';renderWorkspace();});
@@ -373,6 +376,7 @@ function renderWorkspace(options={}) {
 }
 function renderWorkspaceNow({remember=true,chatList=true}={}) {
   root.querySelector('#auth-form')?.dispatchEvent(new Event('drg-auth-close'));
+  const previousView=root.querySelector('.workspace')?.dataset.currentView;
   const previousMobileTabs=captureMobileTabs(root);
   const previousNavigation=root.querySelector('.sidebar nav');
   vaultController.destroy();
@@ -449,6 +453,7 @@ function renderWorkspaceNow({remember=true,chatList=true}={}) {
     const returned=new URL(location.href);returned.searchParams.delete('notion');history.replaceState(null,'',returned);
     import('./modules/portability/notion-sync.js').then(module=>module.notionSyncDialog(context()));
   }
+  if(previousView && previousView!==state.view && state.view!=='home')revealSurface($("#view-content"),state.view);
   chatUnreadController.attach(context());
   inboxController.attach(context());
   callsController.attach(context());
@@ -655,10 +660,12 @@ async function sharedScreen() {
   clearTimeout(expiryTimer);
   root.innerHTML =
     `<main class="shared-shell"><a class="brand" href="/">${brand()}</a><div id="shared-content" class="shared-content"><p class="muted">${tHtml("app:openingPage")}</p></div></main>`;
+  const content=$('#shared-content',root);
   try {
     const record=new URLSearchParams(location.search).get('record'),query=record?'?record='+encodeURIComponent(record):'';
     const n = await api("/shared/" + encodeURIComponent(token)+query);
-    if(!n.database&&(n.permission==='edit'||n.blocks?.length)){const url=location.href;await loadEditor();if(location.href!==url)return;}
+    if(!content.isConnected)return;
+    if(!n.database&&(n.permission==='edit'||n.blocks?.length)){const url=location.href;await loadEditor();if(location.href!==url||!content.isConnected)return;}
     const renderedBody=n.body.replace(/(?:https?:\/\/[^/\s<>"']+)?\/api\/notes\/[A-Za-z0-9_-]{16}\/files\/([A-Za-z0-9_-]{16})/g,(_,fid)=>'/api/shared/'+encodeURIComponent(token)+'/files/'+fid+query);
     $("#shared-content").innerHTML =
       `<div class="shared-head"><span class="tag">${n.permission === "edit" ? tText("app:canBeEdited") : tText("app:readOnly")}</span><span class="small muted">${n.expires ? tText("app:accessTo", {value0:(date(n.expires))}) : tText("app:noExpiry")}</span></div><div class="page-cover ${n.cover&&!n.cover_url?'cover-'+esc(n.cover):''}" ${n.cover?'':'hidden'}>${pageCover(n)}</div>${coverAttribution(n)}<h1><span aria-hidden=true>${pageIcon(n)}</span> ${esc(n.title)}</h1><article class="markdown">${md(renderedBody)}</article><footer class="shared-footer">${tHtml("app:updatedDrgSite", {value0:(date(n.updated))})}</footer>`;
@@ -673,20 +680,24 @@ async function sharedScreen() {
     }else if (n.blocks?.length)
       sharedHandle = mountBlockEditor($(".markdown"), n, { readOnly: true, fileUrl:fid=>location.origin+'/api/shared/'+encodeURIComponent(token)+'/files/'+encodeURIComponent(fid)+query });
     safeMarkdownLinks();
+    revealSurface(content,'document');
     if (n.expires) {
       const left = n.expires * 1000 - Date.now();
       expiryTimer = setTimeout(
         () => {
+          if(!content.isConnected)return;
           if (n.expires * 1000 > Date.now()) return sharedScreen();
           sharedHandle?.destroy();
           sharedHandle = null;
           $("#shared-content").innerHTML =
             `<h2>${tHtml("app:accessExpired")}</h2><p class="muted">${tHtml("app:theAuthorCanCreateANewLink")}</p>`;
+          revealSurface(content,'expired');
         },
         Math.max(0, Math.min(left, 2147483647)),
       );
     }
   } catch (e) {
+    if(!content.isConnected)return;
     if (e.status === 423) {
       $("#shared-content").innerHTML =
         `<span class="tag">${tHtml("app:privatePage")}</span><h1>${tHtml("app:passwordRequired")}</h1><p class="muted">${tHtml("app:enterThePasswordProvidedByTheAuthor")}</p><form id="unlock-form"><label>${tHtml("app:pagePassword")}<input name="password" type="password" autocomplete="off" required></label><button class="primary" type="submit">${tHtml("app:open")}</button></form>`;
@@ -712,6 +723,7 @@ async function sharedScreen() {
         authScreen();
       });
     }
+    revealSurface(content,'gate');
   }
 }
 window.addEventListener("beforeunload", (e) => {
@@ -753,16 +765,19 @@ async function start() {
   } catch (e) {
     root.innerHTML =
       `<main class="enroll"><div class="auth-card"><h2>${tHtml("app:failedToConnect")}</h2><p>${esc(e.message)}</p><button id="retry" class="primary">${tHtml("app:retry")}</button></div></main>`;
+    revealSurface($(".auth-card",root),'connection-error');
     $("#retry").onclick = start;
   }
 }
 async function expenseSharedScreen(){
   const token=location.pathname.split('/')[2],languageBar=document.querySelector('.public-language-bar');clearTimeout(expiryTimer);
   try{const e=await api('/shared-expenses/'+token);expiryTimer=setTimeout(()=>expenseSharedScreen(),Math.max(1000,Math.min(e.share_expires*1000-Date.now(),2147483647)));root.innerHTML=`<main class="expense-public"><header class="expense-public-header"><a class="brand" href="/">${brand()}</a><div data-expense-language></div></header><section class="panel"><h1>${esc(e.title)}</h1><p class="hint">${tHtml("app:linkIsAvailableUntil", {value0:(date(e.share_expires))})}</p>${expenseReport(e,false,token)}</section></main>`;if(languageBar)$('[data-expense-language]',root).append(languageBar);bindExpensePhotos(root,e,{token});}catch(e){root.innerHTML=`<main class="enroll"><section class="auth-card"><h2>${tHtml("app:billDetailsAreUnavailable")}</h2><p>${esc(e.message)}</p><a href="/">${tHtml("app:goToHome")}</a></section></main>`;if(languageBar)document.body.prepend(languageBar);}
+  revealSurface($('main > .panel, main > .auth-card',root),'expense-public');
 }
 function resetPasswordScreen(){
   const token=location.pathname.split('/')[2];
   root.innerHTML=`<main class="enroll"><section class="auth-card"><h2>${tHtml("app:newPassword")}</h2><p class="muted">${tHtml("app:thisIsASingleUseLinkChangingThe")}</p><form data-reset-password><label>${tHtml("app:newPassword")}<input name="password" type="password" minlength="12" maxlength="256" required autocomplete="new-password"></label><label>${tHtml("app:repeatPassword")}<input name="repeat" type="password" minlength="12" maxlength="256" required autocomplete="new-password"></label><label>${tHtml("app:hintOptional")}<input name="password_hint" maxlength="200" placeholder="${tHtml("app:doNotEnterThePasswordItself")}"></label><button class="primary" type="submit">${tHtml("app:changePassword")}</button></form></section></main>`;
+  revealSurface($(".auth-card",root),'reset-password');
   formBind($('[data-reset-password]'),async f=>{requireStrongPassword(f.get('password'));if(f.get('password')!==f.get('repeat'))throw new Error(tText("app:passwordsDoNotMatch"));await api('/password-reset','POST',{token,password:f.get('password'),password_hint:f.get('password_hint')});state.me=await api('/me');history.replaceState({},'', '/');enrollment();});
 }
 async function fileSharedScreen(){return mountSharedFiles(root,{...context(),login:()=>authScreen()},location.pathname.split('/')[2]);}
@@ -775,10 +790,12 @@ async function workspaceInvitation(){
   try{
     const data=await api('/social/invite-links/'+encodeURIComponent(token));
     root.innerHTML=`<main class="enroll"><div class="auth-card"><h2>${tHtml("app:invitationTo", {value0:(esc(data.name))})}</h2><p>${tHtml("app:youWillSignInAs", {value0:(esc(state.me.login))})}</p><button class="primary" data-join-workspace>${tHtml("app:acceptInvitation")}</button><button class="text-link" data-ignore-workspace>${tHtml("app:later")}</button><p class="error" role="alert" data-join-error></p></div></main>`;
+    revealSurface($('.auth-card',root),'invitation');
     $('[data-join-workspace]').onclick=async e=>{e.target.disabled=true;try{await api('/social/invite-links/'+encodeURIComponent(token)+'/accept','POST');history.replaceState({},'', '/');state.view='social';restoredWorkspaceFor=state.me.id;await loadWorkspace();}catch(error){$('[data-join-error]').textContent=error.message;e.target.disabled=false;}};
     $('[data-ignore-workspace]').onclick=async()=>{history.replaceState({},'', '/');state.view='social';restoredWorkspaceFor=state.me.id;await loadWorkspace();};
   }catch(error){
     root.innerHTML=`<main class="enroll"><div class="auth-card"><h2>${tHtml("app:invitationNotAvailable")}</h2><p>${esc(error.message)}</p><button class="primary" data-invite-home>${tHtml("app:openTheApplication")}</button></div></main>`;
+    revealSurface($('.auth-card',root),'invitation-error');
     $('[data-invite-home]').onclick=async()=>{history.replaceState({},'', '/');state.view='social';restoredWorkspaceFor=state.me.id;await loadWorkspace();};
   }
 }
