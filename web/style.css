@@ -2631,10 +2631,11 @@ details.note-status-chip .note-status-popover .notion-sync-actions{display:flex;
 .holiday-calendar .calendar-day{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:1px;position:relative}
 .holiday-calendar .calendar-day.calendar-off:not(.selected){color:var(--danger,#bb4f61)}
 .holiday-calendar .calendar-day.calendar-short:not(.selected){color:var(--warning,#9e6418)}
-.holiday-calendar .calendar-markers{display:flex;gap:3px;min-height:3px;line-height:0}
+.holiday-calendar .calendar-markers{display:flex;align-items:center;gap:3px;min-height:4px;line-height:0}
 .holiday-calendar .calendar-markers b,.holiday-calendar .calendar-markers i{display:block;position:static;width:3px;height:3px;border-radius:50%;background:var(--blue);margin:0}
-.holiday-calendar .calendar-markers i{background:var(--sage,#56927a)}
+.holiday-calendar .calendar-markers i{width:6px;height:4px;border-radius:4px;background:var(--sage,#56927a)}
 .holiday-calendar .calendar-day.selected .calendar-markers>*{background:currentColor}
+.holiday-calendar .calendar-agenda time{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 .holiday-calendar .calendar-event{display:flex;gap:6px;align-items:baseline;margin:6px 0;font-size:12px;line-height:1.45}
 .holiday-calendar .calendar-event>span:last-child{overflow-wrap:anywhere;min-width:0}
 .holiday-calendar .calendar-event.holiday{color:var(--danger,#bb4f61)}

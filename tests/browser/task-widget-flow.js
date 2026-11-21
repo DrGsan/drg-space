@@ -232,8 +232,9 @@ export async function taskWidgetPollingFlow(page){
     window.requests=[];window.hidden=false;Object.defineProperty(document,'hidden',{get:()=>window.hidden,configurable:true});
     window.state={me:{id:'owner'},tasks:[]};window.lists=[];window.tasks=[];window.disposers=[];window.configured=0;
     const api=async path=>{window.requests.push(path);if(window.pending)await window.pending;return structuredClone(path==='/tasks'?window.tasks:window.lists);};
+    const loadReminders=async()=>{window.state.tasks=await api('/tasks');return window.state.tasks;};
     window.mount=configs=>{window.disposers.forEach(fn=>fn());window.disposers=[];document.body.innerHTML='';
-      for(const [i,config] of configs.entries()){const host=document.createElement('div');host.dataset.widgetId='qa_'+i;document.body.append(host);window.disposers.push(mountTasks(host,{state:window.state,instance:{id:'qa_'+i,config,size:config.size||'2x1'},api,configure:()=>window.configured++,navigate:()=>{},refresh:()=>{}}));}
+      for(const [i,config] of configs.entries()){const host=document.createElement('div');host.dataset.widgetId='qa_'+i;document.body.append(host);window.disposers.push(mountTasks(host,{state:window.state,instance:{id:'qa_'+i,config,size:config.size||'2x1'},api,loadReminders,configure:()=>window.configured++,navigate:()=>{},refresh:()=>{}}));}
     };`,resolveDir:root},bundle:true,format:'iife',platform:'browser',outfile:'/task-widget-polling-qa.js',write:false});
   const origin=new URL(page.url()).origin,prefix='/task-widget-polling-qa-'+Date.now();
   const htmlUrl=origin+prefix+'.html',scriptUrl=origin+prefix+'.js',styleUrl=origin+prefix+'.css';

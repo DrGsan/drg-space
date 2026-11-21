@@ -2,6 +2,13 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.2.24-rc.1] — 2026-11-21 — Dated reminders in Calendar
+
+- Refresh dated reminders when opening Home or returning to the app, and show a clearer marker and the optional time.
+
+- **Installation:** Rebuild Space with the existing Compose files and volumes.
+- **Compatibility:** No migration is required.
+
 ## [5.2.23] — 2026-11-21 — Sign-in language selector
 
 - Align the language selector below the logo and give its arrow more room on the sign-in screen.

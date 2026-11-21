@@ -82,16 +82,16 @@ export function mountTasks(host,ctx) {
   const updatePolling=()=>{clearInterval(timer);timer=sharedSource()?setInterval(()=>{if(visible&&!document.hidden)load();},30000):null;};
   const load=()=>{
     if(disposed)return Promise.resolve();if(pending)return pending;
-    pending=Promise.all([api('/task-lists'),api('/tasks')]).then(([nextLists,tasks])=>{
+    pending=Promise.all([api('/task-lists'),ctx.loadReminders()]).then(([nextLists,tasks])=>{
       if(disposed)return;
       const snapshot=JSON.stringify([nextLists,tasks,today()],(key,value)=>key==='online'||key==='last_seen'?undefined:value);
-      lists=nextLists;state.tasks=tasks;loaded=true;
+      lists=nextLists;loaded=true;
       if(snapshot!==lastRendered){render();lastRendered=snapshot;}
       updatePolling();
     }).catch(errorMessage).finally(()=>pending=null);
     return pending;
   };
-  const reload=async()=>{const tasks=await api('/tasks');if(!disposed){state.tasks=tasks;ctx.refresh();}};
+  const reload=async()=>{await ctx.loadReminders(true);if(!disposed)ctx.refresh();};
   const onVisible=()=>{if(visible&&!document.hidden&&loaded&&sharedSource())load();};
   const observer=new IntersectionObserver(entries=>{const previous=visible;visible=entries[0].isIntersecting;if(visible&&!previous)onVisible();});
   observer.observe(host);document.addEventListener('visibilitychange',onVisible);load();
