@@ -16,6 +16,7 @@ import {chatUnreadController} from './core/chat-unread.js';
 import {authenticatePasskey,passkeysSupported,passkeyError} from './core/passkeys.js';
 import './core/auth-screen.css';
 import {mountAuthMotion,codeProgress,mountWorkspaceLoading,transitionEntry} from './core/entry-motion.js';
+import {transitionSection} from './core/section-transition.js';
 import {preferenceSections} from './core/preferences.js';
 import {bindMobileBack} from './core/mobile-back.js';
 import {mobileApp,mobileStart,mobileTabs,bindMobileViewport} from './core/mobile.js';
@@ -81,6 +82,7 @@ let expiryTimer;
 let acceptAccountLanguage=true;
 let sharedHandle;
 let workspaceUpdate;
+let navigationRequest=0;
 let disposeAppearance;
 let disposeAdmin;
 let registrationOpen=false;
@@ -422,16 +424,9 @@ function renderWorkspaceNow({remember=true,chatList=true}={}) {
       notesController.newPage();
     }
   });
-  document.querySelectorAll("[data-view]").forEach(
-    (b) =>
-      (b.onclick = async () => {
-        if(workspaceUpdate){try{await workspaceUpdate;}catch{return;}}
-        if (!(await flushWorkspace())) return;
-        state.dirty = false;
-        state.view = b.dataset.view;
-        renderWorkspace();
-      }),
-  );
+  root.querySelectorAll(".sidebar [data-view]").forEach(button=>{
+    button.onclick=()=>navigateWorkspace(button.dataset.view);
+  });
   if (state.view === "files") mountFiles($("#view-content"),context());
   if (state.view === "home") dashboard();
   if (state.view === "notes") notesView();
@@ -453,6 +448,36 @@ function renderWorkspaceNow({remember=true,chatList=true}={}) {
   inboxController.attach(context());
   callsController.attach(context());
 }
+async function navigateWorkspace(view,{chatList=true}={}) {
+  const account=state.me;
+  if(!account)return;
+  if(view==="admin"&&!["owner","admin"].includes(account.role))return;
+  if(["notes","tracker","tasks","chat","expenses","files","family_photos"].includes(view)&&!moduleEnabled(state,view))return;
+  const request=++navigationRequest;
+  if(workspaceUpdate){try{await workspaceUpdate;}catch{return;}}
+  if(!(await flushWorkspace())||request!==navigationRequest||state.me?.id!==account.id)return;
+
+  const current=root.querySelector('.workspace')?.dataset.currentView;
+  const update=()=>{
+    if(request!==navigationRequest||state.me?.id!==account.id)return;
+    const navigationFocused=document.activeElement?.closest('.sidebar nav,.mobile-app-tabs');
+    state.view=view;
+    state.dirty=false;
+    renderWorkspace({chatList});
+    if(navigationFocused&&document.activeElement===document.body){
+      const button=[...root.querySelectorAll(`.sidebar [data-view="${view}"],[data-mobile-view="${view}"]`)].find(el=>el.getClientRects().length);
+      const target=button||root.querySelector('#view-content');
+      if(target&&!target.matches('button'))target.tabIndex=-1;
+      target?.focus({preventScroll:true});
+    }
+  };
+  if(current&&current!==view){
+    const focusedView=name=>['notes','tasks','chat','files'].includes(name);
+    return transitionSection(update,focusedView(current)!==focusedView(view));
+  }
+  update();
+}
+
 function context() {
   return {
     state,
@@ -477,14 +502,7 @@ function context() {
       pendingSecurity=false;state.adminSecurityRequested=false;pendingFamilyExport=null;delete state.adminFamilyExportRequested;
       root.innerHTML=`<main class="enroll"><div class="brand">${brand()}</div><h1>${tHtml("app:restoreComplete")}</h1><p>${tHtml("app:signInUsingTheAdministratorAccountFromThe")} <strong>${esc(login)}</strong>.</p><a class="primary" href="/">${tHtml("app:signInAgain")}</a></main>`;
     },
-    navigate: async (view,{chatList=true}={}) => {
-      if(workspaceUpdate){try{await workspaceUpdate;}catch{return;}}
-      if(view==="admin" && !["owner","admin"].includes(state.me.role))return;
-      if (["notes", "tracker", "tasks", "chat", "expenses", "files", "family_photos"].includes(view) && !moduleEnabled(state, view)) return;
-      if(!(await flushWorkspace()))return;
-      state.view = view;
-      renderWorkspace({chatList});
-    },
+    navigate: navigateWorkspace,
     openPage: async (id) => {
       if (!moduleEnabled(state, "notes")) return;
       if(!(await flushWorkspace()))return;

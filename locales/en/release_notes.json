@@ -1,4 +1,6 @@
 {
+  "release5_2_22Title": "Smoother section switching",
+  "release5_2_22Change1": "Smooth out switching between sections from the sidebar and the Web App navigation.",
   "release5_2_21Title": "Smoother family chat video previews",
   "release5_2_21Change1": "Play muted video previews at up to 30 frames per second and open the original video in the separate viewer.",
   "release5_2_20Title": "Family chat video previews",

@@ -1,5 +1,15 @@
 # Updating DrG Space
 
+## 5.2.22
+
+Section navigation crossfades between the previous and new workspace views. Browsers without View Transitions and devices set to Reduce Motion switch directly.
+
+Rebuild Space with the existing Compose files, environment, encryption keys and volumes. No database migration, new setting, storage change or Media update is required. For the base installation:
+
+```sh
+docker compose up -d --build --no-deps app
+```
+
 ## 5.2.21
 
 The muted family-chat preview samples decoded frames at up to 30 frames per second. The separate viewer plays the original video stream at its native quality and cadence.
