@@ -140,6 +140,47 @@ test('unsupported browser languages fall back to Russian and native passkey page
  await context.close();
 });
 
+test('sign-in language stays centered and usable on the web and in standalone mode',async({browser})=>{
+ for(const standalone of [false,true]){
+  const context=await browser.newContext({locale:'en-US',hasTouch:standalone,
+   viewport:standalone?{width:320,height:740}:{width:1440,height:900}});
+  try{
+   if(standalone)await context.addInitScript(()=>Object.defineProperty(navigator,'standalone',{get:()=>true}));
+   const page=await context.newPage();
+   await page.goto(origin+'/');
+   const select=page.locator('.auth-header [data-public-language] select');
+   await expect(select).toHaveValue('system');
+   await expect(select.locator('option')).toHaveText(['System','Русский','English']);
+   const alignment=await select.evaluate(element=>{
+    const field=element.getBoundingClientRect();
+    const logo=element.closest('.auth-header').querySelector('.brand').getBoundingClientRect();
+    const arrow=getComputedStyle(element.parentElement,'::after');
+    return {centerOffset:Math.abs((field.left+field.right-logo.left-logo.right)/2),
+     height:field.height,arrowInset:parseFloat(arrow.insetInlineEnd),
+     arrowEvents:arrow.pointerEvents,overflow:document.documentElement.scrollWidth>innerWidth};
+   });
+   expect(alignment.centerOffset).toBeLessThan(1);
+   expect(alignment.height).toBeGreaterThanOrEqual(44);
+   expect(alignment.arrowInset).toBeGreaterThanOrEqual(12);
+   expect(alignment.arrowEvents).toBe('none');
+   expect(alignment.overflow).toBe(false);
+   if(standalone)await select.tap();
+   else{
+    await select.focus();
+    await expect(select).toBeFocused();
+    await select.press('Space');
+    await select.press('Escape');
+    await select.click();
+   }
+   for(const value of ['ru','en','system']){
+    await select.selectOption(value);
+    await expect(page.locator('html')).toHaveAttribute('lang',value==='system'?'en':value);
+    await expect(select).toHaveValue(value);
+   }
+  }finally{await context.close();}
+ }
+});
+
 test('another device changing language does not reload an editor with unsaved work',async({page})=>{
  await signedIn(page);
  await page.context().request.put('/api/language',{headers:{Origin:origin,'X-CSRF-Token':csrf},data:{language:'en'}});
