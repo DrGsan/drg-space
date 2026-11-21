@@ -2,7 +2,7 @@ import {tHtml} from "./i18n.js";
 import {$} from './ui.js';
 import {enterDialog,exitDialog,motionAllowed} from './surface-motion.js';
 
-export function modal(html, {motion = true} = {}) {
+export function modal(html, {motion} = {}) {
   // When a flow immediately opens another dialog, remove the exiting one
   // before adding its replacement so paired form IDs remain unique.
   document.querySelectorAll('.modal-overlay[data-closing]').forEach(previous=>{
@@ -15,7 +15,10 @@ export function modal(html, {motion = true} = {}) {
     `<section class="modal" role="dialog" aria-modal="true"><button class="modal-close icon-btn" aria-label="${tHtml("common:close")}">×</button>${html}</section>`;
   document.body.append(overlay);
   const panel = $('.modal', overlay);
-  const panelMotion = motion ? enterDialog(panel) : undefined;
+  // The dashboard already opts in to movement at every width. Other
+  // dialogs can occupy the entire screen and keep their geometry on mobile.
+  const alwaysShift = motion === true;
+  const panelMotion = motion === false ? undefined : enterDialog(panel,alwaysShift);
   const prev = document.activeElement;
   let closed = false;
   const close = () => {
@@ -30,9 +33,9 @@ export function modal(html, {motion = true} = {}) {
     if (top && prev?.isConnected) prev.focus({preventScroll:true});
     overlay.dispatchEvent(new Event("close"));
     const remove = () => overlay.remove();
-    if (!motion || !motionAllowed()) { panelMotion?.cancel(); remove(); return; }
+    if (motion === false || !motionAllowed()) { panelMotion?.cancel(); remove(); return; }
     // Start from the displayed frame when Escape interrupts the entrance.
-    const exit = exitDialog(panel,panelMotion);
+    const exit = exitDialog(panel,panelMotion,alwaysShift);
     exit.finished.catch(()=>{}).finally(remove);
   };
   const topModal = () => [...document.querySelectorAll(".modal-overlay:not([data-closing]):not([inert])")].at(-1);

@@ -32,15 +32,19 @@ export function revealSurface(surface, screen) {
   entry.motion.finished.catch(()=>{}).finally(()=>{entry.motion=undefined;});
 }
 
-export function enterDialog(panel) {
+export function enterDialog(panel, alwaysShift=false) {
   if (!motionAllowed()) return;
-  const start = compactScreen.matches ? {opacity:0} : {opacity:0, transform:'translateY(18px) scale(.985)'};
-  return play(panel, 'dialog-entry', [start, {opacity:1, transform:'none'}], {duration:420, easing:'cubic-bezier(.22,1,.36,1)'});
+  const shift = alwaysShift || !compactScreen.matches;
+  const start = shift ? {opacity:0, transform:'translateY(18px) scale(.985)'} : {opacity:0};
+  const end = shift ? {opacity:1, transform:'none'} : {opacity:1};
+  return play(panel, 'dialog-entry', [start,end], {duration:420, easing:'cubic-bezier(.22,1,.36,1)'});
 }
 
-export function exitDialog(panel, entrance) {
+export function exitDialog(panel, entrance, alwaysShift=false) {
   const {opacity,transform} = getComputedStyle(panel);
   entrance?.cancel();
-  const end = compactScreen.matches ? {opacity:0} : {opacity:0, transform:'translateY(10px) scale(.99)'};
-  return play(panel, 'dialog-exit', [{opacity,transform},end], {duration:180, easing:'cubic-bezier(.4,0,1,1)', fill:'forwards'});
+  const shift = alwaysShift || !compactScreen.matches;
+  const start = shift ? {opacity,transform} : {opacity};
+  const end = shift ? {opacity:0, transform:'translateY(10px) scale(.99)'} : {opacity:0};
+  return play(panel, 'dialog-exit', [start,end], {duration:180, easing:'cubic-bezier(.4,0,1,1)', fill:'forwards'});
 }
