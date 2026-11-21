@@ -36,6 +36,7 @@ export function modal(html, {motion} = {}) {
     document.removeEventListener("keydown", key);
     if (top && prev?.isConnected) prev.focus({preventScroll:true});
     overlay.dispatchEvent(new Event("close"));
+    if(top)queueMicrotask(()=>document.dispatchEvent(new Event("drg-modal-closed")));
     const remove = () => overlay.remove();
     if (motion === false || !motionAllowed()) { panelMotion?.cancel(); remove(); return; }
     // Start from the displayed frame when Escape interrupts the entrance.

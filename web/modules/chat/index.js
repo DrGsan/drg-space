@@ -73,7 +73,9 @@ class ChatWorkspace {
       revealSurface(this.shell,'rooms');
       const keydown=e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();if(matchMedia('(max-width:760px)').matches)this.shell.classList.remove('room-open');if(mobileApp())this.listSearch(true);$('[data-chat-room-search]',this.host).focus();}if(e.key==='Escape'){if(mobileApp()&&!this.shell.classList.contains('room-open')&&this.shell.classList.contains('is-list-searching')){this.listSearch(false,true);return;}if(this.messageMenu){this.closeMessageMenu(true);return;}if(this.editing){this.cancelEdit();return;}this.closeSearch();this.closeMenus();}};this.host.addEventListener('keydown',keydown);this.cleanups.push(()=>this.host.removeEventListener('keydown',keydown));
       const outside=e=>{if(!e.target.closest('[data-chat-menu],[data-chat-menu-panel],[data-chat-emoji],[data-chat-emoji-panel],[data-attach-chat],[data-attach-menu],.chat-message-menu,[data-message-menu]'))this.closeMenus();};document.addEventListener('pointerdown',outside);this.cleanups.push(()=>document.removeEventListener('pointerdown',outside));
-      const focused=()=>this.markVisibleRead();this.host.addEventListener('focusin',focused);this.cleanups.push(()=>this.host.removeEventListener('focusin',focused));
+      const focused=()=>this.markVisibleRead();
+      this.host.addEventListener('focusin',focused);document.addEventListener('drg-modal-closed',focused);
+      this.cleanups.push(()=>{this.host.removeEventListener('focusin',focused);document.removeEventListener('drg-modal-closed',focused);});
       const wanted=this.listOnly?null:this.ctx.state.chatSpace;
       const notificationChange=e=>{this.telegramSpaces=this.telegramSpaces.map(s=>s.id===e.detail?.id?{...s,mute_until:e.detail.mute_until}:s);this.drawRooms();};document.addEventListener('drg-chat-notifications',notificationChange);this.cleanups.push(()=>document.removeEventListener('drg-chat-notifications',notificationChange));
       if(wanted?.startsWith('telegram:')&&this.ctx.moduleEnabled('family_photos'))await this.open(wanted);

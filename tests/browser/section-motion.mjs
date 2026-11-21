@@ -285,7 +285,8 @@ async function chatAfterDialog(browser,{storageState}) {
     await page.locator('[data-room="'+room.id+'"]').click();
     await expect(page.locator('.chat-shell')).toHaveClass(/room-open/);
     await page.bringToFront();
-    await page.locator('[data-chat-info]').click();
+    await page.locator('[data-chat-info]').focus();
+    await page.locator('[data-chat-info]').press('Enter');
     const readable=()=>owner.request.get('/api/chat/rooms').then(response=>response.json()).then(data=>data.items.find(item=>item.id===room.id).unread);
     const body='Message received while the dialog is open';
     await send(peer,'/chat/'+room.id+'/messages',{body,client_id:'modal-read-'+room.id},peerCsrf);
