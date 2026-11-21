@@ -257,6 +257,50 @@ async function flow(browser,fixtures,{width,mobile=false,reduce=false,video}) {
   } finally { await context.close(); }
 }
 
+async function chatAfterDialog(browser,{storageState}) {
+  const name='motion-peer-'+browser.browserType().name();
+  const owner=await browser.newContext({baseURL:origin,storageState,viewport:{width:1280,height:900}});
+  const peer=await request.newContext({baseURL:origin});
+  try {
+    const csrf=(await owner.cookies()).find(cookie=>cookie.name==='drg_csrf').value;
+    const send=async(context,path,data,token=csrf)=>{
+      const response=await context.post('/api'+path,{headers:{Origin:origin,'X-CSRF-Token':token},data});
+      expect(response.ok(),path+' '+await response.text()).toBe(true);
+      return response.json();
+    };
+    await send(owner.request,'/admin/access/unlock',{password});
+    const invite=await send(owner.request,'/invites',{});
+    await send(owner.request,'/admin/access/lock',{});
+    const registration=await send(peer,'/register',{login:name,password,invite:new URL(invite.url).pathname.split('/').at(-1)},'');
+    await send(peer,'/2fa/skip',{},registration.csrf);
+    const room=await send(owner.request,'/social/families',{name:'Motion read receipts'});
+    await send(owner.request,'/social/families/'+room.id+'/invites',{login:name});
+    const pending=(await (await peer.get('/api/social')).json()).requests.find(item=>item.space_id===room.id&&item.incoming);
+    const peerCsrf=(await peer.storageState()).cookies.find(cookie=>cookie.name==='drg_csrf').value;
+    await send(peer,'/social/requests/'+pending.id+'/accept',{},peerCsrf);
+    const page=await owner.newPage();
+    await setupPage(page,false);
+    await page.goto('/');
+    await navigate(page,'chat',false);
+    await page.locator('[data-room="'+room.id+'"]').click();
+    await expect(page.locator('.chat-shell')).toHaveClass(/room-open/);
+    await page.bringToFront();
+    await page.locator('[data-chat-info]').click();
+    const readable=()=>owner.request.get('/api/chat/rooms').then(response=>response.json()).then(data=>data.items.find(item=>item.id===room.id).unread);
+    const body='Message received while the dialog is open';
+    await send(peer,'/chat/'+room.id+'/messages',{body,client_id:'modal-read-'+room.id},peerCsrf);
+    await expect(page.locator('.chat-messages')).toContainText(body);
+    await expect.poll(readable).toBe(1);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-chat-info]')).toBeFocused();
+    await expect.poll(readable).toBe(0);
+    console.log(browser.browserType().name(),'chat read receipt resumes after closing a dialog');
+  } finally {
+    await peer.dispose();
+    await owner.close();
+  }
+}
+
 async function publicScreens(browser,{share,fileShare}) {
   const context=await browser.newContext({baseURL:origin,viewport:{width:390,height:844},serviceWorkers:'block'});
   try {
@@ -305,6 +349,7 @@ try {
         await flow(browser,fixtures,{width:390,mobile:true});
         if(!baseline)await flow(browser,fixtures,{width:390,mobile:true,reduce:true});
         await publicScreens(browser,fixtures);
+        await chatAfterDialog(browser,fixtures);
       }
     }finally{await browser.close();}
   }
