@@ -1,6 +1,7 @@
 {
-  "release5_2_24_rc_1Title": "Dated reminders in Calendar",
-  "release5_2_24_rc_1Change1": "Refresh dated reminders when opening Home or returning to the app, and show a clearer marker and the optional time.",
+  "release5_2_24_rc_2Title": "Dated reminders in Calendar",
+  "release5_2_24_rc_2Change1": "Refresh dated reminders when opening Home or returning to the app, and show a clearer marker and the optional time.",
+  "release5_2_24_rc_2Change2": "Show the selected day's first reminder and a count of additional reminders in the smallest Calendar widget.",
   "release5_2_23Title": "Sign-in language selector",
   "release5_2_23Change1": "Align the language selector below the logo and give its arrow more room on the sign-in screen.",
   "release5_2_22Title": "Smoother section switching",
