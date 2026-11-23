@@ -2,6 +2,14 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.2.25] — 2026-11-23 — More readable People and Groups
+
+- Make section titles, list text, table headings and page counts easier to read over wallpapers.
+- Let background presence and call requests wait briefly when scheduled storage maintenance holds the storage lock.
+
+- **Installation:** Rebuild Space with the existing Compose files and volumes.
+- **Compatibility:** No migration is required.
+
 ## [5.2.24] — 2026-11-23 — Dated reminders in Calendar
 
 - Refresh dated reminders when opening Home or returning to the app, and show a clearer marker and the optional time.

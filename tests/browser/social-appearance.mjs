@@ -7,6 +7,35 @@ const bundle=await build({entryPoints:['web/modules/social/index.js'],bundle:tru
 const css=await readAppStyles(),png=await readFile('tests/fixtures/blue.png');
 const browser=await (process.env.DRG_BROWSER_ENGINE==='webkit'?webkit:chromium).launch({headless:true});
 await mkdir('artifacts',{recursive:true});
+
+async function checkCatalogReadability(page,width){
+ const selectors=['.preference-group-title','.social-catalog-head span','.catalog-pagination [role=status]',
+  '.preference-label strong','.preference-description','.social-catalog-facts span','.social-help'];
+ const entries=await page.locator(selectors.map(selector=>`.social-view ${selector}`).join(', ')).evaluateAll(elements=>{
+  const channels=color=>color.match(/[\d.]+/g).map(Number);
+  const luminance=values=>values.slice(0,3).map(channel=>{
+   const value=channel/255;return value<=.04045?value/12.92:((value+.055)/1.055)**2.4;
+  }).reduce((sum,value,index)=>sum+value*[.2126,.7152,.0722][index],0);
+  return elements.filter(element=>element.getClientRects().length).map(element=>{
+   const fg=getComputedStyle(element);let surface=element,background;
+   while(surface&&!surface.matches('.social-view')){
+    const fill=getComputedStyle(surface).backgroundColor;
+    if(fill.startsWith('rgb(')){background=channels(fill);break;}
+    surface=surface.parentElement;
+   }
+   const values=background?[luminance(channels(fg.color)),luminance(background)]:[0,0];
+   return {text:element.textContent,contrast:(Math.max(...values)+.05)/(Math.min(...values)+.05),size:parseFloat(fg.fontSize)};
+  });
+ });
+ for(const label of ['Пространства','Контакты','Добавить','1–1 из 1',...(width>820?['Название','Человек']:[])]){
+  assert(entries.some(entry=>entry.text===label),`missing ${label} at ${width}px`);
+ }
+ for(const entry of entries){
+  assert(entry.contrast>=4.5,`${entry.text}: ${entry.contrast} below 4.5 on its own surface`);
+  assert(entry.size>=13,`${entry.text}: ${entry.size}px below 13px`);
+ }
+}
+
 try{
  const page=await browser.newPage({locale:'ru-RU',viewport:{width:1280,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('http://social.test/**',r=>r.request().url().includes('/portrait')?r.fulfill({contentType:'image/png',body:png}):r.fulfill({contentType:'text/html',body:'<div class="workspace" data-current-view="social"><main class="content"><header class="topbar"></header><div id="view-content"></div></main></div>'}));
@@ -27,11 +56,14 @@ try{
   await Social.mountSocial(document.querySelector('#view-content'),ctx);
  });
  const family=page.locator('[data-social-name="Наша семья"]'),friends=page.locator('[data-social-name="Анна"]');
- for(const width of [1280,390,320]){
+ for(const width of [1280,840,390,320]){
   await page.setViewportSize({width,height:1000});
   for(const dark of [false,true]){
-   await page.evaluate(dark=>{document.documentElement.dataset.scheme=dark?'dark':'light';document.documentElement.dataset.theme='ocean';},dark);
+   await page.evaluate(dark=>{
+    Object.assign(document.documentElement.dataset,{scheme:dark?'dark':'light',theme:'ocean',interface:'glass'});
+   },dark);
    for(const row of [family,friends])await row.evaluate(el=>el.open=false);
+   await checkCatalogReadability(page,width);
    const geometry=await Promise.all([family,friends].map(row=>row.locator(':scope>summary').evaluate(el=>({height:el.getBoundingClientRect().height,icon:el.querySelector('.person-avatar').getBoundingClientRect().width,text:getComputedStyle(el.querySelector('strong')).fontSize}))));
    assert.deepEqual(geometry[0],geometry[1],'family and friend summaries share their sizes');
    for(const row of [family,friends])await row.locator(':scope>summary').click();

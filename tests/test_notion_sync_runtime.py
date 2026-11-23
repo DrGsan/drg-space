@@ -57,3 +57,47 @@ def test_failed_maintenance_backs_off_while_queue_work_continues(monkeypatch,tmp
     assert 'maintenance (RuntimeError' in caplog.text
     assert 'test-only-maintenance-failure' not in caplog.text
     lease=try_file_lock(tmp_path,'notion-runner.lock');assert lease is not None;lease.close()
+
+
+def test_scheduled_storage_sweep_preserves_queued_notion_update(monkeypatch,tmp_path,caplog):
+    import asyncio
+    from contextlib import suppress
+    from app.notion_sync import runtime
+    from app.notion_sync.state import enqueue
+    from app.storage import StorageGate
+    from tests.test_notion_sync_service import paragraph
+
+    c,s,provider,service,stamp=initialized()
+    identity,mapping=imported(service,s)
+    before=c.get('/api/notes/'+mapping[ROOT]).json()
+    provider.blocks[ROOT][0]=paragraph('Applied once after storage maintenance')
+    with m.db() as db:enqueue(db,identity,ROOT,'pull',int(stamp[0]))
+    requests=len(provider.requests)
+    writer=StorageGate(tmp_path)
+    work=service.work_once
+
+    async def run():
+        loop=asyncio.get_running_loop()
+        processed=asyncio.Event()
+        def work_once():
+            result=work()
+            if result:loop.call_soon_threadsafe(processed.set)
+            return result
+        monkeypatch.setattr(service,'work_once',work_once)
+        async with writer.try_scheduled_maintenance() as available:
+            assert available
+            worker=asyncio.create_task(runtime.run(service,StorageGate(tmp_path)))
+            await asyncio.sleep(0)
+            assert not processed.is_set() and len(provider.requests)==requests
+        try:
+            await asyncio.wait_for(processed.wait(),7)
+        finally:
+            worker.cancel()
+            with suppress(asyncio.CancelledError):await worker
+
+    asyncio.run(run())
+    changed=c.get('/api/notes/'+mapping[ROOT]).json()
+    assert changed['blocks'][0]['content'][0]['text']=='Applied once after storage maintenance'
+    assert changed['version']==before['version']+1
+    assert not work()
+    assert 'storage (StorageBusy in acquire_shared' in caplog.text
