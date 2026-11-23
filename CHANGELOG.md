@@ -2,7 +2,7 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.2.24-rc.2] — 2026-11-22 — Dated reminders in Calendar
+## [5.2.24] — 2026-11-23 — Dated reminders in Calendar
 
 - Refresh dated reminders when opening Home or returning to the app, and show a clearer marker and the optional time.
 - Show the selected day's first reminder and a count of additional reminders in the smallest Calendar widget.

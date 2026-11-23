@@ -1,5 +1,15 @@
 # Updating DrG Space
 
+## 5.2.24
+
+Calendar refreshes dated reminders when you open Home or return to the app. The smallest widget shows one reminder for the selected day, its time if set, and the number of other reminders. Select the row to open the full day. This update also includes the sign-in language selector spacing fix from 5.2.23.
+
+Rebuild Space with the existing Compose files, environment, encryption keys and volumes. No migration, configuration change or Media update is required. For the base installation:
+
+```sh
+docker compose up -d --build --no-deps app
+```
+
 ## 5.2.22
 
 Section navigation crossfades between the previous and new workspace views. Browsers without View Transitions and devices set to Reduce Motion switch directly.
