@@ -1,7 +1,7 @@
 {
-  "release5_2_25_rc_2Title": "More readable People and Groups",
-  "release5_2_25_rc_2Change1": "Make section titles, list text, table headings and page counts easier to read over wallpapers.",
-  "release5_2_25_rc_2Change2": "Let background presence and call requests wait briefly when scheduled storage maintenance holds the storage lock.",
+  "release5_2_25Title": "More readable People and Groups",
+  "release5_2_25Change1": "Make section titles, list text, table headings and page counts easier to read over wallpapers.",
+  "release5_2_25Change2": "Let background presence and call requests wait briefly when scheduled storage maintenance holds the storage lock.",
   "release5_2_24Title": "Dated reminders in Calendar",
   "release5_2_24Change1": "Refresh dated reminders when opening Home or returning to the app, and show a clearer marker and the optional time.",
   "release5_2_24Change2": "Show the selected day's first reminder and a count of additional reminders in the smallest Calendar widget.",
