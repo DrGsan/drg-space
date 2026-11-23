@@ -7,7 +7,14 @@ import threading
 from contextlib import asynccontextmanager, contextmanager
 from functools import partial
 from app.http import HTTPError
-from app.process_locks import FileLease, open_lock, try_lock, POLL_SECONDS
+from app.process_locks import FileLease, open_lock, try_file_lock, try_lock, POLL_SECONDS
+
+
+class StorageBusy(HTTPError):
+    """The storage gate is closed to new readers, independent of backend errors."""
+
+    def __init__(self):
+        super().__init__(503, localized_message('operationWithDataIsInProgressRetryLater'))
 
 
 async def blocking(function, *args, **kwargs):
@@ -70,16 +77,16 @@ class StorageGate:
         if self.root is None:
             with self._local_mutex:
                 if self._local_pending:
-                    raise HTTPError(503, localized_message('operationWithDataIsInProgressRetryLater'))
+                    raise StorageBusy()
                 self.active += 1
         else:
             with FileLease(open_lock(self.root, 'storage-entry.lock')) as entry:
                 if not try_lock(entry.fd, shared=True):
-                    raise HTTPError(503, localized_message('operationWithDataIsInProgressRetryLater'))
+                    raise StorageBusy()
                 file = FileLease(open_lock(self.root, 'storage-data.lock'))
                 try:
                     if not try_lock(file.fd, shared=True):
-                        raise HTTPError(503, localized_message('operationWithDataIsInProgressRetryLater'))
+                        raise StorageBusy()
                 except BaseException:
                     file.close()
                     raise
@@ -190,10 +197,63 @@ class StorageGate:
         finally:
             if owned:self._end_exclusive(entry,data)
 
+    @asynccontextmanager
+    async def try_scheduled_maintenance(self):
+        """Identify the periodic sweep across workers without changing exclusivity."""
+        marker = try_file_lock(self.root, 'storage-maintenance.lock')
+        if marker is None:
+            yield False
+            return
+        with marker:
+            async with self.try_exclusive() as available:
+                yield available
+
+    def _scheduled_maintenance_active(self):
+        if self.root is None:
+            return False
+        marker = try_file_lock(self.root, 'storage-maintenance.lock', shared=True)
+        if marker is None:
+            return True
+        marker.close()
+        return False
+
+    async def acquire_for_poll(self, timeout):
+        """Wait briefly for scheduled maintenance before admitting a poll."""
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        while True:
+            try:
+                return self.acquire_shared()
+            except StorageBusy:
+                remaining = deadline - loop.time()
+                if remaining <= 0 or not self._scheduled_maintenance_active():
+                    raise
+            await asyncio.sleep(min(remaining, .05))
+
 
 class StorageMiddleware:
+    POLLS_WAITING_FOR_MAINTENANCE = {
+        ('GET', '/api/presence'), ('POST', '/api/presence'),
+        ('GET', '/api/calls/current'), ('GET', '/api/calls/config'),
+    }
+    MAINTENANCE_WAIT = 6.0
+
     def __init__(self, gate):
         self.gate = gate
+        # Leave HTTP worker slots available during a slow or unavailable store.
+        self._poll_waiters = threading.BoundedSemaphore(12)
+
+    async def _acquire(self, request):
+        try:
+            return self.gate.acquire_shared()
+        except StorageBusy:
+            poll = (getattr(request, 'method', ''), request.url.path)
+            if poll not in self.POLLS_WAITING_FOR_MAINTENANCE or not self._poll_waiters.acquire(blocking=False):
+                raise
+        try:
+            return await self.gate.acquire_for_poll(self.MAINTENANCE_WAIT)
+        finally:
+            self._poll_waiters.release()
 
     async def handle(self, request, call_next, runtime):
         # Upload/restore handlers acquire exclusive access after authentication.
@@ -204,8 +264,8 @@ class StorageMiddleware:
         if request.url.path == '/api/health' or request.url.path in controls:
             return await call_next(request)
         try:
-            lease = self.gate.acquire_shared()
-        except HTTPError as error:
+            lease = await self._acquire(request)
+        except StorageBusy as error:
             from app.storage_unavailable import unavailable
             return unavailable(request,error)
         try:

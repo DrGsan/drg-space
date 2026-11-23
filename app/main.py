@@ -37,7 +37,7 @@ from app.data_crypto import DataCipher, StorageError
 from app.file_store import FileStorageUnavailable
 data_cipher = DataCipher.from_env()
 database = Database(DATA, cipher=data_cipher)
-from app.storage import StorageGate,StorageMiddleware,blocking
+from app.storage import StorageBusy,StorageGate,StorageMiddleware,blocking
 from app.process_locks import try_file_lock,cleanup_temps
 storage_gate=StorageGate(DATA)
 with storage_gate.exclusive_sync():database.initialize()
@@ -50,13 +50,16 @@ web_push=WebPush(db,DATA,storage_gate,lambda:now(),PUBLIC_URL,coordinator=proces
 async def lifespan(app):
     async def maintenance():
         lease=None;initialized=False;next_cleanup=0;next_family_poll=0;next_storage_sweep=0;next_media_reconcile=0;next_public_build_cleanup=0;next_call_cleanup=0
-        async def jobs(actions):
+        async def jobs(actions, timings=None):
             success=True
             for name,action in actions:
+                if timings is not None:started=time.monotonic()
                 try:await blocking(action)
                 except Exception:
                     success=False
                     logging.getLogger('drg.maintenance').error('Maintenance job %s failed; queued for retry.',name)
+                finally:
+                    if timings is not None:timings.append((name,time.monotonic()-started))
             return success
         def temp_jobs():
             return [('backup-temporaries',admin_router.backups.cleanup_temps),
@@ -86,12 +89,17 @@ async def lifespan(app):
                                             ('object-queue',files_router.cleanup),('secret-vault-cleanup',cleanup_secret_vaults),*temp_jobs()])
                             next_cleanup=now()+60
                         if now()>=next_storage_sweep:
-                            async with storage_gate.try_exclusive() as available:
+                            async with storage_gate.try_scheduled_maintenance() as available:
                                 if available:
+                                    timings=[];started=time.monotonic()
                                     success=await jobs([('storage-reconciliation',admin_router.backups.collect_orphans),
                                                         ('secret-storage-reconciliation',lambda:secret_vault.reconcile()),
                                                         ('media-transfer',admin_router.backups.media.transfer_local),
-                                                        ('unfinished-uploads',admin_router.backups.objects.abort_pending)])
+                                                        ('unfinished-uploads',admin_router.backups.objects.abort_pending)],timings)
+                                    elapsed=time.monotonic()-started
+                                    if elapsed>=.5:
+                                        phases=', '.join(f'{name}={duration:.3f}s' for name,duration in timings)
+                                        logging.getLogger('drg.maintenance').warning('Scheduled storage sweep held the gate for %.3fs (%s).',elapsed,phases)
                                     next_storage_sweep=now()+(3600 if success else 300)
                                 else:next_storage_sweep=now()+30
                         if now()>=next_family_poll:
@@ -130,7 +138,10 @@ async def lifespan(app):
                     try:
                         async with storage_gate.shared():
                             delay=await blocking(federation_runtime.maintain)
-                    except Exception:logging.getLogger('drg.federation').error('Federation listener refresh failed; retrying.')
+                    except StorageBusy:
+                        logging.getLogger('drg.federation').warning('Federation listener refresh deferred while storage is locked.')
+                    except Exception as error:
+                        logging.getLogger('drg.federation').error('Federation listener refresh failed (%s); retrying.',type(error).__name__)
                     with suppress(asyncio.TimeoutError):
                         await asyncio.wait_for(changed.wait(),delay)
             finally:process_coordinator.unsubscribe_changes(invalidate)

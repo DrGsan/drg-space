@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
-from app.http import Application, HTTPError, StreamingResponse
+from app.http import Application, HTTPError, JSONResponse, StreamingResponse
 from app.process_locks import async_file_lock, cleanup_temps, leased_temp, try_file_lock
 from app.storage import StorageGate, StorageMiddleware, blocking
 
@@ -122,6 +122,32 @@ def test_busy_background_sweep_does_not_close_http_admission_in_another_process(
         gate.acquire_shared().close()
     finally:
         active.close();stop_child(process,pipe)
+
+
+def test_polls_wait_for_scheduled_sweep_but_not_for_restore(tmp_path):
+    middleware=StorageMiddleware(StorageGate(tmp_path))
+    writer=StorageGate(tmp_path)
+    request=SimpleNamespace(method='GET',url=SimpleNamespace(path='/api/calls/current'))
+    unrelated=SimpleNamespace(method='GET',url=SimpleNamespace(path='/api/notes'))
+    async def call(_request):
+        return JSONResponse({'call':None})
+    async def run():
+        async with writer.try_scheduled_maintenance() as running:
+            assert running
+            poll=asyncio.create_task(middleware.handle(request,call,None))
+            await asyncio.sleep(0)
+            assert not poll.done()
+            assert (await middleware.handle(unrelated,call,None)).status_code==503
+        assert (await poll).status_code==200
+        async with writer.exclusive():
+            assert (await asyncio.wait_for(middleware.handle(request,call,None),.2)).status_code==503
+        middleware.MAINTENANCE_WAIT=.05
+        async with writer.try_scheduled_maintenance() as running:
+            assert running
+            expired=await asyncio.wait_for(middleware.handle(request,call,None),.3)
+            assert expired.status_code==503 and expired.headers['Retry-After']=='5'
+        assert middleware.gate.active==0
+    asyncio.run(run())
 
 
 @pytest.mark.parametrize('file_backed',[False,True])
