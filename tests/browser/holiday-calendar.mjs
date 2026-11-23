@@ -19,7 +19,8 @@ try{
   if(!ready)throw Error(output);
   browser=await ({chromium,webkit}[engine]).launch({headless:true});
   const context=await browser.newContext({locale:'ru-RU',baseURL:origin,viewport:{width:1440,height:1000},colorScheme:'light',timezoneId:'Europe/Moscow'});
-  await context.addInitScript(()=>Object.defineProperty(navigator,'standalone',{configurable:true,get:()=>true}));
+  if(process.env.DRG_CALENDAR_WEB!=='1')
+    await context.addInitScript(()=>Object.defineProperty(navigator,'standalone',{configurable:true,get:()=>true}));
   const page=await context.newPage();
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.route('**/api/widgets/*/rss',route=>route.fulfill({json:{items:[],errors:[]}}));
@@ -29,7 +30,7 @@ try{
   const {secret}=await send('/2fa/enroll',{password}),alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZ234567',bits=[...secret].map(c=>alphabet.indexOf(c).toString(2).padStart(5,'0')).join(''),counter=Buffer.alloc(8);counter.writeBigUInt64BE(BigInt(Math.floor(Date.now()/30000)));
   const hash=createHmac('sha1',Buffer.from(bits.match(/.{8}/g).map(x=>parseInt(x,2)))).update(counter).digest(),offset=hash[19]&15;
   await send('/2fa/confirm',{code:String((hash.readUInt32BE(offset)&0x7fffffff)%1000000).padStart(6,'0')});csrf=(await send('/2fa/activate',{saved_recovery_codes:true})).csrf;
-  await send('/modules',{enabled:{tracker:true,chat:false}},'PUT');
+  await send('/modules',{enabled:{tracker:true,chat:false,tasks:true}},'PUT');
   const phase=process.env.DRG_CALENDAR_PHASE||'after';
   const source={year:2026,events:[{start:'2026-11-03',end:'2026-11-04',title:'* Сокращённый день',name:'shortDay',kind:'short_day'},{start:'2026-11-04',end:'2026-11-05',title:'День народного единства',name:'unityDay',kind:'holiday'}],has_data:true,status:'ready',next_check_at:Math.floor(Date.now()/1000)+86400};
   let requests=0,subscription=source;
@@ -43,6 +44,76 @@ try{
   await page.screenshot({path:out+'/'+phase+'-home-1440.png',fullPage:true});
   if(phase==='after'){
     await expect(page.locator('.calendar-off[data-day="2026-11-04"]')).toHaveCount(4);expect(requests).toBe(1);
+    const marker=day=>page.locator(`.calendar-panel [data-day="${day}"] .calendar-markers i`);
+    const refreshAfterOtherTab=()=>page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+    const dayOnly=await send('/tasks',{title:'Напоминание на дату',day:'2026-11-04'});
+    const timed=await send('/tasks',{title:'Напоминание со временем',day:'2026-11-04',time:'10:30'});
+    await send('/tasks',{title:'Без даты'});
+    await send('/tasks',{title:'Завершённое напоминание',day:'2026-11-05',done:true});
+    await refreshAfterOtherTab();
+    await expect(marker('2026-11-04')).toHaveCount(4);
+    expect((await marker('2026-11-04').first().boundingBox()).width).toBeGreaterThanOrEqual(5);
+    await expect(marker('2026-11-05')).toHaveCount(0);
+    const compact=page.locator('.widget-1x1.calendar-panel');
+    const compactReminder=compact.locator('.calendar-agenda-list [data-reminders]');
+    await expect(compactReminder).toHaveCount(1);
+    await expect(compactReminder.locator('strong')).toHaveText(/Напоминание (на дату|со временем)/);
+    await expect(compactReminder.locator('.calendar-reminder-count')).toHaveText('+1');
+    await expect(compact.locator('.calendar-agenda')).toContainText('День народного единства');
+    const agenda=page.locator('.widget-2x2 .calendar-agenda');
+    await expect(agenda).toContainText('Напоминание на дату');
+    await expect(agenda).toContainText('Напоминание со временем');
+    await expect(agenda).toContainText('10:30');
+    await expect(agenda).not.toContainText('Без даты');
+    await expect(agenda).toContainText('День народного единства');
+    await page.locator('.widget-2x2 [data-day="2026-11-05"]').click();
+    await expect(agenda.locator('.done')).toContainText('Завершённое напоминание');
+    await page.locator('.widget-2x2 [data-day="2026-11-04"]').click();
+    await expect(agenda.getByRole('button',{name:/Все напоминания/})).toBeVisible();
+    await compactReminder.click();
+    await expect(page.locator('.tasks-shell')).toContainText('Напоминание на дату');
+    await expect(page.locator('.tasks-shell')).toContainText('Напоминание со временем');
+    await expect(page.locator('.tasks-shell')).not.toContainText('Без даты');
+    const move=page.locator(`[data-task-item="${dayOnly.id}"]`);
+    await move.getByRole('button',{name:'Напоминание на дату',exact:true}).click();
+    await page.locator('.tasks-task-properties [name=day]').fill('2026-12-08');
+    await appSection(page,'Главная');
+    await expect(marker('2026-11-04')).toHaveCount(4);
+    const wide=page.locator('.widget-2x1.calendar-panel');
+    await wide.locator('[data-shift="1"]').click();
+    await wide.locator('[data-day="2026-12-08"]').click();
+    await expect(wide.locator('.calendar-agenda')).toContainText('Напоминание на дату');
+    const moved=(await send('/tasks',undefined,'GET')).find(task=>task.id===dayOnly.id);
+    expect(moved.day).toBe('2026-12-08');
+    await send('/tasks/'+timed.id,{version:timed.version,day:'',time:''},'PATCH');
+    await send('/tasks/'+dayOnly.id,{version:moved.version,day:''},'PATCH');
+    await refreshAfterOtherTab();
+    await expect(marker('2026-12-08')).toHaveCount(0);
+    await expect(marker('2026-11-04')).toHaveCount(0);
+    await expect(compactReminder).toHaveCount(0);
+    await expect(wide.locator('[data-day="2026-12-08"]')).toHaveAttribute('aria-pressed','true');
+    await wide.locator('[data-shift="-1"]').click();
+    const longTitle='Напоминание с очень длинным названием, которое должно уместиться в одной строке';
+    await send('/tasks',{title:longTitle,day:'2026-11-06',time:'11:15'});
+    await refreshAfterOtherTab();
+    await compact.locator('[data-day="2026-11-06"]').click();
+    await expect(compactReminder.locator('strong')).toHaveText(longTitle);
+    await expect(compactReminder.locator('time')).toHaveText('11:15');
+    for(const width of [1120,320]){
+      await page.setViewportSize({width,height:844});
+      const date=compact.locator('[data-day="2026-11-06"]');
+      await expect.poll(async()=>{
+        // An installed window remounts the dashboard at the phone breakpoint.
+        if(await date.getAttribute('aria-pressed')!=='true')await date.click();
+        return compactReminder.evaluate(row=>{
+          const title=row.querySelector('strong'),frame=row.closest('[data-widget-body]');
+          frame.scrollTop=0;
+          const rowBounds=row.getBoundingClientRect(),frameBounds=frame.getBoundingClientRect();
+          return title.scrollWidth>title.clientWidth&&rowBounds.bottom<=frameBounds.bottom+1&&frame.scrollWidth<=frame.clientWidth;
+        });
+      },`Compact reminder fits and truncates safely at ${width}px`).toBe(true);
+    }
+    await page.setViewportSize({width:1440,height:1000});
     for(const size of ['1x1','2x1','1x2','2x2']){
       const widget=page.locator(`.widget-${size}.calendar-panel`);
       await widget.locator('[data-day="2026-11-03"]').click();await expect(widget.locator('.calendar-agenda')).toContainText('Сокращённый день');

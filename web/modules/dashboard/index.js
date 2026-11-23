@@ -20,6 +20,29 @@ export function mountDashboard(host,ctx,{initialLayout}={}){
   const openModal=ctx.modal;
   ctx={...ctx,modal:html=>openModal(html,{motion:true})};
   dashboardController.destroy();let cleanups=new Map(),disposed=false,layout,unlocked=false,pending,dirty=false,sequence=0;
+  const reminderListeners=new Set();
+  let reminderRequest;
+  const loadReminders=(afterChange=false)=>{
+    if(reminderRequest){
+      if(!afterChange)return reminderRequest;
+      return reminderRequest.catch(()=>{}).then(()=>loadReminders());
+    }
+    if(disposed)return Promise.resolve(ctx.state.tasks);
+    reminderRequest=ctx.api('/tasks').then(tasks=>{
+      if(disposed)return tasks;
+      const previous=ctx.state.tasks;
+      ctx.state.tasks=tasks;
+      const fields=['id','day','done','time','title'];
+      if(tasks.length!==previous.length||tasks.some((task,i)=>fields.some(field=>task[field]!==previous[i][field])))
+        reminderListeners.forEach(listener=>listener());
+      return tasks;
+    }).finally(()=>{reminderRequest=null;});
+    return reminderRequest;
+  };
+  const onRemindersChanged=listener=>{
+    reminderListeners.add(listener);
+    return ()=>reminderListeners.delete(listener);
+  };
   const disposeWidget=id=>{const cleanup=cleanups.get(id);cleanups.delete(id);cleanup?.();};
   const disposeWidgets=()=>{for(const id of [...cleanups.keys()])disposeWidget(id);};
   ctx.state.day=today();
@@ -130,8 +153,9 @@ export function mountDashboard(host,ctx,{initialLayout}={}){
       $('[data-remove-widget]',section).onclick=()=>removeWidget(instance);
       const firstRequests=[];let mounting=true;
       const widgetAPI=(...args)=>{const result=ctx.api(...args);if(mounting)firstRequests.push(result);return result;};
+      const widgetReminders=(...args)=>{const result=loadReminders(...args);if(mounting)firstRequests.push(result);return result;};
       try{
-        const result=spec.mount($('[data-widget-body]',section),{...ctx,api:widgetAPI,instance,configure,refresh:renderWidgets});
+        const result=spec.mount($('[data-widget-body]',section),{...ctx,api:widgetAPI,instance,configure,refresh:renderWidgets,loadReminders:widgetReminders,onRemindersChanged});
         if(result?.then)firstRequests.push(result);
         const keep=(resource)=>{const fn=typeof resource==='function'?resource:resource?.dispose?.bind(resource);if(fn){if(disposed||!section.isConnected)fn();else cleanups.set(instance.id,fn);}};
         if(result?.then)result.then(keep).catch(error=>{if(section.isConnected)$('[data-widget-body]',section).textContent=error.message;});else keep(result);
@@ -153,9 +177,13 @@ export function mountDashboard(host,ctx,{initialLayout}={}){
   };
   let currentDay=today();
   const checkDay=async()=>{
-    clearTimeout(dayTimer);if(disposed)return;dayTimer=setTimeout(checkDay,nextSeasonalDateCheck());if(document.hidden||currentDay===today())return;updateGreeting();
-    currentDay=today();ctx.state.day=currentDay;ctx.state.month=new Date();
-    try{if(ctx.moduleEnabled('tasks'))ctx.state.tasks=await ctx.api('/tasks');if(!disposed)renderWidgets();}catch(error){ctx.toast(error.message);}
+    clearTimeout(dayTimer);if(disposed)return;dayTimer=setTimeout(checkDay,nextSeasonalDateCheck());if(document.hidden)return;
+    if(currentDay===today()){
+      if(reminderListeners.size)loadReminders().catch(()=>{});
+      return;
+    }
+    currentDay=today();ctx.state.day=currentDay;ctx.state.month=new Date();updateGreeting();
+    try{if(ctx.moduleEnabled('tasks'))await loadReminders();if(!disposed)renderWidgets();}catch(error){ctx.toast(error.message);}
   };
   let dayTimer=setTimeout(checkDay,nextSeasonalDateCheck());document.addEventListener('visibilitychange',checkDay);window.addEventListener('focus',checkDay);
   $('#customize-dashboard',host).onclick=async()=>{if(await flush())openWidgetManager(ctx,saved=>{layout=saved;renderWidgets();});};
