@@ -55,7 +55,7 @@ class Changes(Input):
     title: str | None = Field(max_length=200)
     icon: str | None = Field(max_length=100)
     cover: str | None = Field(max_length=40)
-    append: str | None = Field(max_length=6000)
+    append: str | None = Field(max_length=12000)
     replace_before: str | None = Field(max_length=1500)
     replace_after: str | None = Field(max_length=1500)
     rewrite: str | None = Field(default=None, max_length=12000)
@@ -326,10 +326,33 @@ def validated_changes(changes, note, excerpt_text, fail):
     available = {field for field in FIELDS if data['replace_before' if field == 'replace' else field] is not None}
     if not available:
         fail(422, message('notesAiNoChanges'))
-    result = Changes(**data)
+    try:
+        result = Changes(**data)
+    except ValidationError:
+        fail(502, message('notesAiBadProposal'))
     if available & {'append', 'replace', 'rewrite'}:
         change_text(note, result, available, fail)
     return result, available
+
+
+def new_note_changes(changes, previous):
+    # A follow-up such as “rewrite it” is still editing the proposed new
+    # document. Some responses put its complete text in rewrite rather than
+    # append. Normalize that before binding a creation to the confirmation.
+    data = changes.model_dump()
+    if data['rewrite']:
+        data['append'], data['rewrite'] = data['rewrite'], None
+    if previous is not None and previous.target is None:
+        data['title'] = data['title'] or previous.changes.title
+        if not data['append']:
+            before, after = data['replace_before'], data['replace_after']
+            body = previous.changes.append
+            if before and after and body.count(before) == 1:
+                data['append'] = body.replace(before, after, 1)
+                data['replace_before'] = data['replace_after'] = None
+            elif before is None and after is None:
+                data['append'] = body
+    return Changes.model_construct(**data)
 
 
 def register(router, db, ready, admin, rate, now, fail, insert_page):
@@ -476,11 +499,12 @@ def register(router, db, ready, admin, rate, now, fail, insert_page):
                 if not reply.message.strip():
                     fail(502, message('notesAiBadProposal'))
                 return {'message': reply.message, 'draft': None}
-            if reply.intent == 'edit' and target is None:
-                fail(502, message('notesAiBadProposal'))
-            if reply.intent == 'create':
+            creates = target is None or reply.intent == 'create' or data.previous is not None and data.previous.target is None
+            changes = reply.changes
+            if creates:
                 target = None
-            changes, fields = validated_changes(reply.changes, target, target_text['excerpt'] if target else '', fail)
+                changes = new_note_changes(changes, data.previous)
+            changes, fields = validated_changes(changes, target, target_text['excerpt'] if target else '', fail)
             draft = Draft(id=secrets.token_hex(24), target=data.target if target else None, changes=changes)
             write(c, DRAFT, {'id': draft.id, 'digest': fingerprint(draft.model_dump_json()), 'session': fingerprint(s['token']),
                              'expires': now() + DRAFT_TTL})

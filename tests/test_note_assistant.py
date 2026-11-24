@@ -218,3 +218,17 @@ def test_create_from_chat_on_existing_note_keeps_the_original(active, monkeypatc
     result = active.post(ROOT + '/apply', json={'draft': preview['draft']})
     assert result.status_code == 200 and result.json()['id'] != original['id']
     assert active.get('/api/notes/' + original['id']).json()['version'] == original['version']
+
+
+def test_refining_a_new_draft_stays_a_creation(active, monkeypatch):
+    original = active.get('/api/notes/' + note(active)).json()
+    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: reply('create', title='Book shelf', append='Long first version.'))
+    first = suggest(active, target=ref(original))
+    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: reply('edit', rewrite='Short version.'))
+    final = suggest(active, target=ref(original), previous=first['draft'])
+    assert final['draft']['target'] is None
+    assert final['draft']['changes']['title'] == 'Book shelf'
+    assert final['draft']['changes']['append'] == 'Short version.'
+    result = active.post(ROOT + '/apply', json={'draft': final['draft']})
+    assert result.status_code == 200 and result.json()['id'] != original['id']
+    assert active.get('/api/notes/' + original['id']).json()['version'] == original['version']
