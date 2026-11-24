@@ -586,7 +586,7 @@ def register(router, db, ready, admin, rate, now, fail, insert_page):
                     body, blocks = change_text(target, changes, available, fail)
                     fields.update(body=body, blocks=json.dumps(blocks, ensure_ascii=False) if blocks is not None else None)
                 if fields:
-                    snapshot(c, target, now(), with_appearance=bool(fields.keys() & {'icon', 'cover'}))
+                    snapshot(c, target, now(), with_appearance=True)
             if fields:
                 assignments = ','.join(name + '=?' for name in fields)
                 c.execute('UPDATE notes SET ' + assignments + ',updated=?,version=version+1 WHERE id=?', (*fields.values(), now(), nid))

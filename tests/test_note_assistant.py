@@ -126,6 +126,16 @@ def test_addition_recovers_from_invalid_replacement_and_can_be_restored(active, 
     note = restored.json()
     assert (note['title'], note['icon'], note['cover'], note['blocks']) == (page['title'], page['icon'], page['cover'], page['blocks'])
 
+    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: reply('edit', icon='💻'))
+    changed_icon = suggest(active, target=ref(note))
+    assert active.post(ROOT + '/apply', json={'draft': changed_icon['draft']}).status_code == 200
+    with_icon = active.get(path).json()
+    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: reply('edit', append=command))
+    added = suggest(active, target=ref(with_icon))
+    assert active.post(ROOT + '/apply', json={'draft': added['draft']}).status_code == 200
+    latest = active.get(path + '/history').json()[0]['id']
+    assert active.get(path + '/history/' + latest).json()['icon'] == '💻'
+
 
 def test_scopes_and_disabling(active, monkeypatch):
     guest, _ = member(active)
