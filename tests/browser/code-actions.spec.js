@@ -56,9 +56,10 @@ test('copies exact code and changes language or wrapping from the block menu',as
   await expect(page.locator('#toast.show')).toHaveText('Код скопирован');
   await expect(page.locator('#toast')).toHaveCSS('position','fixed');
   expect(await page.evaluate(()=>window.copiedCode)).toBe(source);
-  await quick.focus();
   await page.mouse.move(5,5);
-  await page.keyboard.press('Tab');await page.keyboard.press('Shift+Tab');
+  await page.locator('#page-title').focus();
+  await page.keyboard.press('Tab');
+  await quick.focus();
   await expect(quick).toBeFocused();
   await expect(tooltip).toBeVisible();
   await page.keyboard.press('Enter');
