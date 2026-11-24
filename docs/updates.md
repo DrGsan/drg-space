@@ -1,5 +1,13 @@
 # Updating DrG Space
 
+## 5.2.27
+
+Unread counts recover after temporary storage failures. A federated local call action is retried once when maintenance prevented it from starting. No database migration, storage-format change, or environment change is required. Rebuild the application using the same Compose files and data volumes:
+
+```sh
+docker compose up -d --build --no-deps app
+```
+
 ## 5.2.26
 
 Family groups remain visible when Media can return the group catalog but message previews are temporarily unavailable. If the whole Media service is unreachable, Space shows a status and refreshes automatically. Update Space first, then Media 1.14.7, which can return the catalog when object storage is unavailable.

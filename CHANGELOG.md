@@ -2,7 +2,7 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.2.27-rc.1] — 2026-11-24 — Chat recovery during storage maintenance
+## [5.2.27] — 2026-11-24 — Chat recovery during storage maintenance
 
 - Preserve unread counts during temporary failures and refresh them once storage returns.
 - Retry a federated local call action once when storage maintenance rejected it before execution.
