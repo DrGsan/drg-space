@@ -1,5 +1,13 @@
 # Updating DrG Space
 
+## 5.2.28
+
+Code blocks have a compact copy button and add searchable language selection and line wrapping to the block menu. Older code blocks retain their default wrapping. No database migration, storage-format change, or environment change is required. Rebuild Space with the same Compose files and data volumes:
+
+```sh
+docker compose up -d --build --no-deps app
+```
+
 ## 5.2.27
 
 Unread counts recover after temporary storage failures. A federated local call action is retried once when maintenance prevented it from starting. No database migration, storage-format change, or environment change is required. Rebuild the application using the same Compose files and data volumes:
