@@ -93,6 +93,8 @@
   "accessIsRestricted": "Доступ закрыт",
   "serviceIsTemporarilyUnavailable": "Сервис временно недоступен",
   "familyGroups": "Семейные группы",
+  "chatPreviewTemporarilyUnavailable": "Превью сообщения временно недоступно",
+  "chatCatalogTemporarilyUnavailable": "Семейные группы временно недоступны. Список обновится автоматически.",
   "openConversation": "Открыть переписку",
   "copyFromReadOnly": "Копия от {{value0}} · только чтение{{value1}}",
   "incompleteHistoryOrMedia": "· неполная история или медиа",

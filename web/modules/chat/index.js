@@ -31,7 +31,7 @@ import {voiceRecording,recordingActions} from './voice-recording.js';
 import {renderMarkup} from '../../core/dom.js';
 import {edgePagination} from '../../core/edge-pagination.js';
 import {spaceAvatar} from '../../core/space-avatar.js';
-import {filterRooms,unreadRoomCounts,messageDay,chatDayLabel,roomDate,sameMessageGroup,messagePreview,messageTextMarkup,presentMentions,canEditMessage} from './format.js';
+import {filterRooms,unreadRoomCounts,messageDay,chatDayLabel,roomDate,sameMessageGroup,messagePreview,roomPreview,messageTextMarkup,presentMentions,canEditMessage} from './format.js';
 
 let active;
 export const chatController={destroy(){active?.destroy();active=null;},async flush(){return active?.flush()??true;}};
@@ -45,9 +45,9 @@ class ChatWorkspace {
     this.host.innerHTML=`<div class="chat-shell"><div class="chat-welcome"><p role="status">${tHtml("chat:loadingConversations")}</p></div></div>`;
     try{
       this.telegramRoomsReady=!this.ctx.moduleEnabled('family_photos');
-      const telegramReady=watchTelegramRooms(this.ctx,items=>{
+      const telegramReady=watchTelegramRooms(this.ctx,(items,{unavailable})=>{
         if(this.disposed)return;
-        this.telegramSpaces=items;this.telegramRoomsReady=true;this.drawRooms();
+        this.telegramSpaces=items;this.telegramUnavailable=unavailable;this.telegramRoomsReady=true;this.drawRooms();
       },{signal:this.mediaAbort.signal}).then(watcher=>{if(this.disposed)watcher?.destroy();else this.telegramRooms=watcher;});
       const data=await this.ctx.api('/chat/rooms');
       if(this.disposed)return;this.spaces=data.items;this.ctx.state.spaces=this.spaces;if(this.sid&&this.spaces.find(s=>s.id===this.sid)?.deletion&&$('#message-body',this.host)){await this.open(this.sid);}
@@ -109,7 +109,9 @@ class ChatWorkspace {
     });
     if(this.tab==='contacts'){this.drawContacts();return;}if(this.tab==='calls'){this.drawCalls();return;}
     const items=filterRooms(rooms,this.filter,this.query),list=$('[data-chat-rooms]',this.host);list.setAttribute('aria-label',tText("chat:conversations"));
-    renderMarkup(list,items.map(s=>`<button type="button" class="chat-room ${s.id===this.sid?'active':''}" data-room="${esc(s.id)}" aria-pressed="${s.id===this.sid}" title="${esc(s.name)}"><span class="chat-room-avatar">${this.avatar(s)}</span><span class="chat-room-copy"><span class="chat-room-title"><strong>${esc(s.name)}</strong>${roomMuted(s)?`<span class="chat-room-muted" aria-label="${tHtml("chat:notificationsAreDisabled")}" title="${tHtml("chat:notificationsAreDisabled")}">${chatIcon('bellOff')}</span>`:''}${s.favorite?`<span class="chat-room-star" aria-label="${tHtml("chat:favourites")}">${chatIcon('star')}</span>`:''}</span><span class="chat-room-preview">${s.kind==='family'&&s.last_message?`${esc(personName(s.last_message.sender_profile||{login:s.last_message.sender}))}: `:''}${esc(messagePreview(s.last_message))}</span></span><span class="chat-room-meta">${s.last_message?`<time datetime="${new Date(s.last_message.created*1000).toISOString()}">${roomDate(s.last_message.created)}</time>`:''}${s.unread?`<span class="chat-room-unread" aria-label="${tHtml("chat:unread", {value0:(s.unread)})}">${s.unread>99?'99+':s.unread}</span>`:s.pinned?`<span class="chat-room-pin" aria-label="${tHtml("chat:pinned")}">${chatIcon('pin')}</span>`:''}</span></button>`).join('')||`<div class="chat-list-empty"><p>${this.query?tText("chat:chatNotFound"):this.filter==='favorites'?tText("chat:addChatToFavoritesUsingTheStarIcon"):this.filter==='unread'?tText("chat:noNewMessages"):rooms.length?tText("chat:thereAreNoChatsInThisSectionYet"):tText("chat:addAFriendOrCreateASpace")}</p>${!rooms.length?`<button class="text-link" id="chat-social">${tHtml("chat:peopleAndGroups")}</button>`:''}</div>`);
+    const roomRows=items.map(s=>`<button type="button" class="chat-room ${s.id===this.sid?'active':''}" data-room="${esc(s.id)}" aria-pressed="${s.id===this.sid}" title="${esc(s.name)}"><span class="chat-room-avatar">${this.avatar(s)}</span><span class="chat-room-copy"><span class="chat-room-title"><strong>${esc(s.name)}</strong>${roomMuted(s)?`<span class="chat-room-muted" aria-label="${tHtml("chat:notificationsAreDisabled")}" title="${tHtml("chat:notificationsAreDisabled")}">${chatIcon('bellOff')}</span>`:''}${s.favorite?`<span class="chat-room-star" aria-label="${tHtml("chat:favourites")}">${chatIcon('star')}</span>`:''}</span><span class="chat-room-preview">${s.kind==='family'&&s.last_message?`${esc(personName(s.last_message.sender_profile||{login:s.last_message.sender}))}: `:''}${esc(roomPreview(s))}</span></span><span class="chat-room-meta">${s.last_message?`<time datetime="${new Date(s.last_message.created*1000).toISOString()}">${roomDate(s.last_message.created)}</time>`:''}${s.unread?`<span class="chat-room-unread" aria-label="${tHtml("chat:unread", {value0:(s.unread)})}">${s.unread>99?'99+':s.unread}</span>`:s.pinned?`<span class="chat-room-pin" aria-label="${tHtml("chat:pinned")}">${chatIcon('pin')}</span>`:''}</span></button>`).join('')||`<div class="chat-list-empty"><p>${this.query?tText("chat:chatNotFound"):this.filter==='favorites'?tText("chat:addChatToFavoritesUsingTheStarIcon"):this.filter==='unread'?tText("chat:noNewMessages"):rooms.length?tText("chat:thereAreNoChatsInThisSectionYet"):tText("chat:addAFriendOrCreateASpace")}</p>${!rooms.length?`<button class="text-link" id="chat-social">${tHtml("chat:peopleAndGroups")}</button>`:''}</div>`;
+    const familyStatus=this.telegramUnavailable?`<p class="chat-family-status" role="status">${tHtml("family_photos:chatCatalogTemporarilyUnavailable")}</p>`:'';
+    renderMarkup(list,familyStatus+roomRows);
     list.querySelectorAll('[data-room]').forEach(b=>b.onclick=()=>this.open(b.dataset.room).catch(e=>this.ctx.toast(e.message)));const social=$('#chat-social',this.host);if(social)social.onclick=()=>this.ctx.navigate('social');this.drawTyping();
   }
   listSearch(open,focus=false){

@@ -3,14 +3,14 @@ import {esc} from '../../../core/ui.js';
 import {spaceAvatar} from '../../../core/space-avatar.js';
 import {personName} from '../../../core/people.js';
 import {renderMarkup} from '../../../core/dom.js';
-import {filterRooms,messagePreview,messageTime} from '../../chat/format.js';
+import {filterRooms,roomPreview,messageTime} from '../../chat/format.js';
 import {watchTelegramRooms,telegramAvatar} from '../../family-photos/index.js';
 import {widgetSize} from '../sizes.js';
 import {chatWidgetGeometry} from './chat-layout.js';
 import './chat.css';
 
 export function mountChatWidget(host,ctx){
-  let disposed=false,loading=false,loaded=false,error='',rooms=[],telegram=[],watcher,frame,timer;
+  let disposed=false,loading=false,loaded=false,error='',rooms=[],telegram=[],telegramUnavailable=false,watcher,frame,timer;
   const size=widgetSize(ctx.instance.size),compact=size==='1x1',abort=new AbortController();
   const section=host.closest('[data-widget]'),toolbar=section?.querySelector('.widget-toolbar');
   const all=document.createElement('button');all.type='button';all.className='text-link widget-chat-all';all.textContent=tText("dashboard:all");
@@ -29,7 +29,7 @@ export function mountChatWidget(host,ctx){
     if(!loaded&&!items.length){list.innerHTML='<p class="widget-chat-empty">'+(error?`${esc(error)} <button type="button" class="text-link" data-chat-retry>${tHtml("dashboard:retry")}</button>`:tText("dashboard:loadingConversations"))+'</p>';footer.textContent='';return;}
     const visible=items.slice(0,geometry.capacity),focused=list.contains(document.activeElement)?document.activeElement.closest('[data-widget-chat]')?.dataset.widgetChat:null;
     renderMarkup(list,visible.map(room=>{
-      const message=room.last_message,preview=room.deletion?tText("dashboard:waitingToDelete"):messagePreview(message),sender=room.kind==='family'&&message?(message.sender_profile?personName(message.sender_profile):message.sender||''):'';
+      const message=room.last_message,preview=room.deletion?tText("dashboard:waitingToDelete"):roomPreview(room),sender=room.kind==='family'&&message?(message.sender_profile?personName(message.sender_profile):message.sender||''):'';
       const text=(sender?sender+': ':'')+preview,unread=Number.isSafeInteger(room.unread)&&room.unread>0?room.unread:0;
       const badge=unread?`<span class="widget-chat-unread" aria-label="${tHtml("dashboard:unread", {value0:(unread)})}">${unread>99?'99+':unread}</span>`:'';
       const stamp=message?.created,valid=Number.isFinite(stamp)&&stamp>0,date=valid?new Date(stamp*1000):null;
@@ -38,7 +38,7 @@ export function mountChatWidget(host,ctx){
       return `<div role="listitem"><button type="button" class="widget-chat-item" data-widget-chat="${esc(room.id)}" title="${esc(room.name+' · '+text)}" aria-label="${esc(room.name+(unread?tText("dashboard:unread2", {value0:(unread)}):''))}"><span class="widget-chat-avatar">${avatar}${compact?badge:''}</span><span class="widget-chat-copy"><strong>${esc(room.name)}</strong>${compact?'':`<span class="widget-chat-preview">${esc(text)}</span>`}</span>${compact?'':`<span class="widget-chat-meta">${time}${badge}</span>`}</button></div>`;
     }).join('')||'<p class="widget-chat-empty">'+(items.length?tText("dashboard:expandTheWidgetToShowConversations"):`${tHtml("dashboard:noChatsYet")} <button type="button" class="text-link" data-widget-social>${tHtml("dashboard:peopleAndGroups")}</button>`)+'</p>');
     if(focused)list.querySelector(`[data-widget-chat="${CSS.escape(focused)}"]`)?.focus({preventScroll:true});
-    footer.textContent=error?tText("dashboard:failedToUpdateConversations"):items.length?tText("dashboard:outOfConversations", {value0:(visible.length), value1:(items.length), value2:(visible.length<items.length?(" "+tText("dashboard:othersInAll")+""):'')}):'';
+    footer.textContent=error?tText("dashboard:failedToUpdateConversations"):telegramUnavailable?tText("family_photos:chatCatalogTemporarilyUnavailable"):items.length?tText("dashboard:outOfConversations", {value0:(visible.length), value1:(items.length), value2:(visible.length<items.length?(" "+tText("dashboard:othersInAll")+""):'')}):'';
   };
   const schedule=()=>{if(frame===undefined)frame=requestAnimationFrame(()=>{frame=undefined;render();});};
   const load=async()=>{
@@ -54,6 +54,6 @@ export function mountChatWidget(host,ctx){
   for(const [target,type,handler] of events)target.addEventListener(type,handler);
   const observer=new ResizeObserver(schedule);observer.observe(list);
   const poll=setInterval(load,20000);render();load();
-  watchTelegramRooms(ctx,items=>{if(!disposed){telegram=items;render();}}).then(next=>{if(disposed)next?.destroy();else watcher=next;});
+  watchTelegramRooms(ctx,(items,{unavailable})=>{if(!disposed){telegram=items;telegramUnavailable=unavailable;render();}}).then(next=>{if(disposed)next?.destroy();else watcher=next;});
   return ()=>{disposed=true;abort.abort();watcher?.destroy();observer.disconnect();clearInterval(poll);clearTimeout(timer);if(frame!==undefined)cancelAnimationFrame(frame);for(const [target,type,handler] of events)target.removeEventListener(type,handler);all.remove();host.onclick=null;};
 }

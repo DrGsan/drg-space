@@ -73,6 +73,42 @@ def test_room_catalog_previews_require_chat_and_keep_group_grants(connected, mon
     assert guest.get('/api/family-photos/groups?previews=1').status_code==403
 
 
+def test_legacy_media_catalog_falls_back_to_fresh_filtered_metadata(connected, monkeypatch):
+    bridge,_=connected
+    c,_,_=owner();guest,_=member(c);uid=guest.get('/api/me').json()['id']
+    assert grant(c,uid,[G1]).status_code==200
+    enable(guest)
+    previous=bridge.control_request
+    mode='preview-down'
+    calls=[]
+
+    def request(method,path,**options):
+        calls.append(path)
+        groups=[{'id':gid,'title':gid,'latest_message_id':1,'can_send':False} for gid in (G1,G2)]
+        if path=='v1/groups?previews=1':
+            if mode!='ready':return httpx.Response(503,json={})
+            return httpx.Response(200,json={'items':[g | {'last_message':{'id':1,'text':'Private '+g['id']}} for g in groups]})
+        if path=='v1/groups':
+            return httpx.Response(503,json={}) if mode=='offline' else httpx.Response(200,json={'items':groups})
+        return previous(method,path,**options)
+
+    monkeypatch.setattr(bridge,'control_request',request)
+    path='/api/family-photos/groups?previews=1'
+    response=guest.get(path)
+    assert response.status_code==200
+    assert response.json()['previews_available'] is False
+    assert [(g['id'],g['last_message']) for g in response.json()['items']]==[(G1,None)]
+    assert calls[:2]==['v1/groups?previews=1','v1/groups']
+    mode='offline'
+    assert guest.get(path).status_code==503
+    mode='ready'
+    assert guest.get(path).json()['items'][0]['last_message']['text']=='Private '+G1
+    assert grant(c,uid,[],False).status_code==200
+    calls.clear()
+    assert guest.get(path).status_code==403
+    assert not calls
+
+
 def grant(c,uid,groups,enabled=True):
     return c.put('/api/family-photos/admin/users/'+uid,json={'admin_password':'Owner-password-123','enabled':enabled,'groups':groups})
 

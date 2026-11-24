@@ -2,6 +2,14 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.2.26-rc.1] — 2026-11-24 — Family groups during archive interruptions
+
+- Keep family groups visible when message previews are temporarily unavailable.
+- Show a status when the family catalog cannot load and refresh it automatically.
+
+- **Installation:** Rebuild Space with the existing Compose files and volumes. Media 1.14.7 improves the archive-side fallback.
+- **Compatibility:** No migration or configuration change is required.
+
 ## [5.2.25] — 2026-11-23 — More readable People and Groups
 
 - Make section titles, list text, table headings and page counts easier to read over wallpapers.

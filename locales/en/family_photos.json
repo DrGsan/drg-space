@@ -93,6 +93,8 @@
   "accessIsRestricted": "Access is Restricted",
   "serviceIsTemporarilyUnavailable": "Service is temporarily unavailable",
   "familyGroups": "Family groups",
+  "chatPreviewTemporarilyUnavailable": "Message preview temporarily unavailable",
+  "chatCatalogTemporarilyUnavailable": "Family groups are temporarily unavailable. The list will refresh automatically.",
   "openConversation": "Open conversation",
   "copyFromReadOnly": "Copy from {{value0}} · read-only{{value1}}",
   "incompleteHistoryOrMedia": "· incomplete history or media",

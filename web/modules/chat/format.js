@@ -32,6 +32,9 @@ export function messagePreview(message) {
   if (!message) return tText("chat:noMessagesYet");
   return presentMentions(message.body?.trim(),message.mentions||[]) || (message.attachments?.length ? message.attachments.map(file => file.kind==='animation'?'GIF':file.kind==='image'?tText("chat:photo"):file.kind==='video_note'?tText('chat:videoNote'):file.kind==='voice'||file.kind==='audio'?tText('chat:voiceMessage'):file.kind==='video'?tText("chat:video"):file.kind==='sticker'?tText("chat:sticker"):file.name).join(', ') : tText("chat:message"));
 }
+export function roomPreview(room) {
+  return room.preview_unavailable?tText("family_photos:chatPreviewTemporarilyUnavailable"):messagePreview(room.last_message);
+}
 export function filterRooms(rooms, filter, query='') {
   const needle=query.trim().toLocaleLowerCase(locale());
   return rooms.filter(room => (!needle || `${room.name} ${(room.members||[]).map(person=>personSearch(person)).join(' ')}`.toLocaleLowerCase(locale()).includes(needle)) &&
