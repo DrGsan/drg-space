@@ -184,6 +184,11 @@ def markdown_text(text):
     return re.sub(r'([\\`*_{}\[\]<>#+\-.!|~])', r'\\\1', text)
 
 
+def plain_legacy_paragraph(body, text):
+    return (body == text and len(text.splitlines()) == 1 and plain_text(text) == text
+            and not re.search(r'[\\`*_\[\]<>~|]|^\s*(?:#|[-+]\s|\d+[.)]\s)', text))
+
+
 def change_text(note, changes, fields, fail):
     body = note['body'] if note else ''
     stored = note['blocks'] if note else '[]'
@@ -192,7 +197,7 @@ def change_text(note, changes, fields, fail):
         old, new = changes.replace_before, changes.replace_after
         parts = body.split('\n\n')
         matches = [] if blocks is None else [block for block in blocks if plain_block(block, old)]
-        if parts.count(old) != 1 or (len(matches) != 1 if blocks is not None else body != old or markdown_text(old) != old):
+        if parts.count(old) != 1 or (len(matches) != 1 if blocks is not None else not plain_legacy_paragraph(body, old)):
             fail(422, message('notesAiParagraphUnavailable'))
         parts[parts.index(old)] = markdown_text(new)
         body = '\n\n'.join(parts)
@@ -214,6 +219,8 @@ def validated_changes(changes, note, excerpt_text, fail):
     for field in ('title', 'append', 'replace_after'):
         if data[field] is not None:
             data[field] = data[field].strip() or None
+        if data[field] and plain_text(data[field]) != data[field]:
+            fail(502, message('notesAiBadProposal'))
     if data['icon'] not in (None, *ICONS) or data['cover'] not in (None, *(COVERS - {''})):
         fail(502, message('notesAiBadProposal'))
     if data['title'] and ('\n' in data['title'] or '\r' in data['title']):

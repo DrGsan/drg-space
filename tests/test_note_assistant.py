@@ -147,3 +147,14 @@ def test_provider_request_opts_out_of_storage_and_uses_no_tools(monkeypatch):
     client = httpx.Client
     monkeypatch.setattr(ai.httpx, 'Client', lambda **kw: client(transport=httpx.MockTransport(handler), **kw))
     assert ai.proposal('synthetic-key', 'Synthetic prompt', target=None, source=None).title == 'Synthetic'
+
+
+def test_simple_legacy_paragraphs_can_change_but_attachment_references_are_rejected(active, monkeypatch):
+    old = 'Original sentence.'
+    page = active.post('/api/notes', json={'title': 'Legacy', 'body': old}).json()
+    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: changes(append='/api/notes/another_note_id/files/another_file_id'))
+    assert active.post(ROOT + '/propose', json={'prompt': 'Test', 'target': ref(page)}).status_code == 502
+    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: changes(replace_before=old, replace_after='Updated sentence'))
+    preview = suggest(active, target=ref(page), include_target_text=True)
+    assert active.post(ROOT + '/apply', json={'draft': preview['draft'], 'fields': preview['fields']}).status_code == 200
+    assert active.get('/api/notes/' + page['id']).json()['body'] == 'Updated sentence'
