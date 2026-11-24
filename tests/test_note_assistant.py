@@ -203,7 +203,9 @@ def test_provider_request_opts_out_of_storage_and_uses_no_tools(monkeypatch):
         assert request.headers['Authorization'] == 'Bearer synthetic-key'
         assert args['store'] is False and 'tools' not in args
         assert args['text']['format']['strict'] is True
-        assert json.loads(args['input']) == {'prompt': 'Synthetic prompt', 'target': None, 'source': None, 'previous': None, 'history': []}
+        context, instruction = args['input']
+        assert json.loads(context['content']) == {'target': None, 'source': None, 'previous': None, 'history': []}
+        assert instruction == {'role': 'user', 'content': 'Synthetic prompt'}
         text = reply('create', title='Synthetic', append='Sample').model_dump_json()
         return httpx.Response(200, json={'status': 'completed', 'output': [{'type': 'message', 'content': [{'type': 'output_text', 'text': text}]}]})
 
