@@ -104,18 +104,15 @@
   z-index:1;
   top:6px;
   right:8px;
-  max-width:calc(48% - 14px);
   color:var(--note-code-text);
 }
 .bn-editor .note-code-actions button {
   display:inline-flex;
   align-items:center;
-  gap:5px;
-  max-width:100%;
-  padding:4px 7px;
-  white-space:nowrap;
-  font:inherit;
-  font-size:12px;
+  justify-content:center;
+  width:26px;
+  height:26px;
+  padding:0;
   color:inherit;
   border:1px solid var(--note-code-border);
   border-radius:5px;
@@ -123,28 +120,32 @@
   cursor:pointer;
 }
 .bn-editor .note-code-actions button svg {flex:0 0 14px;width:14px;height:14px}
-.bn-editor .note-code-actions button span {min-width:0;overflow:hidden;text-overflow:ellipsis}
 .bn-editor .note-code-actions button:hover {border-color:currentColor}
-.bn-editor .note-code-feedback:not(:empty) {
+.bn-editor .note-code-tooltip {
+  display:none;
   position:absolute;
-  top:calc(100% + 4px);
+  bottom:calc(100% + 4px);
   right:0;
-  min-width:max-content;
-  padding:4px 7px;
+  padding:4px 6px;
   font-size:12px;
-  background:var(--note-code-background);
-  border:1px solid var(--note-code-border);
+  line-height:1.4;
+  white-space:nowrap;
+  background:#252b36;
+  color:#fff;
   border-radius:5px;
   pointer-events:none;
 }
+.bn-editor .note-code-actions:not([data-tip-dismissed]) button:focus-visible + .note-code-tooltip {display:block}
+.bn-editor [data-content-type="codeBlock"]:has(.note-mermaid-preview) .note-code-tooltip {bottom:auto;top:calc(100% + 4px)}
 @media (hover:hover) and (pointer:fine) {
-  .bn-editor [data-content-type="codeBlock"]:not(:hover):not(:focus-within) > .note-code-actions:not(:has(.note-code-feedback:not(:empty))) {
+  .bn-editor [data-content-type="codeBlock"]:not(:hover):not(:focus-within) > .note-code-actions {
     opacity:0;
     pointer-events:none;
   }
+  .bn-editor .note-code-actions:not([data-tip-dismissed]) button:hover + .note-code-tooltip {display:block}
 }
 @media (pointer:coarse) {
-  .bn-editor .note-code-actions button {min-height:44px}
+  .bn-editor .note-code-actions button {width:44px;height:44px}
   .bn-editor .bn-block-content[data-content-type="codeBlock"] > pre {padding-top:56px}
 }
 .bn-editor .bn-block-content[data-content-type="codeBlock"] code [style*="--shiki-light"],

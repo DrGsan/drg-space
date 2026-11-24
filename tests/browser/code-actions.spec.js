@@ -44,11 +44,24 @@ test('copies exact code and changes language or wrapping from the block menu',as
   await sampleBlock.locator('pre').hover();
   await expect(sampleBlock.locator('.note-code-actions')).toHaveCSS('opacity','1');
   await expect(quick.locator('svg[aria-hidden="true"]')).toBeVisible();
-  await expect(quick.locator('span')).toHaveText('Копировать');
+  await expect(quick).toHaveText('');
+  await expect(quick).toHaveCSS('width','26px');
+  const tooltip=sampleBlock.locator('.note-code-tooltip');
+  await expect(tooltip).toBeHidden();
+  await quick.hover();
+  await expect(tooltip).toBeVisible();
+  await expect(tooltip).toHaveText('Копировать код');
   await quick.click();
-  await expect(sampleBlock.getByRole('status')).toHaveText('Код скопирован');
+  await expect(tooltip).toBeHidden();
+  await expect(page.locator('#toast.show')).toHaveText('Код скопирован');
+  await expect(page.locator('#toast')).toHaveCSS('position','fixed');
   expect(await page.evaluate(()=>window.copiedCode)).toBe(source);
-  await quick.focus();await page.keyboard.press('Enter');
+  await quick.focus();
+  await page.mouse.move(5,5);
+  await page.keyboard.press('Tab');await page.keyboard.press('Shift+Tab');
+  await expect(quick).toBeFocused();
+  await expect(tooltip).toBeVisible();
+  await page.keyboard.press('Enter');
   expect(await page.evaluate(()=>window.copiedCode)).toBe(source);
 
   async function sampleMenu(block=sampleBlock){
@@ -92,8 +105,9 @@ test('copies exact code and changes language or wrapping from the block menu',as
     await expect(block.locator('.note-code-actions')).toHaveCSS('opacity','1');
     const touchCopy=block.getByRole('button',{name:'Copy code',exact:true});
     await expect(touchCopy.locator('svg[aria-hidden="true"]')).toBeVisible();
+    await expect(touchCopy).toHaveCSS('width','44px');
     await touchCopy.tap();
-    await expect(block.getByRole('status')).toHaveText('Code copied');
+    await expect(viewer.locator('#toast.show')).toHaveText('Code copied');
     expect(await viewer.evaluate(()=>window.copiedCode)).toBe(source);
 
     // A linked Notion note enters the read-only editor through its own branch.
@@ -104,7 +118,7 @@ test('copies exact code and changes language or wrapping from the block menu',as
     });
     await viewer.reload();
     await block.getByRole('button',{name:'Copy code',exact:true}).tap();
-    await expect(block.getByRole('status')).toHaveText('Code copied');
+    await expect(viewer.locator('#toast.show')).toHaveText('Code copied');
     expect(await viewer.evaluate(()=>window.copiedCode)).toBe(source);
   }finally{await touch.close();}
   expect(errors).toEqual([]);

@@ -1,4 +1,5 @@
 import {tText} from "../../core/i18n.js";
+import {toast} from '../../core/ui.js';
 import {mermaidPreview} from './mermaid-preview.js';
 import {inlineText} from './block-actions.js';
 import {pageMenuIcon} from './page-menu.js';
@@ -49,31 +50,32 @@ codeBlock.implementation.render=function(block,editor){
   const button=document.createElement('button');
   button.type='button';
   button.innerHTML=pageMenuIcon('copy');
-  const label=document.createElement('span');
-  label.textContent=tText('app:copy');
-  button.append(label);
-  button.setAttribute('aria-label',tText('notes:copyCode'));
-  const feedback=document.createElement('span');
-  feedback.setAttribute('role','status');
-  feedback.className='note-code-feedback';
-  controls.append(button,feedback);
+  const label=tText('notes:copyCode');
+  button.setAttribute('aria-label',label);
+  const tooltip=document.createElement('span');
+  tooltip.className='note-code-tooltip';
+  tooltip.setAttribute('aria-hidden','true');
+  tooltip.textContent=label;
+  controls.append(button,tooltip);
   rendered.dom.append(controls);
-  let feedbackTimer,disposed=false;
+  let disposed=false;
+  const hideTooltip=()=>{controls.dataset.tipDismissed='true';};
+  const resetTooltip=()=>{delete controls.dataset.tipDismissed;};
+  button.onpointerleave=resetTooltip;
+  button.onblur=resetTooltip;
+  button.onkeydown=event=>{if(event.key==='Escape')hideTooltip();};
   button.onclick=async()=>{
-    clearTimeout(feedbackTimer);
-    feedback.textContent='';
+    hideTooltip();
     let message;
     try{await copyCode(editor,block.id);message=tText('notes:codeCopied');}
     catch(error){message=error.message;}
-    if(disposed)return;
-    feedback.textContent=message;
-    feedbackTimer=setTimeout(()=>{feedback.textContent='';},2400);
+    if(!disposed)toast(message);
   };
   const withPreview=mermaidPreview(rendered,block,editor);
   return {...withPreview,
     stopEvent(event){return controls.contains(event.target)||withPreview.stopEvent?.(event)||false;},
     ignoreMutation(mutation){return controls.contains(mutation.target)||withPreview.ignoreMutation?.(mutation)||false;},
-    destroy(){disposed=true;clearTimeout(feedbackTimer);withPreview.destroy?.();},
+    destroy(){disposed=true;withPreview.destroy?.();},
   };
 };
 let highlighter;
