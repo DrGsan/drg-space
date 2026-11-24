@@ -26,7 +26,7 @@ test('copies exact code and changes language or wrapping from the block menu',as
   const source='def summary():\n\t  return "'+('draft '.repeat(32)).trim()+'"  \n\n';
   const marked=[{type:'text',text:source.slice(0,16),styles:{bold:true}},{type:'text',text:source.slice(16),styles:{}}];
   const sample=await api('/notes','POST',{title:'Действия блока кода',body:'',blocks:[
-    {id:'sample_code',type:'codeBlock',props:{language:'python'},content:marked,children:[]},
+    {id:'sample_code',type:'codeBlock',props:{language:'python',wrapLines:false},content:marked,children:[]},
     {id:'container',type:'numberedListItem',content:'Вложенный блок',children:[
       {id:'other_code',type:'codeBlock',props:{language:'unrecognized-language'},content:'other block',children:[]},
     ]},
@@ -36,6 +36,9 @@ test('copies exact code and changes language or wrapping from the block menu',as
   await page.goto('/page/'+sample.id);
   const sampleBlock=page.locator('.bn-block-outer[data-id="sample_code"] [data-content-type=codeBlock]');
   const quick=sampleBlock.getByRole('button',{name:'Копировать код',exact:true});
+  const overflow=()=>sampleBlock.locator('pre').evaluate(pre=>pre.scrollWidth-pre.clientWidth);
+  await expect(sampleBlock.locator('pre code')).toHaveCSS('white-space','pre');
+  expect(await overflow()).toBeGreaterThan(0);
   await page.mouse.move(5,5);
   await expect(sampleBlock.locator('.note-code-actions')).toHaveCSS('opacity','0');
   await sampleBlock.locator('pre').hover();
@@ -63,7 +66,8 @@ test('copies exact code and changes language or wrapping from the block menu',as
   await expect(page.locator('.bn-block-outer[data-id="other_code"]').getByLabel('Язык кода')).toHaveValue('unrecognized-language');
   await sampleMenu();
   await menu.getByRole('menuitem',{name:'Перенос строк',exact:true}).click();
-  await expect(sampleBlock.locator('pre')).toHaveCSS('white-space','pre-wrap');
+  await expect(sampleBlock.locator('pre code')).toHaveCSS('white-space','pre-wrap');
+  expect(await overflow()).toBe(0);
   await expect.poll(async()=>(await api('/notes/'+sample.id)).blocks.find(block=>block.id==='sample_code').props.wrapLines).toBe(true);
   const nestedBlock=page.locator('.bn-block-outer[data-id="other_code"] [data-content-type=codeBlock]');
   await sampleMenu(nestedBlock);

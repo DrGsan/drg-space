@@ -48,7 +48,8 @@
   margin: 0;
   padding: 40px 18px 18px;
   line-height: 1.6;
-  white-space: pre;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   overflow-x: auto;
 }
 .markdown pre:has(> code) {
@@ -67,10 +68,11 @@
 }
 .bn-editor .bn-block-content[data-content-type="codeBlock"] > pre > code {
   display: block;
+  white-space: inherit;
 }
-.bn-editor .bn-block-content[data-content-type="codeBlock"][data-wrap-lines="true"] > pre {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+.bn-editor .bn-block-content[data-content-type="codeBlock"][data-wrap-lines="false"] > pre {
+  white-space: pre;
+  overflow-wrap: normal;
 }
 .bn-editor .bn-block-content[data-content-type="codeBlock"] > div > select {
   width: auto;

@@ -23,7 +23,7 @@ const languages=Object.assign(Object.create(null),{text:{name:tText("notes:plain
 export const codeBlock=createCodeBlockSpec({defaultLanguage:'text',supportedLanguages:languages});
 // Notion can store bold/italic annotations inside code. A plain-only node
 // silently drops them when a synced copy is opened in the editor.
-codeBlock.config={...codeBlock.config,content:'inline',propSchema:{...codeBlock.config.propSchema,wrapLines:{default:false}}};
+codeBlock.config={...codeBlock.config,content:'inline',propSchema:{...codeBlock.config.propSchema,wrapLines:{default:true}}};
 
 export function codeLanguages(){return Object.entries(languages);}
 
