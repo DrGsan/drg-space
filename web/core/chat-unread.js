@@ -14,6 +14,13 @@ function createCounter(initial){
   let ctx=initial,disposed=false,timer;
   const totals={site:0,family:0},running=new Set(),again=new Set();
   const uid=ctx.state.me.id,abort=new AbortController();
+  let familyEnabled=ctx.moduleEnabled('family_photos'),familyRevision=0;
+  function syncFamilyAccess(){
+    const enabled=ctx.moduleEnabled('family_photos');
+    if(enabled===familyEnabled)return;
+    familyEnabled=enabled;familyRevision++;
+    totals.family=0;paint();
+  }
   function paint(){
     const total=totals.site+totals.family;
     for(const badge of document.querySelectorAll('[data-chat-unread]')){
@@ -27,23 +34,25 @@ function createCounter(initial){
     if(disposed||document.hidden)return;
     if(running.has(source)){again.add(source);return;}
     running.add(source);
+    const revision=familyRevision;
+    const current=()=>!disposed&&(source==='site'||familyEnabled&&familyRevision===revision);
     try{
       const data=await ctx.api(source==='site'?'/chat/unread':'/family-photos/unread','GET',undefined,true,{}, {signal:abort.signal});
-      if(disposed)return;
+      if(!current())return;
       const unread=Number.isSafeInteger(data.unread)&&data.unread>=0?data.unread:(data.items||[]).reduce((sum,room)=>sum+(Number.isSafeInteger(room.unread)&&room.unread>0?room.unread:0),0);
-      totals[source]=source==='family'&&!ctx.moduleEnabled('family_photos')?0:unread;
+      totals[source]=unread;
       paint();
-    }catch(error){if(!disposed&&(source==='family'||[401,403].includes(error.status))){totals[source]=0;paint();}}
+    }catch(error){if(current()&&[401,403,404,423].includes(error?.status)){totals[source]=0;paint();}}
     finally{running.delete(source);if(again.delete(source)&&!disposed)schedule();}
   }
   function refresh(){
+    syncFamilyAccess();
     refreshSource('site');
-    if(ctx.moduleEnabled('family_photos'))refreshSource('family');
-    else{totals.family=0;paint();}
+    if(familyEnabled)refreshSource('family');
   }
   function schedule(){clearTimeout(timer);timer=setTimeout(refresh,180);}
   const events=[[document,'drg-inbox-change'],[document,'visibilitychange'],[window,'focus'],[window,'online']];
   for(const [target,type] of events)target.addEventListener(type,schedule);
   const poll=setInterval(refresh,20000);
-  return {uid,attach(next){ctx=next;if(!ctx.moduleEnabled('family_photos'))totals.family=0;paint();schedule();},destroy(){disposed=true;abort.abort();clearTimeout(timer);clearInterval(poll);for(const [target,type] of events)target.removeEventListener(type,schedule);}};
+  return {uid,attach(next){ctx=next;syncFamilyAccess();paint();schedule();},destroy(){disposed=true;abort.abort();clearTimeout(timer);clearInterval(poll);for(const [target,type] of events)target.removeEventListener(type,schedule);}};
 }
