@@ -229,7 +229,7 @@ def proposal(key, draft_input, *, target, source, previous=None, history=(), cor
         'use intent create and set a non-empty title and the whole new text in append. '
         'Use intent edit when asked to change the open note. The source is read-only. '
         'If the user asks to look for a photograph or an online cover for the open note, including a follow-up like '
-        '“what about online?”, use intent find_cover. Set cover_query to a short search of generic English visual keywords for Wikimedia Commons. '
+        '“what about online?”, use intent find_cover. Set cover_query to a short search of generic English visual keywords for Wikimedia Commons, most important first. '
         'Include only the public subject to depict. Never include personal information, private note titles, or verbatim excerpts in this query. '
         'Leave changes null field by field. The app shows photos and applies the one the user selects. '
         'For other intents set cover_query to null. '

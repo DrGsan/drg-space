@@ -312,7 +312,12 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
   }
   async function showCovers(query) {
     setPhase('assistantFindingCovers');
-    const {items: photos} = await ctx.api('/note-cover-search?provider=commons&q=' + encodeURIComponent(query));
+    const search = phrase => ctx.api('/note-cover-search?provider=commons&q=' + encodeURIComponent(phrase));
+    let {items: photos} = await search(query);
+    const keywords = query.split(/\s+/);
+    if (chat.isConnected && !photos.length && keywords.length > 3) {
+      ({items: photos} = await search(keywords.slice(0, 3).join(' ')));
+    }
     if (!chat.isConnected) return;
     if (!photos.length) {
       addMessage('assistant', tText('notes:noPhotosFoundTryADifferentRequest'));
