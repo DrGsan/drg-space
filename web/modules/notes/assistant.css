@@ -147,6 +147,19 @@
 .notes-ai-before, .notes-ai-after {
   padding-block: .15rem;
 }
+.notes-ai-formatted > * { margin: .55rem 0; }
+.notes-ai-formatted :is(h2, h3) { font: inherit; font-weight: 650; }
+.notes-ai-formatted :is(ol, ul) { padding-inline-start: 1.4rem; }
+.notes-ai-formatted pre {
+  overflow: auto;
+  padding: .65rem;
+  border: 1px solid var(--line);
+  border-radius: .5rem;
+  background: var(--bg);
+  font-size: .85em;
+  white-space: pre;
+}
+.notes-ai-formatted :not(pre) > code { padding-inline: .18em; border-radius: .2em; background: var(--bg); }
 .notes-ai-cover {
   height: 4.5rem;
   overflow: hidden;

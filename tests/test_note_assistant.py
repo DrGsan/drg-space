@@ -63,6 +63,37 @@ def test_create_preview_cancel_apply_and_prevent_replay(active, monkeypatch):
     assert len(active.get('/api/notes').json()) == 1
 
 
+def test_assistant_saves_native_formatting_and_preserves_old_blocks(active, monkeypatch):
+    first = ai.rich_paragraph('Existing contents')
+    page = active.post('/api/notes', json={'title': 'Guide', 'body': 'Existing contents', 'blocks': [first]}).json()
+    command = 'if command -v brew >/dev/null; then\n  brew install --cask fixture-app\nfi'
+    formatted = [
+        ai.NoteBlock(type='heading', content='Installation', level=2, language=None),
+        ai.NoteBlock(type='numberedListItem', content=[ai.NoteRun(text='Open ', style=None), ai.NoteRun(text='Terminal', style='bold')], level=None, language=None),
+        ai.NoteBlock(type='numberedListItem', content='Run the command', level=None, language=None),
+        ai.NoteBlock(type='codeBlock', content=command, level=None, language='bash'),
+        ai.NoteBlock(type='bulletListItem', content=[ai.NoteRun(text='Check ', style=None), ai.NoteRun(text='--version', style='code')], level=None, language=None),
+    ]
+    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: reply('edit', append=formatted))
+    preview = suggest(active, target=ref(page), include_target_text=True)
+    assert preview['formatted'] == '## Installation\n\n1. Open **Terminal**\n\n1. Run the command\n\n```bash\n' + command + '\n```\n\n- Check `--version`'
+    result = active.post(ROOT + '/apply', json={'draft': preview['draft']})
+    assert result.status_code == 200, result.text
+    saved = active.get('/api/notes/' + page['id']).json()
+    assert saved['body'] == 'Existing contents\n\n' + preview['formatted']
+    assert saved['blocks'][0] == first
+    assert [block['type'] for block in saved['blocks'][1:]] == [block.type for block in formatted]
+    assert saved['blocks'][2]['content'][1]['styles'] == {'bold': True}
+    assert saved['blocks'][4]['props'] == {'language': 'bash'} and saved['blocks'][4]['content'] == command
+    assert saved['blocks'][5]['content'][1]['styles'] == {'code': True}
+
+    unsafe = ai.NoteBlock(type='paragraph', content='[open](/api/notes/another_note/files/private_file)', level=None, language=None)
+    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: reply('edit', append=[unsafe]))
+    denied = active.post(ROOT + '/propose', json={'prompt': 'Add something', 'target': ref(saved)})
+    assert denied.status_code == 502
+    assert active.get('/api/notes/' + page['id']).json()['version'] == saved['version']
+
+
 def test_edit_preserves_rich_blocks_and_rejects_changed_version(active, monkeypatch):
     paragraph = ai.rich_paragraph('Original sentence')
     block = {'type': 'codeBlock', 'id': 'code', 'props': {'language': 'python'}, 'content': 'print(1)', 'children': []}
@@ -247,7 +278,10 @@ def test_read_and_revise_draft_then_rewrite_existing_note(active, monkeypatch):
     def refine(key, prompt, *, target, source, previous, history):
         assert previous['intent'] == 'edit' and previous['changes']['rewrite'] == 'New paragraph.'
         assert history == [{'role': 'user', 'text': 'Rewrite the whole note'}]
-        return reply('edit', rewrite='Revised first paragraph.\nRevised second paragraph.')
+        return reply('edit', rewrite=[
+            ai.NoteBlock(type='heading', content='Revised first paragraph.', level=2, language=None),
+            ai.NoteBlock(type='bulletListItem', content='Revised second paragraph.', level=None, language=None),
+        ])
 
     monkeypatch.setattr(ai, 'proposal', refine)
     final = suggest(active, target=ref(page), include_target_text=True, previous=first['draft'],
@@ -259,6 +293,7 @@ def test_read_and_revise_draft_then_rewrite_existing_note(active, monkeypatch):
     rewritten = active.get('/api/notes/' + page['id']).json()
     assert 'fictional park' not in rewritten['body'] and 'Revised second paragraph' in rewritten['body']
     assert [block['id'] for block in rewritten['blocks'][-2:]] == ['image', 'child']
+    assert [block['type'] for block in rewritten['blocks'][:2]] == ['heading', 'bulletListItem']
     assert active.get('/api/notes/' + child_id).json()['parent_id'] == page['id']
     with main.db() as c:
         assert c.execute('SELECT body FROM note_revisions WHERE note_id=?', (page['id'],)).fetchone()[0] == old

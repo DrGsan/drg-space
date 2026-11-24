@@ -1,5 +1,5 @@
 import {tHtml, tText} from '../../core/i18n.js';
-import {$, esc} from '../../core/ui.js';
+import {$, esc, md} from '../../core/ui.js';
 import {pageCover, pageIcon} from '../../core/page-assets.js';
 import {sidebarIcon} from '../../core/sidebar-icons.js';
 import {mobileApp} from '../../core/mobile.js';
@@ -18,7 +18,7 @@ function cover(page) {
   return `<div class="notes-ai-cover cover-${esc(page.cover)}">${pageCover(page)}</div>`;
 }
 
-function reviewField(field, draft, before, coverUrl) {
+function reviewField(field, draft, before, coverUrl, formatted) {
   const next = draft.changes[field];
   let previous = '';
   let proposed;
@@ -31,7 +31,9 @@ function reviewField(field, draft, before, coverUrl) {
   } else {
     const old = field === 'replace' ? draft.changes.replace_before : before[field];
     previous = old == null ? '' : `<p>${esc(old)}</p>`;
-    proposed = `<p${field === 'title' ? '' : ' data-ai-writing'}>${esc(field === 'replace' ? draft.changes.replace_after : next)}</p>`;
+    proposed = formatted && (field === 'append' || field === 'rewrite')
+      ? `<div data-ai-writing class="notes-ai-formatted">${md(formatted)}</div>`
+      : `<p${field === 'title' ? '' : ' data-ai-writing'}>${esc(field === 'replace' ? draft.changes.replace_after : next)}</p>`;
   }
   const label = field === 'append' ? draft.target ? 'notes:assistantAppendToEnd' : 'notes:assistantBody' : labels[field];
   return `<section class="notes-ai-change"><h4>${tHtml(label)}</h4>${previous ? `<div class="notes-ai-before"><span>${tHtml('notes:assistantBefore')}</span>${previous}</div>` : ''}<div class="notes-ai-after">${previous ? `<span>${tHtml('notes:assistantAfter')}</span>` : ''}${proposed}</div></section>`;
@@ -39,14 +41,21 @@ function reviewField(field, draft, before, coverUrl) {
 
 async function revealText(node) {
   if (!node || matchMedia('(prefers-reduced-motion: reduce)').matches || document.hidden) return;
-  const text = Array.from(node.textContent);
-  if (text.length < 2) return;
-  const duration = Math.min(1600, 320 + text.length * 7);
-  node.textContent = '';
+  const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+  const runs = [];
+  let length = 0;
+  for (let textNode; (textNode = walker.nextNode());) {
+    const characters = Array.from(textNode.data);
+    runs.push({textNode, characters, start: length});
+    length += characters.length;
+  }
+  if (length < 2) return;
+  const duration = Math.min(1600, 320 + length * 7);
+  for (const run of runs) run.textNode.data = '';
   node.setAttribute('aria-hidden', 'true');
   await new Promise(resolve => {
     const start = performance.now();
-    let shown = 0;
+    let active = 0;
     let animation;
     const finish = () => {
       cancelAnimationFrame(animation);
@@ -54,15 +63,20 @@ async function revealText(node) {
       resolve();
     };
     function frame(now) {
-      const count = Math.min(text.length, Math.ceil(text.length * (now - start) / duration));
-      if (count > shown) { node.textContent += text.slice(shown, count).join(''); shown = count; }
-      if (shown === text.length || !node.isConnected) finish();
+      const count = Math.min(length, Math.ceil(length * (now - start) / duration));
+      for (; active < runs.length; active++) {
+        const {textNode, characters, start: offset} = runs[active];
+        if (count <= offset) break;
+        textNode.data = characters.slice(0, count - offset).join('');
+        if (count < offset + characters.length) break;
+      }
+      if (count === length || !node.isConnected) finish();
       else animation = requestAnimationFrame(frame);
     }
     document.addEventListener('visibilitychange', finish);
     animation = requestAnimationFrame(frame);
   });
-  node.textContent = text.join('');
+  for (const {textNode, characters} of runs) textNode.data = characters.join('');
   node.removeAttribute('aria-hidden');
 }
 
@@ -221,11 +235,11 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, layout, re
       prompt.value = instruction;
     } finally { applying = busy = false; controls(); if (chat.isConnected) prompt.focus(); }
   };
-  function showChange({draft, fields, before, cover_url: coverUrl}) {
+  function showChange({draft, fields, before, cover_url: coverUrl, formatted}) {
     const card = document.createElement('section');
     card.className = 'notes-ai-preview';
     card.setAttribute('data-ai-change', '');
-    card.innerHTML = `<h3>${tHtml(draft.target ? 'notes:assistantEditedNote' : 'notes:assistantCreatedNote')}</h3>${fields.map(field => reviewField(field, draft, before, coverUrl)).join('')}`;
+    card.innerHTML = `<h3>${tHtml(draft.target ? 'notes:assistantEditedNote' : 'notes:assistantCreatedNote')}</h3>${fields.map(field => reviewField(field, draft, before, coverUrl, formatted)).join('')}`;
     log.append(card);
     log.scrollTop = card.offsetTop - log.offsetTop;
     return revealText($('[data-ai-writing]', card));
