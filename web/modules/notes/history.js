@@ -1,5 +1,6 @@
 import {tText,tHtml} from "../../core/i18n.js";
 import {$,esc,date} from '../../core/ui.js';
+import {pageIcon,pageCover} from '../../core/page-assets.js';
 import {mountBlockEditor,pageBlocks} from './editor-runtime.js';
 import {compareBlocks} from './history-diff.js';
 import './history.css';
@@ -26,7 +27,15 @@ export function mountHistory(host,ctx,pageId,onClose,{trashPage=null}={}){
     preview?.destroy();observer?.disconnect();$s('.history-content').replaceChildren();
     const page=detail||current;if(!page)return;
     $s('.history-date').textContent=detail?date(detail.created):tText("notes:currentVersion");
-    $s('.history-document h2').textContent=page.title;
+    const title=$s('.history-document h2');
+    title.innerHTML=page.icon?`${pageIcon(page)} ${esc(page.title)}`:esc(page.title);
+    $s('.history-version-cover')?.remove();
+    if(page.cover&&!trashPage){
+      const cover=document.createElement('div');
+      cover.className='history-version-cover cover-'+page.cover.replace(/[^a-z0-9-]/gi,'');
+      cover.innerHTML=pageCover(page);
+      title.before(cover);
+    }
     let blocks=pageBlocks(page),marks=new Map();
     if(detail&&compare.checked){
       const diff=compareBlocks(blocks,pageBlocks(current));blocks=diff.document;marks=diff.marks;

@@ -1091,7 +1091,7 @@ class NotesWorkspace {
       if(this.disposed)return;
       const index=this.state.notes.findIndex(note=>note.id===id);
       if(index<0)this.state.notes.push(saved);else this.state.notes[index]=saved;
-      if(this.page?.id===activeId&&(id===activeId||draftId)){
+      if(this.page?.id===activeId&&(id===activeId||draftId)&&!this.state.dirty){
         if(draftId)transferPageView(this.state.me?.id,draftId,id);
         await this.open(id,false);
       }

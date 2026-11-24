@@ -165,13 +165,6 @@
   min-width: 0;
   flex: 0 0 auto;
 }
-.notes-ai-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: .45rem;
-  margin: .4rem 0;
-}
 .notes-ai form[data-ai-input] {
   display: block;
   position: relative;

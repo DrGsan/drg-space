@@ -90,6 +90,43 @@ def test_edit_preserves_rich_blocks_and_rejects_changed_version(active, monkeypa
     assert active.get('/api/notes/' + page['id']).json()['title'] == 'Manual edit'
 
 
+def test_addition_recovers_from_invalid_replacement_and_can_be_restored(active, monkeypatch):
+    old = 'Install the authenticator application.'
+    styled = ai.rich_paragraph(old)
+    styled['content'][0]['styles'] = {'bold': True}
+    page = active.post('/api/notes', json={'title': 'Key setup', 'body': '**' + old + '**', 'blocks': [styled]}).json()
+    appearance = active.patch('/api/notes/' + page['id'], json={'icon': '📚', 'cover': 'forest', 'version': page['version']})
+    assert appearance.status_code == 200, appearance.text
+    page = active.get('/api/notes/' + page['id']).json()
+    calls = []
+    command = 'brew install --cask fixture-app'
+
+    def generate(key, prompt, *, correction=False, timeout=ai.PROPOSAL_TIMEOUT, **kwargs):
+        calls.append(correction)
+        assert prompt == 'Add the Homebrew command' and 0 < timeout <= ai.PROPOSAL_TIMEOUT
+        if not correction:
+            return reply('edit', replace_before=old, replace_after=command)
+        return reply('edit', append=command, title='Updated key setup', icon='💻', cover='mountains')
+
+    monkeypatch.setattr(ai, 'proposal', generate)
+    response = active.post(ROOT + '/propose', json={'prompt': 'Add the Homebrew command', 'target': ref(page), 'include_target_text': True})
+    assert response.status_code == 200, response.text
+    assert calls == [False, True] and 'append' in response.json()['fields']
+    result = active.post(ROOT + '/apply', json={'draft': response.json()['draft']})
+    assert result.status_code == 200, result.text
+    path = '/api/notes/' + page['id']
+    saved = active.get(path).json()
+    assert saved['blocks'][0] == styled and saved['blocks'][1]['content'][0]['text'] == command
+    assert (saved['title'], saved['icon'], saved['cover']) == ('Updated key setup', '💻', 'mountains')
+    previous = active.get(path + '/history').json()[0]['id']
+    details = active.get(path + '/history/' + previous).json()
+    assert (details['title'], details['icon'], details['cover']) == ('Key setup', '📚', 'forest')
+    restored = active.post(path + '/history/' + previous + '/restore', params={'version': saved['version']})
+    assert restored.status_code == 200, restored.text
+    note = restored.json()
+    assert (note['title'], note['icon'], note['cover'], note['blocks']) == (page['title'], page['icon'], page['cover'], page['blocks'])
+
+
 def test_scopes_and_disabling(active, monkeypatch):
     guest, _ = member(active)
     foreign = guest.get('/api/notes/' + note(guest)).json()

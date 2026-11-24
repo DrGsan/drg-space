@@ -478,11 +478,15 @@ def create_notes_router(db,ready,now,fail,data_dir=None,publication_update=None,
         with db() as c:
             c.execute('BEGIN IMMEDIATE');n=owned(c,nid,s['user_id'],trash)
             if page_role(c,n,s['user_id'])!='editor':fail(403,localized_message('theHistoryIsAvailableToPageEditors'))
-            from app.note_history import purge_history
+            from app.note_history import purge_history, revision_appearance
             purge_history(c,now(),nid)
             row=c.execute('SELECT * FROM note_revisions WHERE id=? AND note_id=?',(rid,nid)).fetchone()
             if not row:fail(404,localized_message('versionNotFoundOrOlderThan90Days'))
             result=dict(row);result['blocks']=json.loads(row['blocks']) if row['blocks'] is not None else None
+            appearance=revision_appearance(c,rid)
+            if appearance:
+                from app.modules.note_assets import asset_payload
+                result.update(appearance|asset_payload(c,appearance|{'id':nid}))
             return result|{'current_version':n['version']}
 
     @router.post('/api/notes/{nid}/history/{rid}/restore')
@@ -490,7 +494,7 @@ def create_notes_router(db,ready,now,fail,data_dir=None,publication_update=None,
         s=ready(request)
         with db() as c:
             c.execute('BEGIN IMMEDIATE');n=owned(c,nid,s['user_id']);require_role(c,n,s['user_id'],fail,session=s,now=now)
-            from app.note_history import purge_history
+            from app.note_history import purge_history, revision_appearance, snapshot as checkpoint
             purge_history(c,now(),nid)
             version_ok(n,version)
             r=c.execute('SELECT * FROM note_revisions WHERE id=? AND note_id=?',(rid,nid)).fetchone()
@@ -498,8 +502,10 @@ def create_notes_router(db,ready,now,fail,data_dir=None,publication_update=None,
             from app.note_subpages import reconcile_links
             reconcile_links(c,n,json.loads(r['blocks']) if r['blocks'] is not None else None,s,now(),fail)
             c.execute('DELETE FROM collaborative_docs WHERE note_id=?',(nid,))
-            snapshot(c,n)
-            changed=c.execute('UPDATE notes SET title=?,body=?,blocks=?,updated=?,version=version+1 WHERE id=? AND version=?',(r['title'],r['body'],r['blocks'],now(),nid,n['version']))
+            appearance=revision_appearance(c,rid)
+            checkpoint(c,n,now(),with_appearance=bool(appearance))
+            fields={key:r[key] for key in ('title','body','blocks')}|appearance
+            changed=c.execute('UPDATE notes SET '+','.join(key+'=?' for key in fields)+',updated=?,version=version+1 WHERE id=? AND version=?',(*fields.values(),now(),nid,n['version']))
             if changed.rowcount!=1:fail(409,localized_message('thePageHasBeenChangedRefreshTheHistory'))
             return serialize(owned(c,nid,s['user_id']),c,s['user_id'],s)
 

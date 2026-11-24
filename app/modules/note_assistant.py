@@ -5,6 +5,7 @@ import json
 import os
 import re
 import secrets
+from time import monotonic
 from typing import Literal
 
 import httpx
@@ -24,6 +25,7 @@ CONFIG = 'note-assistant:config'
 DRAFT = 'note-assistant:draft'
 DRAFT_TTL = 600
 EXCERPT_LIMIT = 5000
+PROPOSAL_TIMEOUT = 50
 ICONS = ('📄', '📝', '📚', '💡', '✅', '📌', '🗓️', '💻', '🎯', '🧭', '🌿', '🏠', '✈️', '🎨', '⭐')
 FIELDS = ('title', 'icon', 'cover', 'append', 'replace', 'rewrite')
 TEXT_BLOCKS = {'paragraph', 'heading', 'bulletListItem', 'numberedListItem', 'checkListItem', 'quote', 'callout', 'toggleListItem'}
@@ -88,6 +90,10 @@ class Apply(Input):
     draft: Draft
 
 
+class ParagraphUnavailable(ValueError):
+    pass
+
+
 def setting(c, key):
     row = c.execute('SELECT value FROM app_settings WHERE key=?', (key,)).fetchone()
     return json.loads(row[0]) if row else {}
@@ -149,7 +155,7 @@ def excerpt(note):
     return ('\n\n'.join(paragraphs(json.loads(blocks))) if blocks is not None else plain_text(note['body']))[:EXCERPT_LIMIT]
 
 
-def proposal(key, draft_input, *, target, source, previous=None, history=()):
+def proposal(key, draft_input, *, target, source, previous=None, history=(), correction=False, timeout=PROPOSAL_TIMEOUT):
     change_schema = {
         'type': 'object', 'additionalProperties': False,
         'properties': {name: {'type': ['string', 'null']} for name in Changes.model_fields},
@@ -172,18 +178,29 @@ def proposal(key, draft_input, *, target, source, previous=None, history=()):
         'Use intent edit when asked to change the open note. The source is read-only. '
         'On an existing note, set only what the request asks to change. Use exactly one text operation: '
         'rewrite to replace the entire text when the user asks to write from scratch or rewrite the whole note; '
-        'append only when explicitly asked to add text; or replace_before and replace_after to edit one plain paragraph. '
+        'append when explicitly asked to add material without specifying an exact insertion point. '
+        'For example, “add installation commands” means append only the new commands and explanations. '
+        'Use replace_before and replace_after only to change one existing plain paragraph. '
         'For a rewrite, return the entire new text and omit all original wording that does not belong in the new note. '
-        'In a paragraph edit, replace_before must exactly match a whole plain paragraph in the target excerpt. '
+        'In a paragraph edit, replace_before must exactly match one whole plain paragraph in the target excerpt, '
+        'and replace_after must be a single paragraph without line breaks. Do not use replacement to add a separate section. '
         'Leave title, icon and cover null in an edit unless the user requests changes to them. '
         'When the user asks to revise the previous proposal, return the complete revised proposal with all intended '
         'changes relative to the original note, keeping the previous intent and unchanged draft fields. '
-        'The proposal is a preview. Do not claim you saved it. Keep the message about a proposal short. '
+        'The application handles saving. Do not claim you saved it. Keep the message about an edit short. '
         'In note content fields write only text that belongs in the note, without chat messages or offers to do more. '
         'Use plain text without Markdown syntax, links, markup, commands to the app, or attachments. '
         'Separate paragraphs with newlines. Use the language requested by the user, '
         f'otherwise use the language of their instruction or this locale: {current_language.get()}.'
     )
+    if correction:
+        instructions += (
+            ' The earlier attempt used a replacement the editor cannot apply. Reconsider the original request. '
+            'For an addition, return intent edit with append and leave both replacement fields null. '
+            'For a genuine replacement, choose an exact plain paragraph and a single paragraph of new text. '
+            'Do not create a new note or rewrite the entire note in this correction. '
+            'If the exact requested edit cannot be expressed, return a concise explanation with intent answer.'
+        )
     payload = {
         'model': os.getenv('OPENAI_NOTES_MODEL', '').strip() or 'gpt-5.4-mini',
         'store': False, 'max_output_tokens': 5000, 'instructions': instructions,
@@ -191,7 +208,7 @@ def proposal(key, draft_input, *, target, source, previous=None, history=()):
                              'history': history}, ensure_ascii=False),
         'text': {'format': {'type': 'json_schema', 'name': 'note_reply', 'strict': True, 'schema': schema}},
     }
-    with httpx.Client(timeout=httpx.Timeout(50, connect=5), trust_env=False) as client:
+    with httpx.Client(timeout=httpx.Timeout(timeout, connect=min(5, timeout)), trust_env=False) as client:
         response = client.post('https://api.openai.com/v1/responses', headers={'Authorization': 'Bearer ' + key}, json=payload)
         response.raise_for_status()
         result = response.json()
@@ -283,7 +300,7 @@ def change_text(note, changes, fields, fail):
         parts = body.split('\n\n')
         matches = [] if blocks is None else [block for block in blocks if plain_block(block, old)]
         if parts.count(old) != 1 or (len(matches) != 1 if blocks is not None else not plain_legacy_paragraph(body, old)):
-            fail(422, message('notesAiParagraphUnavailable'))
+            raise ParagraphUnavailable
         parts[parts.index(old)] = markdown_text(new)
         body = '\n\n'.join(parts)
         if matches:
@@ -320,7 +337,7 @@ def validated_changes(changes, note, excerpt_text, fail):
         if (note is None or not data['replace_before'] or not data['replace_after']
                 or data['replace_before'] not in excerpt_text.split('\n\n')
                 or len(data['replace_after'].splitlines()) != 1):
-            fail(422, message('notesAiParagraphUnavailable'))
+            raise ParagraphUnavailable
     for field in ('title', 'icon', 'cover'):
         if note is not None and data[field] == note[field]:
             data[field] = None
@@ -357,6 +374,18 @@ def new_note_changes(changes, previous):
             elif before is None and after is None:
                 data['append'] = body
     return Changes.model_construct(**data)
+
+
+def prepare_changes(reply, target, target_text, previous, fail):
+    if reply.intent == 'answer':
+        if not reply.message.strip():
+            fail(502, message('notesAiBadProposal'))
+        return None
+    if target is None or reply.intent == 'create' or (previous is not None and previous.target is None):
+        changes, fields = validated_changes(new_note_changes(reply.changes, previous), None, '', fail)
+        return None, changes, fields
+    changes, fields = validated_changes(reply.changes, target, target_text['excerpt'], fail)
+    return target, changes, fields
 
 
 def register(router, db, ready, admin, rate, now, fail, insert_page):
@@ -486,12 +515,31 @@ def register(router, db, ready, admin, rate, now, fail, insert_page):
         if not prompt:
             fail(422, message('notesAiPromptRequired'))
         rate(request, 'notes-assistant-generate', 8, 300, s['user_id'])
+        deadline = monotonic() + PROPOSAL_TIMEOUT
+        previous = {'intent': 'edit' if data.previous.target else 'create', 'changes': data.previous.changes.model_dump()} if data.previous else None
+        history = [turn.model_dump() for turn in data.history]
+
+        def generate(**options):
+            try:
+                return proposal(api_key(), prompt, target=target_text, source=source_text, previous=previous,
+                                history=history, **options)
+            except (httpx.HTTPError, ValueError, TypeError, AttributeError, KeyError):
+                fail(502, message('notesAiProviderError'))
+
+        reply = generate()
         try:
-            previous = {'intent': 'edit' if data.previous.target else 'create', 'changes': data.previous.changes.model_dump()} if data.previous else None
-            reply = proposal(api_key(), prompt, target=target_text, source=source_text, previous=previous,
-                             history=[turn.model_dump() for turn in data.history])
-        except (httpx.HTTPError, ValueError, TypeError, AttributeError, KeyError):
-            fail(502, message('notesAiProviderError'))
+            prepared = prepare_changes(reply, target, target_text, data.previous, fail)
+        except ParagraphUnavailable:
+            remaining = deadline - monotonic()
+            if target is None or remaining < 5:
+                fail(422, message('notesAiParagraphUnavailable'))
+            reply = generate(correction=True, timeout=remaining)
+            if reply.intent == 'create' or reply.changes.rewrite:
+                fail(422, message('notesAiParagraphUnavailable'))
+            try:
+                prepared = prepare_changes(reply, target, target_text, data.previous, fail)
+            except ParagraphUnavailable:
+                fail(422, message('notesAiParagraphUnavailable'))
         with db() as c:
             c.execute('BEGIN IMMEDIATE')
             if account(c, s) != configured:
@@ -499,16 +547,11 @@ def register(router, db, ready, admin, rate, now, fail, insert_page):
             target, _ = read_context(c, data, s)
             if data.previous:
                 require_draft(c, s, data.previous)
-            if reply.intent == 'answer':
-                if not reply.message.strip():
-                    fail(502, message('notesAiBadProposal'))
+            if prepared is None:
                 return {'message': reply.message, 'draft': None}
-            creates = target is None or reply.intent == 'create' or data.previous is not None and data.previous.target is None
-            changes = reply.changes
-            if creates:
+            resolved, changes, fields = prepared
+            if resolved is None:
                 target = None
-                changes = new_note_changes(changes, data.previous)
-            changes, fields = validated_changes(changes, target, target_text['excerpt'] if target else '', fail)
             draft = Draft(id=secrets.token_hex(24), target=data.target if target else None, changes=changes)
             write(c, DRAFT, {'id': draft.id, 'digest': fingerprint(draft.model_dump_json()), 'session': fingerprint(s['token']),
                              'expires': now() + DRAFT_TTL})
@@ -529,7 +572,10 @@ def register(router, db, ready, admin, rate, now, fail, insert_page):
             draft = data.draft
             require_draft(c, s, draft)
             target = note(c, draft.target, s['user_id'], write_access=True) if draft.target else None
-            changes, available = validated_changes(draft.changes, target, excerpt(target) if target else '', fail)
+            try:
+                changes, available = validated_changes(draft.changes, target, excerpt(target) if target else '', fail)
+            except ParagraphUnavailable:
+                fail(422, message('notesAiParagraphUnavailable'))
             fields = {name: getattr(changes, name) for name in ('title', 'icon', 'cover') if name in available}
             if target is None:
                 body, blocks = change_text(None, changes, available, fail)
@@ -539,8 +585,8 @@ def register(router, db, ready, admin, rate, now, fail, insert_page):
                 if available & {'append', 'replace', 'rewrite'}:
                     body, blocks = change_text(target, changes, available, fail)
                     fields.update(body=body, blocks=json.dumps(blocks, ensure_ascii=False) if blocks is not None else None)
-                if fields.keys() & {'title', 'body'}:
-                    snapshot(c, target, now())
+                if fields:
+                    snapshot(c, target, now(), with_appearance=bool(fields.keys() & {'icon', 'cover'}))
             if fields:
                 assignments = ','.join(name + '=?' for name in fields)
                 c.execute('UPDATE notes SET ' + assignments + ',updated=?,version=version+1 WHERE id=?', (*fields.values(), now(), nid))

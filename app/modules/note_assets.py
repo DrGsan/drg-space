@@ -240,6 +240,9 @@ def purge_unused_assets(c, stamp):
         referenced.update(re.findall(r'[a-f0-9]{32}', ''.join(value or '' for value in row)))
     for row in c.execute('SELECT body,blocks FROM note_revisions'):
         referenced.update(re.findall(r'[a-f0-9]{32}', ''.join(value or '' for value in row)))
+    from app.note_history import APPEARANCE_PREFIX, HISTORY_SECONDS
+    for row in c.execute('SELECT a.value FROM app_settings a JOIN note_revisions r ON a.key=?||r.id WHERE r.created>?', (APPEARANCE_PREFIX, stamp-HISTORY_SECONDS)):
+        referenced.update(re.findall(r'[a-f0-9]{32}', row[0]))
     for row in c.execute('SELECT settings FROM users'):
         referenced.update(re.findall(r'[a-f0-9]{32}', row[0]))
     from app.notion_sync.decorations import retained
