@@ -19,6 +19,7 @@
   "assistantAfter": "Будет",
   "assistantAddText": "Добавляемый текст",
   "assistantAppendToEnd": "Добавить в конец заметки",
+  "assistantAllowAppend": "Разрешить добавить текст в конец этой заметки",
   "assistantReplaceText": "Замена абзаца",
   "assistantApply": "Применить выбранные изменения",
   "assistantSave": "Сохранить заметку",

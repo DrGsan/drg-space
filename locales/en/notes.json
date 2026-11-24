@@ -19,6 +19,7 @@
   "assistantAfter": "After",
   "assistantAddText": "Text to add",
   "assistantAppendToEnd": "Add to the end of the note",
+  "assistantAllowAppend": "Allow adding text to the end of this note",
   "assistantReplaceText": "Paragraph to replace",
   "assistantApply": "Apply selected changes",
   "assistantSave": "Save note",

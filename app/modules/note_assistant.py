@@ -50,6 +50,7 @@ class Context(Input):
 
 class RequestDraft(Context):
     prompt: str = Field(min_length=1, max_length=4000)
+    allow_append: bool = False
 
 
 class Changes(Input):
@@ -129,7 +130,7 @@ def excerpt(note):
     return ('\n\n'.join(paragraphs(json.loads(blocks))) if blocks is not None else plain_text(note['body']))[:EXCERPT_LIMIT]
 
 
-def proposal(key, draft_input, *, target, source):
+def proposal(key, draft_input, *, target, source, allow_append=False):
     schema = {
         'type': 'object', 'additionalProperties': False,
         'properties': {name: {'type': ['string', 'null']} for name in Changes.model_fields},
@@ -144,8 +145,9 @@ def proposal(key, draft_input, *, target, source):
         'For existing notes, set only requested fields, and null for everything else. '
         'When editing an existing note, use append only if the user explicitly asks to add text to that note. '
         'Never use append as a substitute for rewriting or replacing text. '
-        'Use replace_before and replace_after for one paragraph edit. If asked to write a standalone document '
-        'while editing an existing note, leave the text fields null unless the user specifies an addition or a paragraph to change. '
+        'Use replace_before and replace_after for one paragraph edit. When the user asks for a new standalone '
+        'document without requesting changes to the current note, return null for every field, including title, icon and cover. '
+        'A title, icon, or cover intended for a new document is not a proposed edit to the current note. '
         'replace_before must exactly equal one whole plain unformatted paragraph from target, '
         'and replace_after must be one non-empty paragraph. Do not replace source text. '
         'Return only text that belongs in the note, without greetings, conversational follow-ups, or offers to do more. '
@@ -153,6 +155,9 @@ def proposal(key, draft_input, *, target, source):
         'Separate appended paragraphs with newlines. Use the language requested by the user, '
         f'otherwise use the language of their instruction or this locale: {current_language.get()}.'
     )
+    if target is not None and not allow_append:
+        schema['properties']['append'] = {'type': 'null'}
+        instructions += ' Adding text at the end is disabled for this request. Set append to null.'
     payload = {
         'model': os.getenv('OPENAI_NOTES_MODEL', '').strip() or 'gpt-5.4-mini',
         'store': False, 'max_output_tokens': 3000, 'instructions': instructions,
@@ -366,7 +371,7 @@ def register(router, db, ready, admin, rate, now, fail, insert_page):
             fail(422, message('notesAiPromptRequired'))
         rate(request, 'notes-assistant-generate', 8, 300, s['user_id'])
         try:
-            changes = proposal(api_key(), prompt, target=target_text, source=source_text)
+            changes = proposal(api_key(), prompt, target=target_text, source=source_text, allow_append=data.allow_append)
         except (httpx.HTTPError, ValueError, TypeError, AttributeError, KeyError):
             fail(502, message('notesAiProviderError'))
         with db() as c:
@@ -374,6 +379,8 @@ def register(router, db, ready, admin, rate, now, fail, insert_page):
             if account(c, s) != configured:
                 fail(403, message('notesAiUnavailable'))
             target, _ = read_context(c, data, s)
+            if target and not data.allow_append:
+                changes.append = None
             changes, fields = validated_changes(changes, target, target_text['excerpt'] if target_text else '', fail)
             draft = Draft(id=secrets.token_hex(24), target=data.target, changes=changes)
             write(c, DRAFT, {'id': draft.id, 'digest': fingerprint(draft.model_dump_json()), 'session': fingerprint(s['token']),

@@ -5,7 +5,7 @@
   "notesAiPromptRequired": "Enter an instruction first.",
   "notesAiProviderError": "OpenAI could not prepare a proposal. Try again later.",
   "notesAiBadProposal": "The proposed changes are invalid. Request a new proposal.",
-  "notesAiNoChanges": "There are no changes to apply. Specify what to add or which paragraph to change. To draft a separate document, choose Create note with AI.",
+  "notesAiNoChanges": "There are no changes to apply. Specify which paragraph to change or enable adding text at the end. To draft a separate document, choose Create note with AI.",
   "notesAiParagraphUnavailable": "The original paragraph must be unique, plain text and visible in the excerpt. Try a different paragraph or add text instead.",
   "outlineCollectionJsonWithoutAttachments": "To restore collection icons, select the Outline JSON export without attachments along with the Markdown archive.",
   "dateUnitsDaysWeeksMonthsYears": "Date units: days, weeks, months, years.",

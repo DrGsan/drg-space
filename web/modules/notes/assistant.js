@@ -40,7 +40,11 @@ function excerpt(label, note) {
 }
 
 export function openNoteAssistant(ctx, {target, initialSource}, onSaved, onClose) {
-  const overlay = ctx.modal(`<h2>${tHtml(target ? 'notes:assistantEdit' : 'notes:assistantCreate')}</h2><div class="notes-ai"><form data-ai-input><label>${tHtml('notes:assistantPrompt')}<textarea name="prompt" maxlength="4000" rows="4" required></textarea></label>${target ? `<label class="notes-ai-option"><input type="checkbox" name="include_target_text">${tHtml('notes:assistantIncludeText')}</label>` : ''}<label>${tHtml('notes:assistantFindSource')}<input type="search" placeholder="${tHtml('notes:searchPages')}" maxlength="200" data-ai-search></label><label>${tHtml('notes:assistantSource')}<select data-ai-source><option value="">${tHtml('notes:assistantNoSource')}</option></select></label><button type="submit" class="primary">${tHtml('notes:assistantReviewInput')}</button></form><div data-ai-stage></div><p data-ai-error role="alert"></p></div>`);
+  const editOptions = target ? [
+    ['include_target_text', tHtml('notes:assistantIncludeText')],
+    ['allow_append', tHtml('notes:assistantAllowAppend')],
+  ].map(([name, label]) => `<label class="notes-ai-option"><input type="checkbox" name="${name}">${label}</label>`).join('') : '';
+  const overlay = ctx.modal(`<h2>${tHtml(target ? 'notes:assistantEdit' : 'notes:assistantCreate')}</h2><div class="notes-ai"><form data-ai-input><label>${tHtml('notes:assistantPrompt')}<textarea name="prompt" maxlength="4000" rows="4" required></textarea></label>${editOptions}<label>${tHtml('notes:assistantFindSource')}<input type="search" placeholder="${tHtml('notes:searchPages')}" maxlength="200" data-ai-search></label><label>${tHtml('notes:assistantSource')}<select data-ai-source><option value="">${tHtml('notes:assistantNoSource')}</option></select></label><button type="submit" class="primary">${tHtml('notes:assistantReviewInput')}</button></form><div data-ai-stage></div><p data-ai-error role="alert"></p></div>`);
   const form = $('[data-ai-input]', overlay);
   const stage = $('[data-ai-stage]', overlay);
   const error = $('[data-ai-error]', overlay);
@@ -89,6 +93,7 @@ export function openNoteAssistant(ctx, {target, initialSource}, onSaved, onClose
     const chosen = items.find(page => page.id === source.value);
     const input = {target: target ? reference(target) : null, source: chosen ? reference(chosen) : null, include_target_text: !!form.elements.include_target_text?.checked};
     const instruction = prompt.value.trim();
+    const allowAppend = !!form.elements.allow_append?.checked;
     submit.disabled = true;
     try {
       const context = await call('/context', 'POST', input);
@@ -104,7 +109,7 @@ export function openNoteAssistant(ctx, {target, initialSource}, onSaved, onClose
         error.textContent = '';
         generate.textContent = tText('notes:assistantGenerating');
         try {
-          const preview = await call('/propose', 'POST', {...input, prompt: instruction});
+          const preview = await call('/propose', 'POST', {...input, prompt: instruction, allow_append: allowAppend});
           if (!overlay.isConnected) { discard(preview.draft); return; }
           showReview(preview);
         } catch (failure) {

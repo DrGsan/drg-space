@@ -126,7 +126,7 @@ def test_notion_read_only_and_provider_failure_do_not_save(active, monkeypatch):
     assert active.get(ROOT + '/pages/' + ordinary['id']).json() == ref(ordinary) | {'title': 'Local', 'read_only': False}
     seen = []
 
-    def timeout(key, prompt, *, target, source):
+    def timeout(key, prompt, *, target, source, allow_append):
         seen.append((target, source))
         raise httpx.ReadTimeout('Provider secret error')
 
@@ -160,8 +160,19 @@ def test_simple_legacy_paragraphs_can_change_but_attachment_references_are_rejec
     old = 'Original sentence.'
     page = active.post('/api/notes', json={'title': 'Legacy', 'body': old}).json()
     monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: changes(append='/api/notes/another_note_id/files/another_file_id'))
-    assert active.post(ROOT + '/propose', json={'prompt': 'Test', 'target': ref(page)}).status_code == 502
+    assert active.post(ROOT + '/propose', json={'prompt': 'Test', 'target': ref(page), 'allow_append': True}).status_code == 502
     monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: changes(replace_before=old, replace_after='Updated sentence'))
     preview = suggest(active, target=ref(page), include_target_text=True)
     assert active.post(ROOT + '/apply', json={'draft': preview['draft'], 'fields': preview['fields']}).status_code == 200
     assert active.get('/api/notes/' + page['id']).json()['body'] == 'Updated sentence'
+
+
+def test_appending_text_to_an_existing_note_requires_opt_in(active, monkeypatch):
+    page = active.post('/api/notes', json={'title': 'Local', 'body': 'Original paragraph.'}).json()
+    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: changes(append='New paragraph.'))
+    payload = {'prompt': 'Add a paragraph', 'target': ref(page)}
+    assert active.post(ROOT + '/propose', json=payload).json()['code'] == 'notesAiNoChanges'
+    draft = suggest(active, target=ref(page), allow_append=True)
+    assert draft['fields'] == ['append']
+    assert active.post(ROOT + '/apply', json={'draft': draft['draft'], 'fields': draft['fields']}).status_code == 200
+    assert active.get('/api/notes/' + page['id']).json()['body'].startswith('Original paragraph.\n\nNew paragraph')
