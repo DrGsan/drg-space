@@ -156,13 +156,24 @@ export async function operate(ctx,peerId,targetActorId,operation,payload,{eventI
   const envelope=await ctx.api('/federation/send','POST',{peer_id:peerId,intent,proof});unchanged(ctx,uid);
   const result=await openResult(device,envelope,intent,owner);unchanged(ctx,uid);return result;
 }
+export async function requestLocalAction(ctx,uid,path,body){
+  try{return await ctx.api(path,'POST',body);}
+  catch(error){
+    // Only the storage gate certifies that a POST never reached the handler.
+    const delay=Number(error?.retryAfter);
+    if(error?.status!==503||error.data?.code!=='storage_busy'||!Number.isInteger(delay)||delay<1||delay>6)throw error;
+    await new Promise(resolve=>setTimeout(resolve,delay*1000));
+    unchanged(ctx,uid);
+    return ctx.api(path,'POST',body);
+  }
+}
 export async function operateLocal(ctx,operation,payload){
   const {uid}=account(ctx),device=await ensureDevice(ctx);unchanged(ctx,uid);
   const expected={actor_server_id:device.serverId,actor_id:uid,device_id:device.card.device_id,target_actor_id:uid,operation,payload};
-  const {intent}=await ctx.api('/federation/local/prepare','POST',{device_id:device.card.device_id,operation,payload});unchanged(ctx,uid);
+  const {intent}=await requestLocalAction(ctx,uid,'/federation/local/prepare',{device_id:device.card.device_id,operation,payload});unchanged(ctx,uid);
   assertIntent(intent,expected);
   const proof=await signIntent(device,device.serverId,intent);unchanged(ctx,uid);
-  const envelope=await ctx.api('/federation/local/send','POST',{intent,proof});unchanged(ctx,uid);
+  const envelope=await requestLocalAction(ctx,uid,'/federation/local/send',{intent,proof});unchanged(ctx,uid);
   const result=await openResult(device,envelope,intent,device.descriptor);unchanged(ctx,uid);return result;
 }
 export async function contacts(ctx){const result=await ctx.api('/federation/contacts');return result.contacts||[];}

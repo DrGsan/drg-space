@@ -15,7 +15,9 @@ def document_navigation(request):
 
 def unavailable(request,error):
     headers={'Retry-After':'5','Cache-Control':'no-store'}
-    if not document_navigation(request):return JSONResponse({'detail':error.detail},error.status_code,headers=headers)
+    if not document_navigation(request):
+        # This response is generated before routing, authentication and effects.
+        return JSONResponse({'detail':error.detail,'code':'storage_busy'},error.status_code,headers=headers)
     nonce=secrets.token_urlsafe(24)
     headers['Content-Security-Policy']="default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
     # Nothing here reads private data or fetches an asset/API while the gate is

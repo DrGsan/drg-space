@@ -2,11 +2,45 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {canonical,signIntent,openResult,assertIntent,verifyCallEvidence,contactFingerprint,assetBlobMime} from '../web/modules/federation/client.js';
+import {canonical,signIntent,openResult,assertIntent,verifyCallEvidence,contactFingerprint,assetBlobMime,requestLocalAction} from '../web/modules/federation/client.js';
 
 const root=fileURLToPath(new URL('../',import.meta.url));
 function python(code,value){const result=spawnSync(root+'.venv/bin/python',['-c',code],{cwd:root,input:JSON.stringify(value),encoding:'utf8'});assert.equal(result.status,0,result.stderr);return JSON.parse(result.stdout);}
 const raw64=value=>Buffer.from(value).toString('base64url');
+test('only definitive storage rejection retries the identical local action once',async t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
+  const blocked=Object.assign(new Error('busy'),{status:503,data:{code:'storage_busy'},retryAfter:'5'});
+  const unknown=Object.assign(new Error('delivery unknown'),{status:503,retryAfter:'5'});
+  const path='/federation/local/send',body={intent:{event_id:'test-action'},proof:'test-proof'};
+  let fail=blocked,calls=[];
+  const ctx={state:{me:{id:'one'}},async api(...args){calls.push(args);if(calls.length===1)throw fail;return {ok:true};}};
+  const request=requestLocalAction(ctx,'one',path,body);
+  await Promise.resolve();
+  t.mock.timers.tick(4999);
+  assert.equal(calls.length,1);
+  t.mock.timers.tick(1);
+  assert.deepEqual(await request,{ok:true});
+  assert.deepEqual(calls,[[path,'POST',body],[path,'POST',body]]);
+  calls=[];fail=unknown;
+  await assert.rejects(requestLocalAction(ctx,'one',path,body),unknown);
+  assert.equal(calls.length,1);
+  calls=[];fail=blocked;
+  const otherAccount=requestLocalAction(ctx,'one',path,body);
+  const rejected=assert.rejects(otherAccount);
+  await Promise.resolve();
+  ctx.state.me={id:'two'};
+  t.mock.timers.tick(5000);
+  await rejected;
+  assert.equal(calls.length,1);
+  let attempts=0;
+  const stillBlocked=requestLocalAction({state:{me:{id:'one'}},async api(){attempts++;throw blocked;}},'one',path,body);
+  const finalFailure=assert.rejects(stillBlocked,blocked);
+  await Promise.resolve();
+  t.mock.timers.tick(10000);
+  await finalFailure;
+  assert.equal(attempts,2);
+});
+
 async function device(){
   const signing=await crypto.subtle.generateKey('Ed25519',false,['sign','verify']),encryption=await crypto.subtle.generateKey('X25519',false,['deriveBits']);
   const sign=await crypto.subtle.exportKey('raw',signing.publicKey),box=await crypto.subtle.exportKey('raw',encryption.publicKey);

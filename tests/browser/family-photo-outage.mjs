@@ -13,13 +13,14 @@ async function fixture(mode,{down=false,mediaDown=false}={}){
   await page.goto('http://localhost/');await page.clock.install();
   await page.addScriptTag({content:bundle.outputFiles[0].text});
   await page.evaluate(async ({mode,down,mediaDown})=>{
-    const s=window.fixtureState={down,mediaDown,status:503,calls:[],familyEnabled:true,siteUnread:2,familyUnread:3,holdFamily:false};
+    const s=window.fixtureState={down,mediaDown,siteDown:false,status:503,calls:[],familyEnabled:true,siteUnread:2,familyUnread:3,holdFamily:false};
     const group={id:'-1001',title:'Семья',history_complete:true};
     const ctx=window.fixtureContext={state:{me:{id:'owner',role:'owner'}},moduleEnabled:id=>id!=='family_photos'||s.familyEnabled,navigate(){},toast(){},
       async api(path,method,body,retry,headers,{signal}={}){
         s.calls.push(path);
         if(mode==='counter'){
-          if(path==='/chat/unread')return {unread:s.siteUnread};
+          if(path==='/chat/unread'&&!s.siteDown)return {unread:s.siteUnread};
+          if(path==='/chat/unread')throw Object.assign(new Error('Недоступен'),{status:s.status});
           if(s.holdFamily)await new Promise((resolve,reject)=>{s.releaseFamily=resolve;signal.addEventListener('abort',()=>reject(new DOMException('Aborted','AbortError')),{once:true});});
           if(s.down)throw Object.assign(new Error('Недоступен'),{status:s.status});
           return {unread:s.familyUnread};
@@ -63,13 +64,21 @@ try{
   assert.equal(await page.evaluate(()=>fixtureState.calls.filter(p=>p==='/family-photos/unread').length),1,'no parallel archive requests');
   await page.evaluate(()=>{fixtureState.holdFamily=false;fixtureState.releaseFamily();});await page.clock.runFor(500);
   assert.equal(await page.locator('[data-chat-unread]').innerText(),'7','independent totals are added once');
-  await page.evaluate(()=>{fixtureState.down=true;});await page.clock.runFor(20000);
-  assert.equal(await page.locator('[data-chat-unread]').innerText(),'4','archive failure preserves ordinary unread');
-  await page.evaluate(()=>{fixtureState.down=false;});await page.clock.runFor(20000);
-  assert.equal(await page.locator('[data-chat-unread]').innerText(),'7','archive counter recovers');
+  await page.evaluate(()=>{fixtureState.down=true;fixtureState.siteDown=true;});await page.clock.runFor(40000);
+  assert.equal(await page.locator('[data-chat-unread]').innerText(),'7','repeated storage 503s preserve both last known totals');
+  await page.evaluate(()=>{fixtureState.down=false;fixtureState.siteDown=false;fixtureState.siteUnread=0;fixtureState.familyUnread=0;});await page.clock.runFor(20000);
+  assert.equal(await page.locator('[data-chat-unread]').isHidden(),true,'an authoritative zero clears the badge after recovery');
+  await page.evaluate(()=>{fixtureState.siteUnread=4;fixtureState.familyUnread=3;});await page.clock.runFor(20000);
+  assert.equal(await page.locator('[data-chat-unread]').innerText(),'7','new unread messages appear after recovery');
+  await page.evaluate(()=>{fixtureState.down=true;fixtureState.status=403;});await page.clock.runFor(20000);
+  assert.equal(await page.locator('[data-chat-unread]').innerText(),'4','revocation clears the archive contribution');
+  await page.evaluate(()=>{fixtureState.down=false;fixtureState.status=503;});await page.clock.runFor(20000);
   await page.evaluate(()=>{fixtureState.holdFamily=true;});await page.clock.runFor(20000);
   await page.evaluate(()=>{fixtureState.familyEnabled=false;Outage.chatUnreadController.attach(fixtureContext);fixtureState.releaseFamily();});await page.clock.runFor(500);
   assert.equal(await page.locator('[data-chat-unread]').innerText(),'4','late archive response cannot restore a disabled module counter');
+  await page.evaluate(()=>{fixtureContext.state.me={id:'other-account'};fixtureState.siteUnread=0;Outage.chatUnreadController.attach(fixtureContext);});
+  await page.clock.runFor(500);
+  assert.equal(await page.locator('[data-chat-unread]').isHidden(),true,'another account never shows the previous total');
   await page.evaluate(()=>Outage.chatUnreadController.destroy());
   const calls=await page.evaluate(()=>fixtureState.calls.length);await page.clock.runFor(40000);
   assert.equal(await page.evaluate(()=>fixtureState.calls.length),calls,'destroy stops counter polling');await page.close();
