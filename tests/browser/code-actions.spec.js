@@ -67,7 +67,13 @@ test('copies exact code and changes language or wrapping from the block menu',as
 
   async function sampleMenu(block=sampleBlock){
     await block.locator('pre').hover();
-    await page.getByRole('button',{name:'Открыть меню блока',exact:true}).click();
+    const handle=page.getByRole('button',{name:'Открыть меню блока',exact:true});
+    const copy=block.getByRole('button',{name:'Копировать код',exact:true});
+    await expect.poll(async()=>{
+      const [drag,copyButton]=await Promise.all([handle.boundingBox(),copy.boundingBox()]);
+      return drag&&copyButton?Math.abs(drag.y+drag.height/2-copyButton.y-copyButton.height/2):Infinity;
+    }).toBeLessThan(1.5);
+    await handle.click();
     await expect(page.getByLabel('Поиск действий блока')).toBeFocused();
   }
   await sampleMenu();
