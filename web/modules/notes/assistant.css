@@ -1,66 +1,143 @@
-.notes-assistant-overlay .modal {
-  max-width: 620px;
+.workspace[data-current-view=assistant] > .content {
+  padding: 0;
+}
+.assistant-workspace {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 360px;
+  height: var(--app-height);
+  background: var(--white);
+}
+.assistant-workspace-header, .notes-ai-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--line);
+}
+.assistant-workspace-header {
+  min-height: 58px;
+  padding: 10px clamp(16px, 4vw, 38px);
+}
+.assistant-workspace-header > div, .assistant-workspace-header button, .notes-ai-panel > header strong {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.assistant-workspace-header h1 {
+  margin: 0;
+  font-size: 1.12rem;
+  letter-spacing: -.02em;
+}
+.assistant-workspace-header button svg, .notes-ai-panel > header svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+}
+.assistant-workspace-body {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  background: radial-gradient(ellipse at 50% 25%, color-mix(in srgb, var(--blue) 6%, var(--white)), transparent 65%), var(--white);
 }
 .notes-ai {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
 }
-.notes-assistant-overlay .notes-ai h3, .notes-assistant-overlay .notes-ai h4 {
-  margin: 0 0 .35rem;
-  font-size: .95rem;
+.notes-ai [hidden] {
+  display: none;
 }
-.notes-ai details {
-  margin-bottom: .55rem;
+.notes-ai-workspace {
+  max-width: 790px;
+  margin-inline: auto;
+  padding: clamp(16px, 3vw, 34px);
+}
+.notes-ai-workspace:not(.notes-ai-has-messages) {
+  justify-content: center;
+  padding-bottom: clamp(20px, 10vh, 110px);
+}
+.notes-ai-intro {
+  max-width: 520px;
+  margin: 0 auto clamp(16px, 4vh, 34px);
+  text-align: center;
+}
+.notes-ai-has-messages .notes-ai-intro {
+  display: none;
+}
+.notes-ai-intro h2 {
+  margin: .85rem 0 .35rem;
+  font-size: clamp(1.55rem, 3.5vw, 2.65rem);
+  line-height: 1.15;
+  letter-spacing: -.04em;
+}
+.notes-ai-intro p {
+  margin: .5rem 0 0;
   color: var(--muted);
-  font-size: .85rem;
+  line-height: 1.45;
 }
-.notes-ai details summary {
-  cursor: pointer;
-  overflow-wrap: anywhere;
-}
-.notes-ai-source {
+.notes-ai-emblem {
   display: grid;
-  gap: .5rem;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
-  margin-top: .6rem;
+  place-items: center;
+  width: 54px;
+  aspect-ratio: 1;
+  margin-inline: auto;
+  border: 1px solid color-mix(in srgb, var(--blue) 28%, var(--line));
+  border-radius: 16px;
+  background: var(--blue-light);
+  color: var(--blue);
+}
+.notes-ai-emblem svg {
+  width: 29px;
+  height: 29px;
 }
 .notes-ai-log {
   position: relative;
-  min-height: 5rem;
-  max-height: min(48vh, 36rem);
+  flex: 1;
+  min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 0 4px .55rem 0;
 }
-.notes-ai-message, .notes-ai-context, .notes-ai-preview {
-  width: fit-content;
+.notes-ai-message, .notes-ai-preview, .notes-ai-context {
   max-width: 100%;
   margin: .55rem 0;
-  padding: .6rem .8rem;
-  border: 1px solid var(--line);
-  border-radius: .65rem;
-  background: var(--white);
+  padding: .55rem .75rem;
+  border-radius: 12px;
+}
+.notes-ai-message {
+  width: fit-content;
+  max-width: 92%;
+  background: var(--bg);
 }
 .notes-ai-message.user {
   margin-inline-start: auto;
   background: var(--blue-light);
-  border-color: transparent;
 }
-.notes-ai-preview {
-  width: 100%;
+.notes-ai-preview, .notes-ai-context {
+  border: 1px solid var(--line);
+  background: var(--white);
+}
+.notes-ai-preview h3, .notes-ai-context h3, .notes-ai-change h4 {
+  margin: 0 0 .35rem;
+  font-size: .9rem;
 }
 .notes-ai-change {
-  padding-block: .5rem;
+  padding-block: .5rem .15rem;
   border-top: 1px solid var(--line);
 }
 .notes-ai-message, .notes-ai-context p, .notes-ai-change p {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  line-height: 1.48;
 }
 .notes-ai-context p, .notes-ai-change p {
   margin: .2rem 0;
-}
-.notes-ai-context p {
-  max-height: 9rem;
-  overflow: auto;
 }
 .notes-ai-before span, .notes-ai-after span {
   display: block;
@@ -68,7 +145,7 @@
   color: var(--muted);
 }
 .notes-ai-before, .notes-ai-after {
-  padding-block: .2rem;
+  padding-block: .15rem;
 }
 .notes-ai-cover {
   height: 4.5rem;
@@ -80,34 +157,209 @@
   height: 100%;
   object-fit: cover;
 }
+.notes-ai-note-link {
+  display: block;
+  padding: .25rem 0 0;
+}
+.notes-ai-compose {
+  min-width: 0;
+  flex: 0 0 auto;
+}
 .notes-ai-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: .5rem;
-  margin: .55rem 0;
-}
-.notes-ai form {
-  display: flex;
-  align-items: end;
   gap: .45rem;
-  margin-top: .65rem;
+  margin: .4rem 0;
 }
-.notes-assistant-overlay .notes-ai form textarea {
-  flex: 1 1 0;
-  width: auto;
-  min-width: 0;
+.notes-ai form[data-ai-input] {
+  display: block;
+  position: relative;
+  margin: 0;
+  padding: .65rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--white);
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--text) 7%, transparent);
+}
+.notes-ai form[data-ai-input]:focus-within {
+  border-color: color-mix(in srgb, var(--blue) 50%, var(--line));
+}
+.notes-ai form[data-ai-input] textarea {
+  display: block;
+  width: 100%;
+  max-height: 26vh;
+  min-height: 46px;
+  margin: 0;
+  padding: .35rem .4rem;
   resize: vertical;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  background: transparent;
 }
-.notes-assistant-overlay .notes-ai form > .primary {
-  width: auto;
-  flex: 0 0 auto;
+.notes-ai-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .55rem;
+  margin-top: .35rem;
+}
+.notes-ai-toolbar > details {
+  position: relative;
+  min-width: 0;
+  max-width: calc(100% - 48px);
+  margin: 0;
+  font-size: .82rem;
+}
+.notes-ai-toolbar summary {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  min-height: 34px;
+  padding: .25rem .45rem;
+  list-style: none;
+  border-radius: 7px;
+  cursor: pointer;
+  color: var(--muted);
+}
+.notes-ai-toolbar summary::-webkit-details-marker {
+  display: none;
+}
+.notes-ai-toolbar summary:hover, .notes-ai-toolbar details[open] summary {
+  background: var(--blue-light);
+  color: var(--text);
+}
+.notes-ai-toolbar summary span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.notes-ai-toolbar svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.notes-ai-toolbar > button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 11px;
+}
+.notes-ai-context-popover {
+  position: absolute;
+  z-index: 2;
+  bottom: calc(100% + 7px);
+  inset-inline-start: 0;
+  width: min(310px, calc(100vw - 46px));
+  max-height: min(36vh, 310px);
+  padding: 10px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--white);
+  box-shadow: 0 12px 30px #0002;
+}
+.notes-ai-context-popover label {
+  display: block;
+  margin: 0 0 .45rem;
+  color: var(--text);
+}
+.notes-ai-context-popover :is(input, select) {
+  width: 100%;
+  margin: .2rem 0 0;
 }
 .notes-ai-disclosure {
   margin: .45rem 0 0;
-  font-size: .75rem;
+  font-size: .72rem;
+  line-height: 1.35;
 }
-[data-ai-error]:not(:empty) {
-  margin-block: .6rem 0;
+.notes-ai-screen-reader {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.notes-ai-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: 50%;
+  animation: notes-ai-spin .75s linear infinite;
+}
+@keyframes notes-ai-spin { to { transform: rotate(1turn); } }
+.notes-ai [data-ai-error]:empty { display: none; }
+.notes-ai [data-ai-error]:not(:empty) {
+  margin: .45rem 0 0;
   color: var(--danger);
+}
+.notes-ai-panel {
+  position: sticky;
+  top: var(--app-safe-top);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: var(--app-height);
+  border-inline-start: 1px solid var(--line);
+  background: var(--white);
+}
+.notes-ai-panel > header {
+  min-height: 44px;
+  padding: 5px 12px;
+  font-size: .86rem;
+}
+.notes-ai-panel > header strong svg, .notes-ai-entry {
+  color: var(--blue);
+}
+.notes-shell .notion-page .notes-ai-entry[aria-expanded=true] {
+  background: var(--blue-light);
+  color: var(--blue);
+}
+.notes-ai-panel .notes-ai {
+  flex: 1;
+  height: auto;
+  padding: 12px;
+}
+.notes-ai-panel .notes-ai-intro {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+.notes-ai-panel .notes-ai-has-messages .notes-ai-intro { display: none; }
+.notes-ai-panel .notes-ai-intro h2 { font-size: 1.23rem; }
+.notes-ai-panel .notes-ai-emblem { width: 42px; border-radius: 12px; }
+.notes-ai-panel .notes-ai-emblem svg { width: 23px; height: 23px; }
+.notes-ai-panel .notes-ai-context-popover { width: min(285px, calc(100vw - 46px)); }
+@media (min-width: 901px) {
+  .notes-shell.assistant-panel-open .notes-workspace {
+    grid-template-columns: 220px minmax(0, 1fr) minmax(310px, 26vw);
+  }
+  .notes-shell.assistant-panel-open .notes-workspace.pages-collapsed {
+    grid-template-columns: minmax(0, 1fr) minmax(310px, 26vw);
+  }
+}
+@media (max-width: 900px) {
+  .notes-shell.assistant-panel-open .notes-workspace,
+  .notes-shell.assistant-panel-open .notes-workspace.pages-collapsed { grid-template-columns: minmax(0, 1fr); }
+  .notes-shell.assistant-panel-open :is(.notes-navigation, .pages-sidebar, .notion-page) { display: none; }
+  .notes-shell.assistant-panel-open .notes-ai-panel { border-inline-start: 0; }
+  .assistant-workspace-header { padding: 8px 14px; }
+}
+@media (max-width: 820px) {
+  html.app-standalone .workspace[data-current-view=assistant] > .content { padding: 0 0 var(--mobile-tabs-space); overflow: hidden; }
+  html.app-standalone .workspace[data-current-view=assistant] #view-content { height: 100%; min-height: 0; padding: 0; }
+  html.app-standalone .assistant-workspace { height: 100%; min-height: 0; }
+  html.app-standalone .notes-shell.assistant-panel-open .notes-workspace { padding-top: 0; }
+  html.app-standalone .notes-shell.assistant-panel-open :is(.notes-navigation, .pages-sidebar, .notion-page) { display: none; }
+  html.app-standalone .notes-shell.assistant-panel-open .notes-ai-panel { height: 100%; }
 }

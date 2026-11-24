@@ -1,4 +1,11 @@
 {
+  "assistantSection": "ИИ для заметок",
+  "assistantWelcome": "Начни с заметки",
+  "assistantWelcomeDescription": "Попроси написать новую заметку или выбери личную, чтобы прочитать или переписать её.",
+  "assistantPanelWelcome": "Что сделать с заметкой?",
+  "assistantSelectNote": "Выбрать заметку",
+  "assistantNewChat": "Новый чат",
+  "assistantOpenNote": "Открыть заметку",
   "assistantAcceptCommands": "ок|окей|ok|okay",
   "assistantRejectCommands": "не ок|not ok",
   "assistantChat": "Помощник ИИ",

@@ -26,7 +26,7 @@ import { pageWordCount, pageActions, showPageMenu, pageMenuIcon, readPageView, s
 import "./page-menu.css";
 import {mountVault,moveIntoVault,unlockVaultNotes,subscribeVaultNotes,vaultNotesActivity,vaultTreeIcon,loadVaultTreeIcon} from '../security/vault.js';
 import {FederatedNotes} from '../federation/notes.js';
-import {openNoteAssistant} from './assistant.js';
+import {mountNoteAssistant} from './assistant.js';
 let active;
 // Keep each account's tree open only for this loaded app, across view remounts.
 // A reload creates a fresh module and starts every tree collapsed.
@@ -118,13 +118,12 @@ class NotesWorkspace {
     window.addEventListener('online',online);this.cleanups.push(()=>window.removeEventListener('online',online));
     $("#add-root-page", this.host).onclick = () => this.newPage();
     $('#create-database',this.host).onclick=tool(()=>this.newDatabase());
-    this.ctx.api('/notes-assistant').then(({enabled})=>{
-      if(this.disposed||!enabled)return;
-      this.assistantEnabled=true;
-      const button=document.createElement('button');button.type='button';button.textContent=tText('notes:assistantCreate');
-      button.onclick=tool(()=>this.assistant());
-      $('.pages-tool-menu',tools).prepend(button);
-    }).catch(()=>{});
+    if(this.ctx.canUseAssistant?.()){
+      const button=document.createElement('button');button.type='button';button.className='text-link';
+      button.innerHTML=pageMenuIcon('sparkles')+`<span>${tHtml('notes:assistantMenu')}</span>`;
+      button.onclick=()=>this.ctx.navigate('assistant');
+      $('.pages-sidebar-footer',this.host).prepend(button);
+    }
     $('#show-mentions',this.host).onclick=tool(()=>mentionsDialog(this.ctx));
     $("#show-trash", this.host).onclick = tool(() => this.trash());
     $("#show-templates", this.host).onclick = tool(() => this.templatePicker());
@@ -208,6 +207,7 @@ class NotesWorkspace {
     button.setAttribute('aria-expanded',String(open));button.setAttribute('aria-label',label);button.title=label;
   }
   async back(){
+    if(this.closeAssistant){this.closeAssistant(true);return;}
     if(this.goingBack)return;
     this.goingBack=true;
     try{
@@ -247,6 +247,7 @@ class NotesWorkspace {
     this.cleanups.forEach((fn) => fn());
   }
   empty() {
+    this.closeAssistant?.();
     if(this.remote?.active)this.remote.close();
     this.vault?.destroy();this.vault=null;
     const space=(this.state.spaces||[]).find(s=>s.id===this.state.notesSpace);
@@ -497,6 +498,7 @@ class NotesWorkspace {
     this.closePageMenu?.(false);
     const current=this.page?.id;
     if (flush && !(await this.flush())) return;
+    if(current!==id)this.closeAssistant?.();
     if(this.remote?.active)this.remote.close();
     this.vault?.destroy();this.vault=null;
     if(id===current&&current?.startsWith('draft_'))id=this.page.id;
@@ -600,6 +602,17 @@ class NotesWorkspace {
     $("#notion-page", this.host).classList.toggle("has-cover", !!page.cover);
     $("#notion-page", this.host).innerHTML =
       pageLayout(page,{breadcrumbs:this.breadcrumbs(),participants:page.space_id?this.participantAvatars(page):''});
+    if(this.canAssist(page)){
+      const button=document.createElement('button');button.type='button';button.className='icon-btn notes-ai-entry';button.id='note-ai';
+      button.setAttribute('aria-label',tText('notes:assistantChat'));button.title=tText('notes:assistantChat');
+      button.innerHTML=pageMenuIcon('sparkles');button.setAttribute('aria-expanded',String(!!this.closeAssistant));
+      if(this.closeAssistant)button.setAttribute('aria-controls','note-ai-panel');
+      button.onclick=()=>{
+        if(this.closeAssistant){this.closeAssistant(true);return;}
+        this.assistant({pageId:page.id,asSource:!!page.notion_sync}).catch(error=>this.ctx.toast(error.message));
+      };
+      $('#page-actions',screen).before(button);
+    }
     if(page.kind==='database'){const heading=document.createElement('div');heading.className='database-page-heading';const title=$('#page-title',this.host);title.before(heading);heading.append($('#change-icon',this.host),title);}
     this.viewPreferences=readPageView(this.state.me?.id,page.id);
     const participants=$('#page-participants',this.host);if(participants)participants.onclick=()=>permissionsDialog(page,this.ctx,()=>this.refresh());
@@ -981,7 +994,7 @@ class NotesWorkspace {
     const page=this.page,editable=(!page.role||page.role==='editor')&&(!page.locked||page.unlock_until);
     const canDuplicate=page.notion_sync?canCopyNotionPage(page,this.ctx):editable;
     const actions=pageActions(page,editable,{canDuplicate});
-    if(this.assistantEnabled&&page.manage&&!page.space_id&&!page.federation_shared&&!page.locked&&page.kind!=='database'&&!page.database_id){
+    if(this.canAssist(page)){
       const entry={name:'assistant',label:tText('notes:assistantMenu'),icon:'sparkles',group:'assistant'};
       if(page.isDraft)actions.push({...entry,name:'assistant-edit'});
       else{
@@ -1033,34 +1046,63 @@ class NotesWorkspace {
       if(action==='trash')return this.removePage(this.page.id);
     }catch(error){this.ctx.toast(error.message);}
   }
+  canAssist(page){
+    return this.ctx.canUseAssistant?.()&&page.manage&&!page.space_id&&!page.federation_shared&&!page.locked&&page.kind!=='database'&&!page.database_id;
+  }
   async assistant({pageId,asSource=false}={}){
     const opened=pageId?this.page:null;
-    if(this.closeAssistant||pageId&&opened?.id!==pageId||!(await this.flush())||this.disposed||opened&&opened!==this.page)return;
+    if(pageId&&opened?.id!==pageId||!(await this.flush())||this.disposed||opened&&opened!==this.page)return;
+    const opening=this.assistantOpening=Symbol();
     let page=null;
     const draftId=opened?.isDraft?opened.id:null;
     if(opened&&!draftId){
       page=await this.ctx.api('/notes-assistant/pages/'+encodeURIComponent(opened.id));
-      if(this.disposed||this.closeAssistant||this.page!==opened)return;
+      if(this.disposed||this.assistantOpening!==opening||this.page!==opened)return;
       if(!asSource&&page.read_only){this.ctx.toast(tText('notes:pageIsReadOnly'));return;}
     }
+    this.closeAssistant?.();
     const target=asSource?null:page;
+    const activeId=opened?.id;
     const beforeSave=async()=>{
       if(!await this.flush()||this.disposed)return false;
-      if(opened&&(this.page!==opened||draftId&&this.page.id!==draftId))throw new Error(tText('notes:assistantPageChanged'));
+      if(activeId&&this.page?.id!==activeId)throw new Error(tText('notes:assistantPageChanged'));
       return true;
     };
-    this.closeAssistant=openNoteAssistant(this.ctx,{target,initialSource:asSource?page:null,beforeSave},async id=>{
+    const shell=$('.notes-shell',this.host);
+    const panel=document.createElement('aside');panel.className='notes-ai-panel';panel.id='note-ai-panel';
+    panel.setAttribute('aria-label',tText('notes:assistantChat'));
+    panel.innerHTML=`<header><strong>${pageMenuIcon('sparkles')}${tHtml('notes:assistantSection')}</strong><button type="button" class="icon-btn" data-ai-close aria-label="${tHtml('common:close')}">${pageMenuIcon('close')}</button></header>`;
+    $('.notes-workspace',shell).append(panel);
+    shell.classList.add('assistant-panel-open');
+    const setTrigger=open=>{
+      const trigger=$('#note-ai',this.host);
+      if(trigger){trigger.setAttribute('aria-expanded',String(open));if(open)trigger.setAttribute('aria-controls',panel.id);else trigger.removeAttribute('aria-controls');}
+      return trigger;
+    };
+    setTrigger(true);
+    const dispose=mountNoteAssistant(panel,this.ctx,{target,initialSource:asSource?page:null,beforeSave,layout:'panel'},async id=>{
       if(this.disposed)return;
       const saved=await this.ctx.api('/notes/'+id);
       if(this.disposed)return;
       const index=this.state.notes.findIndex(note=>note.id===id);
       if(index<0)this.state.notes.push(saved);else this.state.notes[index]=saved;
-      if(!opened||this.page===opened){
+      if(this.page?.id===activeId&&(id===activeId||draftId)){
         if(draftId)transferPageView(this.state.me?.id,draftId,id);
         await this.open(id,false);
       }
       this.tree();
-    },()=>{this.closeAssistant=null;});
+      return saved;
+    });
+    this.closeAssistant=focus=>{
+      this.closeAssistant=null;
+      dispose();panel.remove();shell.classList.remove('assistant-panel-open');
+      const trigger=setTrigger(false);
+      if(focus)trigger?.focus();
+    };
+    const close=$('[data-ai-close]',panel);
+    close.onclick=()=>this.closeAssistant?.(true);
+    panel.addEventListener('keydown',event=>{if(event.key==='Escape'){event.stopPropagation();this.closeAssistant?.(true);}});
+    if(matchMedia('(max-width: 900px)').matches)close.focus();
   }
   async duplicatePage(page){
     const linked=Boolean(page.notion_sync);
@@ -1259,6 +1301,7 @@ class NotesWorkspace {
     if(this.workspaceScope()!=='private')return false;
     if(this.vault&&!this.vault.disposed){if(this.vault.locked)return !!await this.vault.open();return !!await this.vault.ready;}
     if(!await unlockVaultNotes(this.ctx)||!await this.flush())return false;
+    this.closeAssistant?.();
     await this.releaseLease(true);this.discardDraft();this.historyView?.destroy();this.closePageMenu?.(false);this.closeContext?.();
     this.live?.destroy();this.live=null;this.handle?.destroy();this.handle=null;this.database?.destroy();this.database=null;this.discussions?.destroy();this.discussions=null;
     clearInterval(this.readTimer);clearTimeout(this.timer);clearTimeout(this.maxSaveTimer);clearTimeout(this.lockTimer);
@@ -1295,6 +1338,7 @@ class NotesWorkspace {
     }catch(error){this.ctx.toast(error.message);}
   }
   async openTrash(note){
+    this.closeAssistant?.();
     if(!(await this.flush()))return;
     const previous=this.page?.id;
     await this.releaseLease(true);this.live?.destroy();this.live=null;this.handle?.destroy();this.database?.destroy();this.database=null;this.discussions?.destroy();clearInterval(this.readTimer);clearTimeout(this.lockTimer);this.linkObserver?.disconnect();

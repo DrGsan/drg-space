@@ -456,13 +456,15 @@ app.include_router(create_native_auth_router(db,tokens,protection,lambda:now(),f
 def me(request: Request):
     from app.people_names import names
     from app.modules.appearance import preferences as appearance_preferences
+    from app.modules.note_assistant import enabled_for_account
     s=session(request,verified=False)
     settings={k:v for k,v in json.loads(s['settings']).items() if not k.startswith('_')}
     settings['appearance']=appearance_preferences(settings)
     with db() as c:
         flag=c.execute("SELECT value FROM federation_metadata WHERE key='enabled'").fetchone()
         federation_enabled=bool(flag and flag[0]=='true' and federation_service.identity)
-    return {'federation_enabled':federation_enabled,'id':s['user_id'],'login':s['login'],'role':s['role'],'role_label':ROLE_LABELS[s['role']],'csrf':s['csrf'],'verified':bool(s['verified']),'two_factor':bool(s['totp']),'needs_enrollment':s['stage']=='enrollment','access_expires':s['access_expires'],'app_version':APP_VERSION,'app_release':release_for_language(APP_RELEASE,recipient_language(settings,current_language.get())),'account_deletion':s.get('account_deletion') if s['verified'] and s['stage']=='full' else None,'people_names':names(json.loads(s['settings'])) if s['verified'] and s['stage']=='full' else {},'settings':settings}
+        notes_assistant_enabled=enabled_for_account(c,s)
+    return {'federation_enabled':federation_enabled,'notes_assistant_enabled':notes_assistant_enabled,'id':s['user_id'],'login':s['login'],'role':s['role'],'role_label':ROLE_LABELS[s['role']],'csrf':s['csrf'],'verified':bool(s['verified']),'two_factor':bool(s['totp']),'needs_enrollment':s['stage']=='enrollment','access_expires':s['access_expires'],'app_version':APP_VERSION,'app_release':release_for_language(APP_RELEASE,recipient_language(settings,current_language.get())),'account_deletion':s.get('account_deletion') if s['verified'] and s['stage']=='full' else None,'people_names':names(json.loads(s['settings'])) if s['verified'] and s['stage']=='full' else {},'settings':settings}
 
 @app.get('/api/app-update')
 def app_update(request: Request):
@@ -926,6 +928,7 @@ if STATIC.exists():
         if response is None:fail(404,localized_message('fileNotFound'))
         return response
     @app.get('/')
+    @app.get('/ai')
     @app.get('/f/{token}')
     @app.get('/page/{token}')
     @app.get('/page/{token}/history')

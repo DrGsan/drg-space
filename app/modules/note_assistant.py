@@ -101,6 +101,10 @@ def api_key():
     return os.getenv('OPENAI_API_KEY', '').strip()
 
 
+def enabled_for_account(c, session):
+    return bool(session['stage'] == 'full' and api_key() and setting(c, CONFIG).get('user_id') == session['user_id'])
+
+
 def linked_status(c, nid):
     return c.execute("SELECT p.status AS page_status,r.status AS root_status FROM notion_pages p JOIN notion_roots r ON r.id=p.root_id WHERE p.note_id=? AND r.status!='detached'", (nid,)).fetchone()
 
@@ -411,7 +415,7 @@ def register(router, db, ready, admin, rate, now, fail, insert_page):
     def status(request: Request):
         s = ready(request)
         with db() as c:
-            return {'enabled': bool(api_key() and setting(c, CONFIG).get('user_id') == s['user_id'])}
+            return {'enabled': enabled_for_account(c, s)}
 
     @router.get('/api/notes-assistant/pages')
     def pages(request: Request, q: str = Query(default='', max_length=200)):

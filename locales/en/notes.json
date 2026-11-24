@@ -1,4 +1,11 @@
 {
+  "assistantSection": "Notes AI",
+  "assistantWelcome": "Start with a note",
+  "assistantWelcomeDescription": "Write a new note or choose a personal note to read and revise.",
+  "assistantPanelWelcome": "What shall we do with this note?",
+  "assistantSelectNote": "Choose a note",
+  "assistantNewChat": "New chat",
+  "assistantOpenNote": "Open note",
   "assistantAcceptCommands": "ok|okay",
   "assistantRejectCommands": "not ok",
   "assistantChat": "Notes assistant",

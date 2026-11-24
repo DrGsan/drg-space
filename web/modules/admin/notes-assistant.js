@@ -27,6 +27,7 @@ export function mountNotesAssistant(panel, ctx) {
         status.textContent = '';
         try {
           const {user_id: user} = await ctx.api('/admin/notes-assistant', 'PUT', {user_id: account.value || null});
+          ctx.state.me.notes_assistant_enabled = settings.configured && user === ctx.state.me.id;
           updateStatus(user);
           ctx.toast(tText('admin:notesAssistantSaved'));
         } catch (error) { status.textContent = error.message; }

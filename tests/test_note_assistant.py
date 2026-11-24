@@ -97,6 +97,8 @@ def test_scopes_and_disabling(active, monkeypatch):
     share(active, public['id'], 'public')
     assert active.get(ROOT + '/pages').json() == {'items': []}
     assert guest.get(ROOT).json() == {'enabled': False}
+    assert active.get('/api/me').json()['notes_assistant_enabled'] is True
+    assert guest.get('/api/me').json()['notes_assistant_enabled'] is False
     assert guest.get(ROOT + '/pages/' + public['id']).status_code == 403
     assert guest.get(ADMIN).status_code == 403
     assert guest.post(ROOT + '/propose', json={'prompt': 'test'}).status_code == 403
@@ -109,6 +111,8 @@ def test_scopes_and_disabling(active, monkeypatch):
     configure(active, account_id(guest))
     assert active.post(ROOT + '/apply', json={'draft': preview['draft']}).status_code == 403
     assert guest.get(ROOT).json() == {'enabled': True}
+    assert active.get('/api/me').json()['notes_assistant_enabled'] is False
+    assert guest.get('/api/me').json()['notes_assistant_enabled'] is True
     configure(active, None)
     assert guest.get(ROOT).json() == {'enabled': False}
     assert active.get('/api/notes/' + public['id']).status_code == 200
@@ -141,6 +145,7 @@ def test_notion_read_only_and_provider_failure_do_not_save(active, monkeypatch):
     assert len(active.get('/api/notes').json()) == 2
     monkeypatch.delenv('OPENAI_API_KEY')
     assert active.get(ROOT).json() == {'enabled': False}
+    assert active.get('/api/me').json()['notes_assistant_enabled'] is False
     assert active.get('/api/notes').status_code == 200
 
 

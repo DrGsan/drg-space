@@ -2,9 +2,9 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.3.0-rc.3] — 2026-11-24 — AI assistant for personal notes
+## [5.3.0-rc.4] — 2026-11-24 — AI assistant for personal notes
 
-- Ask the assistant about a personal note in chat, even when starting from a blank page.
+- Open Notes AI as a full workspace or use the assistant alongside an open note.
 - Draft new notes, rewrite entire pages or refine a proposal before confirming it.
 - Use the current note as a read-only source and inspect the excerpts shared with OpenAI.
 - Enable the assistant for one account from Administration.

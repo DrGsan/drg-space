@@ -35,6 +35,7 @@ export function applyPageView(host, value) {
   host.classList.toggle('page-small-text', value.small_text === true);
 }
 const paths = {
+  close: '<path d="m6 6 12 12M18 6 6 18"/>',
   edit: '<path d="m15 5 4 4m-15 7 1-4L16 1l4 4L9 16H4Z" transform="translate(0 2)"/>',
   sparkles: '<path d="m11 3 1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9L11 3Zm8 10v6m-3-3h6M5 16v4m-2-2h4"/>',
   source: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8m-8 4h8m-8 4h4"/>',

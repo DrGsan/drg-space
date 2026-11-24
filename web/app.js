@@ -54,6 +54,7 @@ import { moduleEnabled } from "./core/modules.js";
 import {mountFamilyPhotos,familyPhotosController} from './modules/family-photos/index.js';
 import { $, esc, md, date, today, formBind, toast } from "./core/ui.js";
 import { mountNotes, notesController } from "./modules/notes/index.js";
+import { mountAssistantWorkspace } from "./modules/notes/assistant.js";
 import {vaultController} from './modules/security/vault.js';
 import {loadEditor,mountBlockEditor} from "./modules/notes/editor-runtime.js";
 import {
@@ -84,6 +85,8 @@ let sharedHandle;
 let workspaceUpdate;
 let navigationRequest=0;
 let disposeAppearance;
+let disposeAssistant;
+const canUseAssistant=()=>Boolean(state.me?.notes_assistant_enabled&&moduleEnabled(state,"notes"));
 let disposeAdmin;
 let registrationOpen=false;
 let restoredWorkspaceFor=null;
@@ -172,6 +175,7 @@ function renderAuthScreen(mode = "login", message = "", existingInvite = false) 
   acceptAccountLanguage=true;
   vaultController.clear();
   clearAvatarCache();
+  disposeAssistant?.();disposeAssistant=null;
   disposeAppearance?.();disposeAppearance=null;
   disposeAdmin?.();disposeAdmin=null;
   sharedHandle?.destroy();
@@ -228,6 +232,7 @@ function renderAuthScreen(mode = "login", message = "", existingInvite = false) 
     if(location.pathname.startsWith('/share/'))return sharedScreen();
     if(invite&&location.pathname.startsWith('/invite/'))return workspaceInvitation();
     if(location.pathname.startsWith('/page/')){state.view='notes';state.selected=location.pathname.split('/')[2];}
+    else if(location.pathname==='/ai'){state.view='assistant';state.selected=null;}
     else{state.view=mobileApp()?'chat':'home';state.selected=null;}
     restoredWorkspaceFor=state.me.id;
     await loadWorkspace();
@@ -285,7 +290,9 @@ function enrollment() {
       if(location.pathname.startsWith("/f/"))return await fileSharedScreen();
       if(location.pathname.startsWith("/share/"))return await sharedScreen();
       if(location.pathname.startsWith("/invite/"))return await workspaceInvitation();
-      history.replaceState({},"","/");state.view=mobileApp()?"chat":"home";state.selected=null;restoredWorkspaceFor=state.me.id;await loadWorkspace();
+      if(location.pathname==='/ai')state.view='assistant';
+      else{history.replaceState({},"","/");state.view=mobileApp()?"chat":"home";}
+      state.selected=null;restoredWorkspaceFor=state.me.id;await loadWorkspace();
     }finally{
       if(result?.invitation_friendship?.status==='unavailable')toast(result.invitation_friendship.message);
     }
@@ -379,6 +386,7 @@ function renderWorkspaceNow({remember=true,chatList=true}={}) {
   const previousNavigation=root.querySelector('.sidebar nav');
   vaultController.destroy();
   if(previousNavigation)navigationScroll={uid:state.me.id,left:previousNavigation.scrollLeft,top:previousNavigation.scrollTop};
+  disposeAssistant?.();disposeAssistant=null;
   disposeAppearance?.();disposeAppearance=null;
   disposeAdmin?.();disposeAdmin=null;
   dashboardController.destroy();
@@ -387,7 +395,8 @@ function renderWorkspaceNow({remember=true,chatList=true}={}) {
   trackerController.destroy();
   chatController.destroy();
   familyPhotosController.destroy();
-  if (state.view !== "notes") history.replaceState({}, "", "/");
+  if(state.view==="assistant"&&!canUseAssistant())state.view="home";
+  if (state.view !== "notes") history.replaceState({}, "", state.view==="assistant"?"/ai":"/");
   if (state.view==="admin" && !["owner","admin"].includes(state.me.role)) state.view="settings";
   if (["notes", "tracker", "tasks", "chat", "expenses", "files", "family_photos"].includes(state.view) && !moduleEnabled(state, state.view)) {
     state.view = mobileApp()?mobileStart(id=>moduleEnabled(state,id)):"home";
@@ -400,9 +409,11 @@ function renderWorkspaceNow({remember=true,chatList=true}={}) {
   const tasksOpen=state.view === "tasks";
   const chatOpen=state.view === "chat";
   const filesOpen=state.view === "files";
+  const assistantOpen=state.view==="assistant";
   const focusedWorkspace=notesOpen||tasksOpen||chatOpen||filesOpen;
+  const assistantNav=canUseAssistant()?`<button class="nav-btn ${assistantOpen?"active":""}" data-view="assistant" ${assistantOpen?'aria-current="page"':''} aria-label="${tHtml("notes:assistantMenu")}" title="${tHtml("notes:assistantMenu")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon("sparkles")}</span><span class="nav-text">${tHtml("notes:assistantMenu")}</span></button>`:"";
   const inboxButton=`<button class="icon-btn inbox-button" id="open-inbox" aria-label="${tHtml("app:notifications")}" title="${tHtml("app:notifications")}">${inboxIcon}</button>`;
-  root.innerHTML = `<div data-current-view="${state.view}" class="workspace ${notesOpen?"notes-open":tasksOpen?"tasks-open":chatOpen?"chat-open":filesOpen?"files-open":""}">${focusedWorkspace?"":`<aside class="sidebar"><a href="/" class="brand" aria-label="DrG Space">${brand()}</a><div class="nav-label">${tHtml("app:workspace")}</div><nav><button class="nav-btn ${state.view === "home" ? "active" : ""}" data-view="home" aria-label="${tHtml("app:home")}" title="${tHtml("app:home")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('house')}</span><span class="nav-text">${tHtml("app:home")}</span></button>${moduleEnabled(state, "notes") ? `<button class="nav-btn ${state.view === "notes" ? "active" : ""}" data-view="notes" aria-label="${tHtml("app:notes")}" title="${tHtml("app:notes")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('notebook-text')}</span><span class="nav-text">${tHtml("app:notes")}</span></button>` : ""}${moduleEnabled(state,"tracker")?`<button class="nav-btn ${state.view==="tracker"?"active":""}" data-view="tracker" aria-label="${tHtml("tracker:title")}" title="${tHtml("tracker:title")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon("kanban")}</span><span class="nav-text">${tHtml("tracker:title")}</span></button>`:""}${moduleEnabled(state, "tasks") ? `<button class="nav-btn ${state.view === "tasks" ? "active" : ""}" data-view="tasks" aria-label="${tHtml("app:reminders")}" title="${tHtml("app:reminders")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('list-todo')}</span><span class="nav-text">${tHtml("app:reminders")}</span></button>` : ""}${moduleEnabled(state, "chat") ? `<button class="nav-btn ${state.view === "chat" ? "active" : ""}" data-view="chat" aria-label="${tHtml("app:messages")}" title="${tHtml("app:messages")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('messages-square')}</span><span class="nav-text">${tHtml("app:messages")}</span><small data-chat-unread aria-hidden="true" hidden></small></button>` : ""}${moduleEnabled(state,"files")?`<button class="nav-btn ${state.view==='files'?'active':''}" data-view="files" aria-label="${tHtml("app:files")}" title="${tHtml("app:files")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('folder-closed')}</span><span class=nav-text>${tHtml("app:files")}</span></button>`:""}${moduleEnabled(state,"family_photos")?`<button class="nav-btn ${state.view==="family_photos"?"active":""}" data-view="family_photos" aria-label="${tHtml("app:familyPhotos")}" title="${tHtml("app:familyPhotos")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('image')}</span><span class="nav-text">${tHtml("app:familyPhotos")}</span></button>`:""}<button class="nav-btn ${state.view === "social" ? "active" : ""}" data-view="social" aria-label="${tHtml("app:peopleAndGroups")}" title="${tHtml("app:peopleAndGroups")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('users-round')}</span><span class="nav-text">${tHtml("app:peopleAndGroups")}</span></button>${moduleEnabled(state,"expenses")?`<button class="nav-btn ${state.view==='expenses'?'active':''}" data-view="expenses" aria-label="${tHtml("app:splitBills")}" title="${tHtml("app:splitBills")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('receipt-text')}</span><span class="nav-text">${tHtml("app:splitBills")}</span></button>`:""}<button class="nav-btn ${["settings","security","personal-data"].includes(state.view) ? "active" : ""}" data-view="settings" aria-label="${tHtml("app:settings")}" title="${tHtml("app:settings")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('settings')}</span><span class="nav-text">${tHtml("app:settings")}</span></button>${["owner","admin"].includes(state.me.role)?`<button class="nav-btn ${state.view==="admin"?"active":""}" data-view="admin" aria-label="${tHtml("app:administration")}" title="${tHtml("app:administration")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('shield-user')}</span><span class="nav-text">${tHtml("app:administration")}</span></button>`:""}</nav><div class="sidebar-bottom">${state.me.two_factor?"":`<button class="security-badge security-warning" data-warning-2fa>${tHtml("app:accountIsNotProtectedBy2Fa")}</button>`}<div class="user"><span class="avatar">${avatarMarkup(state.me)}</span><div><strong>${esc(name)}</strong><small>${esc(state.me.role_label)}</small></div><button id="logout" class="icon-btn" aria-label="${tHtml("app:signOut")}">↪</button></div><small class="sidebar-version" data-sidebar-version aria-label="${tHtml("app:appVersion", {value0:(esc(state.me.app_version))})}">v${esc(state.me.app_version)}</small><small class="sidebar-update" data-sidebar-update hidden></small></div></aside>`}<main class="content">${focusedWorkspace?"":`<header class="topbar"><button type="button" class="mobile-secondary-back" data-mobile-open="settings" aria-label="${tHtml("app:backToSettings")}">‹</button><strong class="mobile-screen-title">${esc(({home:tText("app:home"),tracker:tText("tracker:title"),settings:tText("app:settings"),files:tText("app:files"),family_photos:tText("app:familyPhotos"),social:tText("app:peopleAndGroups"),expenses:tText("app:splitBills"),security:tText("app:security"),"personal-data":tText("app:personalData"),admin:tText("app:administration")})[state.view]||"")}</strong>${inboxButton}<span>${new Date().toLocaleDateString(locale(), { day: "numeric", month: "long", weekday: "long" })}</span>${moduleEnabled(state, "notes") ? `<button id="new-note" class="primary compact">${tHtml("app:newNote")}</button>` : ""}</header>`}<div id="view-content"></div></main><nav class="mobile-app-tabs" aria-label="${tHtml("app:mainSections")}">${mobileTabs.filter(([id])=>id==="settings"||moduleEnabled(state,id)).map(([id,icon,label])=>`<button type="button" data-mobile-view="${id}" ${state.view===id||id==='settings'&&!mobileTabs.some(([tab])=>tab===state.view)?'aria-current="page"':''}>${sidebarIcon(icon)}<span>${label}</span></button>`).join('')}</nav></div>`;
+  root.innerHTML = `<div data-current-view="${state.view}" class="workspace ${notesOpen?"notes-open":tasksOpen?"tasks-open":chatOpen?"chat-open":filesOpen?"files-open":""}">${focusedWorkspace?"":`<aside class="sidebar"><a href="/" class="brand" aria-label="DrG Space">${brand()}</a><div class="nav-label">${tHtml("app:workspace")}</div><nav><button class="nav-btn ${state.view === "home" ? "active" : ""}" data-view="home" aria-label="${tHtml("app:home")}" title="${tHtml("app:home")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('house')}</span><span class="nav-text">${tHtml("app:home")}</span></button>${moduleEnabled(state, "notes") ? `<button class="nav-btn ${state.view === "notes" ? "active" : ""}" data-view="notes" aria-label="${tHtml("app:notes")}" title="${tHtml("app:notes")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('notebook-text')}</span><span class="nav-text">${tHtml("app:notes")}</span></button>` : ""}${assistantNav}${moduleEnabled(state,"tracker")?`<button class="nav-btn ${state.view==="tracker"?"active":""}" data-view="tracker" aria-label="${tHtml("tracker:title")}" title="${tHtml("tracker:title")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon("kanban")}</span><span class="nav-text">${tHtml("tracker:title")}</span></button>`:""}${moduleEnabled(state, "tasks") ? `<button class="nav-btn ${state.view === "tasks" ? "active" : ""}" data-view="tasks" aria-label="${tHtml("app:reminders")}" title="${tHtml("app:reminders")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('list-todo')}</span><span class="nav-text">${tHtml("app:reminders")}</span></button>` : ""}${moduleEnabled(state, "chat") ? `<button class="nav-btn ${state.view === "chat" ? "active" : ""}" data-view="chat" aria-label="${tHtml("app:messages")}" title="${tHtml("app:messages")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('messages-square')}</span><span class="nav-text">${tHtml("app:messages")}</span><small data-chat-unread aria-hidden="true" hidden></small></button>` : ""}${moduleEnabled(state,"files")?`<button class="nav-btn ${state.view==='files'?'active':''}" data-view="files" aria-label="${tHtml("app:files")}" title="${tHtml("app:files")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('folder-closed')}</span><span class=nav-text>${tHtml("app:files")}</span></button>`:""}${moduleEnabled(state,"family_photos")?`<button class="nav-btn ${state.view==="family_photos"?"active":""}" data-view="family_photos" aria-label="${tHtml("app:familyPhotos")}" title="${tHtml("app:familyPhotos")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('image')}</span><span class="nav-text">${tHtml("app:familyPhotos")}</span></button>`:""}<button class="nav-btn ${state.view === "social" ? "active" : ""}" data-view="social" aria-label="${tHtml("app:peopleAndGroups")}" title="${tHtml("app:peopleAndGroups")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('users-round')}</span><span class="nav-text">${tHtml("app:peopleAndGroups")}</span></button>${moduleEnabled(state,"expenses")?`<button class="nav-btn ${state.view==='expenses'?'active':''}" data-view="expenses" aria-label="${tHtml("app:splitBills")}" title="${tHtml("app:splitBills")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('receipt-text')}</span><span class="nav-text">${tHtml("app:splitBills")}</span></button>`:""}<button class="nav-btn ${["settings","security","personal-data"].includes(state.view) ? "active" : ""}" data-view="settings" aria-label="${tHtml("app:settings")}" title="${tHtml("app:settings")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('settings')}</span><span class="nav-text">${tHtml("app:settings")}</span></button>${["owner","admin"].includes(state.me.role)?`<button class="nav-btn ${state.view==="admin"?"active":""}" data-view="admin" aria-label="${tHtml("app:administration")}" title="${tHtml("app:administration")}"><span class="nav-icon" aria-hidden="true">${sidebarIcon('shield-user')}</span><span class="nav-text">${tHtml("app:administration")}</span></button>`:""}</nav><div class="sidebar-bottom">${state.me.two_factor?"":`<button class="security-badge security-warning" data-warning-2fa>${tHtml("app:accountIsNotProtectedBy2Fa")}</button>`}<div class="user"><span class="avatar">${avatarMarkup(state.me)}</span><div><strong>${esc(name)}</strong><small>${esc(state.me.role_label)}</small></div><button id="logout" class="icon-btn" aria-label="${tHtml("app:signOut")}">↪</button></div><small class="sidebar-version" data-sidebar-version aria-label="${tHtml("app:appVersion", {value0:(esc(state.me.app_version))})}">v${esc(state.me.app_version)}</small><small class="sidebar-update" data-sidebar-update hidden></small></div></aside>`}<main class="content">${focusedWorkspace||assistantOpen?"":`<header class="topbar"><button type="button" class="mobile-secondary-back" data-mobile-open="settings" aria-label="${tHtml("app:backToSettings")}">‹</button><strong class="mobile-screen-title">${esc(({home:tText("app:home"),tracker:tText("tracker:title"),settings:tText("app:settings"),files:tText("app:files"),family_photos:tText("app:familyPhotos"),social:tText("app:peopleAndGroups"),expenses:tText("app:splitBills"),security:tText("app:security"),"personal-data":tText("app:personalData"),admin:tText("app:administration")})[state.view]||"")}</strong>${inboxButton}<span>${new Date().toLocaleDateString(locale(), { day: "numeric", month: "long", weekday: "long" })}</span>${moduleEnabled(state, "notes") ? `<button id="new-note" class="primary compact">${tHtml("app:newNote")}</button>` : ""}</header>`}<div id="view-content"></div></main><nav class="mobile-app-tabs" aria-label="${tHtml("app:mainSections")}">${mobileTabs.filter(([id])=>id==="settings"||moduleEnabled(state,id)).map(([id,icon,label])=>`<button type="button" data-mobile-view="${id}" ${state.view===id||id==='settings'&&!mobileTabs.some(([tab])=>tab===state.view)?'aria-current="page"':''}>${sidebarIcon(icon)}<span>${label}</span></button>`).join('')}</nav></div>`;
   showAppUpdate($('[data-sidebar-update]'),state.me,api);
   restoreMobileTabs(root,previousMobileTabs,state.me.id);
   root.querySelectorAll('[data-mobile-view],[data-mobile-open]').forEach(button=>button.onclick=()=>context().navigate(button.dataset.mobileView||button.dataset.mobileOpen,{chatList:button.dataset.mobileView==='chat'}));
@@ -430,6 +441,7 @@ function renderWorkspaceNow({remember=true,chatList=true}={}) {
   if (state.view === "files") mountFiles($("#view-content"),context());
   if (state.view === "home") dashboard();
   if (state.view === "notes") notesView();
+  if (assistantOpen) disposeAssistant=mountAssistantWorkspace($("#view-content"),context());
   if (state.view === "tasks") tasksView();
   if (state.view === "tracker") mountTracker($("#view-content"),context());
   if (state.view === "settings") settingsView();
@@ -451,6 +463,7 @@ function renderWorkspaceNow({remember=true,chatList=true}={}) {
 async function navigateWorkspace(view,{chatList=true}={}) {
   const account=state.me;
   if(!account)return;
+  if(view==="assistant"&&!canUseAssistant())return;
   if(view==="admin"&&!["owner","admin"].includes(account.role))return;
   if(["notes","tracker","tasks","chat","expenses","files","family_photos"].includes(view)&&!moduleEnabled(state,view))return;
   const request=++navigationRequest;
@@ -488,6 +501,7 @@ function context() {
     sharePanel,
     notesInboxButton: `<button class="icon-btn inbox-button" id="open-inbox" aria-label="${tHtml("app:notifications")}" title="${tHtml("app:notifications")}">${inboxIcon}</button>`,
     moduleEnabled: (id) => moduleEnabled(state, id),
+    canUseAssistant,
     renderWorkspace,
     loadWorkspace,
     restored: (login) => {
@@ -631,7 +645,7 @@ function settingsView() {
   showAppUpdate($('#about-settings [data-app-update]'),state.me,api);
   sectionHeader($('#view-content'),context());
   if(mobileApp()){
-    const destinations=[['home','house',tText("app:homeAndWidgets")],['family_photos','image',tText("app:familyPhotos")],['files','folder-closed',tText("app:files")],['social','users-round',tText("app:peopleAndGroups")],['expenses','receipt-text',tText("app:splitBills")],...(['owner','admin'].includes(state.me.role)?[['admin','shield-user',tText("app:administration")]]:[])];
+    const destinations=[['home','house',tText("app:homeAndWidgets")],...(canUseAssistant()?[['assistant','sparkles',tText('notes:assistantMenu')]]:[]),['family_photos','image',tText("app:familyPhotos")],['files','folder-closed',tText("app:files")],['social','users-round',tText("app:peopleAndGroups")],['expenses','receipt-text',tText("app:splitBills")],...(['owner','admin'].includes(state.me.role)?[['admin','shield-user',tText("app:administration")]]:[])];
     const extra=document.createElement('section');extra.className='mobile-more-sections';
     extra.innerHTML=`<div class="mobile-account"><span class="avatar" data-profile-avatar>${avatarMarkup(state.me)}</span><div><strong data-profile-display-name>${esc(displayName(state.me))}</strong><span>@${esc(state.me.login)}</span></div></div><h2>${tHtml("app:sections")}</h2><div class="mobile-section-links">${destinations.filter(([id])=>!['family_photos','files','expenses'].includes(id)||moduleEnabled(state,id)).map(([id,icon,label])=>`<button type="button" data-mobile-open="${id}">${sidebarIcon(icon)}<span>${label}</span><span aria-hidden="true">›</span></button>`).join('')}</div>`;
     $('#view-content .page-heading').after(extra);
@@ -759,6 +773,7 @@ async function start() {
       if (!state.me.verified) return authScreen("2fa");
       if (state.me.needs_enrollment) return enrollment();
       if (location.pathname.startsWith('/invite/'))return workspaceInvitation();
+      if(location.pathname==='/ai')state.view='assistant';
       if (location.pathname.startsWith("/page/")) {
         state.view = "notes";
         state.selected = location.pathname.split("/")[2];
@@ -802,6 +817,7 @@ async function workspaceInvitation(){
 }
 
 function accountWaiting(){
+  disposeAssistant?.();disposeAssistant=null;
   disposeAppearance?.();disposeAppearance=null;disposeAdmin?.();disposeAdmin=null;
   dashboardController.destroy();notesController.destroy();tasksController.destroy();trackerController.destroy();chatController.destroy();familyPhotosController.destroy();callsController.destroy();inboxController.destroy();chatUnreadController.destroy();
   document.querySelectorAll('.modal-overlay').forEach(el=>el.remove());

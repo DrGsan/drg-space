@@ -1,6 +1,8 @@
 import {tHtml, tText} from '../../core/i18n.js';
 import {$, esc} from '../../core/ui.js';
 import {pageCover, pageIcon} from '../../core/page-assets.js';
+import {sidebarIcon} from '../../core/sidebar-icons.js';
+import {mobileApp} from '../../core/mobile.js';
 import './assistant.css';
 
 const apiRoot = '/notes-assistant';
@@ -39,22 +41,33 @@ function excerpt(label, note) {
   return note ? `<section class="notes-ai-context"><h3>${tHtml(label)} · ${esc(note.title)}</h3>${note.excerpt ? `<p>${esc(note.excerpt)}</p>` : ''}</section>` : '';
 }
 
-export function openNoteAssistant(ctx, {target, initialSource, beforeSave}, onSaved, onClose) {
-  const overlay = ctx.modal(`<h2>${tHtml('notes:assistantChat')}</h2><div class="notes-ai"><details data-ai-details><summary data-ai-context-label>${tHtml('notes:assistantContext')}</summary><div data-ai-context></div><div class="notes-ai-source"><label>${tHtml('notes:assistantFindSource')}<input type="search" placeholder="${tHtml('notes:searchPages')}" maxlength="200" data-ai-search></label><label>${tHtml('notes:assistantSource')}<select data-ai-source></select></label></div></details><div class="notes-ai-log" data-ai-log role="log" aria-live="polite"></div><div data-ai-actions class="notes-ai-actions" hidden><button type="button" class="secondary" data-ai-reject>${tHtml('notes:assistantReject')}</button><button type="button" class="primary" data-ai-apply>${tHtml('notes:assistantSave')}</button></div><form data-ai-input><textarea name="prompt" aria-label="${tHtml('notes:assistantPrompt')}" placeholder="${tHtml('notes:assistantPlaceholder')}" maxlength="4000" rows="2" required></textarea><button type="submit" class="primary">${tHtml('notes:assistantSend')}</button></form><p class="muted notes-ai-disclosure">${tHtml('notes:assistantDisclosure')}</p><p data-ai-error role="alert"></p></div>`);
-  overlay.classList.add('notes-assistant-overlay');
-  const form = $('[data-ai-input]', overlay);
-  const log = $('[data-ai-log]', overlay);
-  const detail = $('[data-ai-details]', overlay);
-  const error = $('[data-ai-error]', overlay);
+export function mountNoteAssistant(host, ctx, {target, initialSource, layout, beforeSave = async () => true}, onSaved) {
+  const standalone = layout === 'workspace';
+  const chat = document.createElement('section');
+  chat.className = `notes-ai notes-ai-${layout}`;
+  chat.setAttribute('aria-label', tText('notes:assistantChat'));
+  chat.innerHTML = `<div class="notes-ai-intro"><div class="notes-ai-emblem">${sidebarIcon('sparkles')}</div><h2>${tHtml(standalone ? 'notes:assistantWelcome' : 'notes:assistantPanelWelcome')}</h2>${standalone ? `<p>${tHtml('notes:assistantWelcomeDescription')}</p>` : ''}</div>
+    <div class="notes-ai-log" data-ai-log role="log" aria-live="polite" hidden></div>
+    <div class="notes-ai-compose"><div data-ai-actions class="notes-ai-actions" hidden><button type="button" class="secondary compact" data-ai-reject>${tHtml('notes:assistantReject')}</button><button type="button" class="primary compact" data-ai-apply>${tHtml('notes:assistantSave')}</button></div>
+    <form data-ai-input><textarea name="prompt" aria-label="${tHtml('notes:assistantPrompt')}" placeholder="${tHtml('notes:assistantPlaceholder')}" maxlength="4000" rows="2" required></textarea>
+    <div class="notes-ai-toolbar"><details data-ai-details><summary data-ai-context-label></summary><div class="notes-ai-context-popover"><label>${tHtml('notes:assistantFindSource')}<input type="search" placeholder="${tHtml('notes:searchPages')}" maxlength="200" data-ai-search></label><label>${tHtml(standalone ? 'notes:assistantSelectNote' : 'notes:assistantSource')}<select data-ai-source></select></label><div data-ai-context></div></div></details><button type="submit" class="primary compact" aria-label="${tHtml('notes:assistantSend')}" title="${tHtml('notes:assistantSend')}"><span data-ai-send-icon>${sidebarIcon('arrow-up')}</span><span data-ai-spinner hidden aria-hidden="true" class="notes-ai-spinner"></span></button></div></form>
+    <p class="muted notes-ai-disclosure">${tHtml('notes:assistantDisclosure')}</p><p data-ai-status class="notes-ai-screen-reader" role="status"></p><p data-ai-error role="alert"></p></div>`;
+  host.append(chat);
+  const form = $('[data-ai-input]', chat);
+  const log = $('[data-ai-log]', chat);
+  const detail = $('[data-ai-details]', chat);
+  const error = $('[data-ai-error]', chat);
   const submit = $('button', form);
-  const source = $('[data-ai-source]', overlay);
-  const search = $('[data-ai-search]', overlay);
+  const source = $('[data-ai-source]', chat);
+  const search = $('[data-ai-search]', chat);
   const prompt = form.elements.prompt;
-  const actions = $('[data-ai-actions]', overlay);
+  const actions = $('[data-ai-actions]', chat);
   const apply = $('[data-ai-apply]', actions);
   const reject = $('[data-ai-reject]', actions);
   const history = [];
   let items = [], sourcePage = initialSource, searchGeneration = 0, contextGeneration = 0, timer;
+  let destroyed = false;
+  const selectedPage = () => standalone ? target ?? sourcePage : sourcePage;
   let latest, card, busy = false, applying = false, contextReady = false, loadedSources = false;
   const call = (path, method = 'GET', data) => ctx.api(apiRoot + path, method, data, true, {}, {timeoutMs: 65000});
   const discard = draft => call('/draft/' + draft.id, 'DELETE').catch(() => {});
@@ -62,7 +75,11 @@ export function openNoteAssistant(ctx, {target, initialSource, beforeSave}, onSa
   const scrollLog = () => { log.scrollTop = log.scrollHeight; };
   function controls() {
     submit.disabled = busy || !contextReady;
-    submit.textContent = tText(busy && !applying ? 'notes:assistantGenerating' : 'notes:assistantSend');
+    $('[data-ai-send-icon]', submit).hidden = busy && !applying;
+    $('[data-ai-spinner]', submit).hidden = !busy || applying;
+    $('[data-ai-status]', chat).textContent = busy && !applying ? tText('notes:assistantGenerating') : '';
+    log.hidden = !log.firstElementChild;
+    chat.classList.toggle('notes-ai-has-messages', !log.hidden);
     prompt.readOnly = busy;
     source.disabled = busy;
     search.disabled = busy;
@@ -74,6 +91,7 @@ export function openNoteAssistant(ctx, {target, initialSource, beforeSave}, onSa
     node.className = 'notes-ai-message ' + (role === 'user' ? 'user' : 'assistant');
     node.textContent = text;
     log.append(node);
+    controls();
     if (remember) {
       history.push({role, text: [...text].slice(0, 1600).join('')});
       if (history.length > 6) history.shift();
@@ -82,33 +100,35 @@ export function openNoteAssistant(ctx, {target, initialSource, beforeSave}, onSa
     return node;
   }
   function setSources(next) {
-    items = next.filter(page => page.id !== sourcePage?.id);
-    if (sourcePage) items.unshift(sourcePage);
+    const selected = selectedPage();
+    items = next.filter(page => page.id !== selected?.id);
+    if (selected) items.unshift(selected);
     source.innerHTML = `<option value="">${tHtml('notes:assistantNoSource')}</option>`;
     for (const page of items) source.add(new Option(page.title + (page.read_only ? ' · Notion' : ''), page.id));
-    source.value = sourcePage?.id || '';
+    source.value = selected?.id || '';
   }
   async function refreshContext() {
     const sequence = ++contextGeneration;
     contextReady = false;
     controls();
     const refs = input();
+    const page = standalone ? selectedPage() : target ?? sourcePage;
+    $('[data-ai-context-label]', chat).innerHTML = `${sidebarIcon(page ? 'notebook-text' : 'plus')}<span>${page ? esc(page.title) : tHtml(standalone ? 'notes:assistantSelectNote' : 'notes:assistantContext')}</span>`;
     try {
       const context = refs.target || refs.source ? await call('/context', 'POST', refs) : {};
-      if (!overlay.isConnected || sequence !== contextGeneration) return;
-      $('[data-ai-context]', overlay).innerHTML = excerpt('notes:assistantTarget', context.target) + excerpt('notes:assistantSource', context.source);
-      $('[data-ai-context-label]', overlay).textContent = sourcePage ? `${tText('notes:assistantSource')} · ${sourcePage.title}` : tText('notes:assistantContext');
+      if (!chat.isConnected || sequence !== contextGeneration) return;
+      $('[data-ai-context]', chat).innerHTML = excerpt('notes:assistantTarget', context.target) + excerpt('notes:assistantSource', context.source);
       contextReady = true;
     } catch (failure) {
-      if (overlay.isConnected && sequence === contextGeneration) error.textContent = failure.message;
+      if (chat.isConnected && sequence === contextGeneration) error.textContent = failure.message;
     } finally { if (sequence === contextGeneration) controls(); }
   }
   async function loadSources(query) {
     const sequence = ++searchGeneration;
     try {
       const {items: next} = await call('/pages?q=' + encodeURIComponent(query));
-      if (overlay.isConnected && sequence === searchGeneration) setSources(next.filter(page => page.id !== target?.id));
-    } catch (failure) { if (overlay.isConnected && sequence === searchGeneration) error.textContent = failure.message; }
+      if (chat.isConnected && sequence === searchGeneration) setSources(standalone ? next : next.filter(page => page.id !== target?.id));
+    } catch (failure) { if (chat.isConnected && sequence === searchGeneration) error.textContent = failure.message; }
   }
   function clearDraft() {
     if (latest) discard(latest);
@@ -124,16 +144,30 @@ export function openNoteAssistant(ctx, {target, initialSource, beforeSave}, onSa
   };
   search.oninput = () => { clearTimeout(timer); timer = setTimeout(() => loadSources(search.value.trim()), 200); };
   source.onchange = () => {
-    sourcePage = items.find(page => page.id === source.value);
+    const selection = items.find(page => page.id === source.value);
+    if (standalone) { target = selection?.read_only ? null : selection; sourcePage = selection?.read_only ? selection : null; }
+    else sourcePage = selection;
+    if (standalone) {
+      history.length = 0;
+      log.replaceChildren();
+    }
+    detail.open = false;
     error.textContent = '';
     clearDraft();
     refreshContext();
   };
+  chat.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || !detail.open) return;
+    event.stopPropagation();
+    detail.open = false;
+    $('summary', detail).focus();
+  });
+  chat.addEventListener('pointerdown', event => {
+    if (detail.open && !detail.contains(event.target)) detail.open = false;
+  });
   setSources([]);
   refreshContext();
-  prompt.focus();
-  overlay.addEventListener('beforeclose', event => { if (applying) event.preventDefault(); });
-  overlay.addEventListener('close', () => { clearTimeout(timer); if (latest) discard(latest); onClose(); });
+  if (!standalone && !matchMedia('(max-width: 900px)').matches) prompt.focus();
   prompt.onkeydown = event => {
     if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
     event.preventDefault();
@@ -159,17 +193,17 @@ export function openNoteAssistant(ctx, {target, initialSource, beforeSave}, onSa
     controls();
     try {
       const result = await call('/propose', 'POST', {...input(), prompt: instruction, previous: latest ?? null, history: messages});
-      if (!overlay.isConnected) { if (result.draft) discard(result.draft); return; }
+      if (!chat.isConnected) { if (result.draft) discard(result.draft); return; }
       if (result.draft) showReview(result);
       else if (result.message.trim()) addMessage('assistant', result.message);
     } catch (failure) {
-      if (!overlay.isConnected) return;
+      if (!chat.isConnected) return;
       error.textContent = failure.message;
       node.remove();
       history.splice(0, history.length, ...messages);
       prompt.value = instruction;
       if (failure.status === 409) clearDraft();
-    } finally { busy = false; controls(); if (overlay.isConnected) prompt.focus(); }
+    } finally { busy = false; controls(); if (chat.isConnected) prompt.focus(); }
   };
   function showReview({draft, fields, before, cover_url: coverUrl, retains_attachments: retains}) {
     latest = draft;
@@ -191,18 +225,55 @@ export function openNoteAssistant(ctx, {target, initialSource, beforeSave}, onSa
     try {
       if (!await beforeSave()) return;
       const saved = await call('/apply', 'POST', {draft: latest});
-      applying = false;
       latest = null;
-      $('.modal-close', overlay).click();
-      ctx.toast(tText('notes:assistantSaved'));
-      await onSaved(saved.id);
+      card?.remove();
+      card = null;
+      if (!chat.isConnected) return;
+      const page = await onSaved(saved.id);
+      if (!chat.isConnected) return;
+      const confirmation = addMessage('assistant', tText('notes:assistantSaved'), false);
+      const link = document.createElement('button');
+      link.type = 'button';
+      link.className = 'text-link notes-ai-note-link';
+      link.textContent = tText('notes:assistantOpenNote');
+      link.onclick = () => ctx.openPage(saved.id);
+      confirmation.append(link);
+      if (target?.id === saved.id && page) { target = page; await refreshContext(); }
     } catch (failure) {
-      if (overlay.isConnected) {
+      if (chat.isConnected) {
         error.textContent = failure.message;
         if (failure.status === 409) clearDraft();
       } else ctx.toast(failure.message);
     } finally { applying = busy = false; controls(); }
   }
   apply.onclick = save;
-  return () => $('.modal-close', overlay).click();
+  return () => {
+    if (destroyed) return;
+    destroyed = true;
+    clearTimeout(timer);
+    if (latest && !applying) discard(latest);
+    chat.remove();
+  };
+}
+
+
+export function mountAssistantWorkspace(host, ctx) {
+  host.innerHTML = `<section class="assistant-workspace"><header class="assistant-workspace-header"><div>${mobileApp() ? `<button class="icon-btn" data-ai-back aria-label="${tHtml('app:backToSettings')}">${sidebarIcon('chevron-left')}</button>` : ''}<h1>${tHtml('notes:assistantSection')}</h1></div><button type="button" class="secondary compact" data-ai-new>${sidebarIcon('plus')}${tHtml('notes:assistantNewChat')}</button></header><div class="assistant-workspace-body" data-ai-workspace></div></section>`;
+  const container = $('[data-ai-workspace]', host);
+  const newChat = $('[data-ai-new]', host);
+  $('[data-ai-back]', host)?.addEventListener('click', () => ctx.navigate('settings'));
+  let dispose;
+  const open = () => {
+    dispose?.();
+    dispose = mountNoteAssistant(container, ctx, {layout: 'workspace'}, async id => {
+      const page = await ctx.api('/notes/' + id);
+      if (!container.isConnected) return null;
+      const index = ctx.state.notes.findIndex(note => note.id === id);
+      if (index < 0) ctx.state.notes.push(page); else ctx.state.notes[index] = page;
+      return page;
+    });
+  };
+  newChat.onclick = open;
+  open();
+  return () => dispose?.();
 }
