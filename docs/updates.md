@@ -1,5 +1,15 @@
 # Updating DrG Space
 
+## 5.2.26
+
+Family groups remain visible when Media can return the group catalog but message previews are temporarily unavailable. If the whole Media service is unreachable, Space shows a status and refreshes automatically. Update Space first, then Media 1.14.7, which can return the catalog when object storage is unavailable.
+
+Rebuild with the existing Compose files, environment, encryption keys and volumes. No migration or configuration change is required. For the base installation:
+
+```sh
+docker compose up -d --build --no-deps app
+```
+
 ## 5.2.25
 
 People and Groups uses larger list text and solid backgrounds in the glass theme. During scheduled storage maintenance, presence and call polling can wait up to six seconds for the storage lock to clear.

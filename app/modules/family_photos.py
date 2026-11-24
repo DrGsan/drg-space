@@ -9,7 +9,7 @@ from urllib.parse import urlparse
 
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt
-from app.http import Router, Request, StreamingResponse,Response
+from app.http import HTTPError, Router, Request, StreamingResponse,Response
 from app.notifications import actor
 from .family_photo_events import FamilyPhotoEvents,read_map
 from .family_photo_messaging import FamilyMessaging
@@ -229,9 +229,9 @@ class FamilyPhotos(FamilyMessaging,FamilyPhotoEvents,FamilyReactionSync):
         monitor=getattr(self.protection,'monitor',None)
         if monitor:monitor.record(request,'admin_action',action='family_group_'+action,outcome='success',details={'group_id':gid})
 
-    def fetch(self, path, method='GET', data=None):
+    def fetch(self, path, method='GET', data=None, *, timeout=5):
         try:
-            response=self.control_request(method,path,data=data)
+            response=self.control_request(method,path,data=data,timeout=timeout)
             if response.status_code>=400:
                 if response.status_code in {401,403}:self.fail(503,localized_message('failedToConnectToTheFamilyPhotoService'))
                 reasons={'already_connected':'Группа уже подключена.', 'cleanup_pending':'Дождитесь завершения очистки группы на сайте.',
@@ -265,7 +265,17 @@ class FamilyPhotos(FamilyMessaging,FamilyPhotoEvents,FamilyReactionSync):
         def list_groups(request:Request):
             previews=request.args.get('previews')=='1'
             s=self.gate(request,chat=previews)
-            data=self.fetch('v1/groups'+('?previews=1' if previews else ''))
+            if previews:
+                try:
+                    data=self.fetch('v1/groups?previews=1',timeout=3.5)
+                except HTTPError as error:
+                    if error.status_code!=503:raise
+                    # Media versions without optional previews still serve the live catalog.
+                    data=self.fetch('v1/groups',timeout=2)
+                    data['previews_available']=False
+                    for group in data['items']:group['last_message']=None
+            else:
+                data=self.fetch('v1/groups')
             data['items']=[g for g in data['items'] if self.allowed(s,g['id'])]
             # Older archive versions remain readable during a rolling update.
             counts=self.family_counts(s,data['items']) if all('latest_message_id' in g for g in data['items']) else {}

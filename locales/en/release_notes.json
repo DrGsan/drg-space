@@ -1,4 +1,7 @@
 {
+  "release5_2_26Title": "Family groups during archive interruptions",
+  "release5_2_26Change1": "Keep family groups visible when message previews are temporarily unavailable.",
+  "release5_2_26Change2": "Show a status when the family catalog cannot load and refresh it automatically.",
   "release5_2_25Title": "More readable People and Groups",
   "release5_2_25Change1": "Make section titles, list text, table headings and page counts easier to read over wallpapers.",
   "release5_2_25Change2": "Let background presence and call requests wait briefly when scheduled storage maintenance holds the storage lock.",

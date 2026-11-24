@@ -246,13 +246,14 @@ export async function mountFamilyPhotos(host,ctx){
 
 export async function watchTelegramRooms(ctx,onChange,{signal}={}){
   if(!ctx.moduleEnabled('family_photos')||signal?.aborted)return null;
-  let closed=false,timer=null,lastRooms=[],running=null,controller=null,revision=0,resume=false,loaded=false;
+  const accessErrors=[401,403,404,423];
+  let closed=false,timer=null,lastRooms=[],running=null,controller=null,revision=0,resume=false,loaded=false,unavailable=false;
   const stop=()=>{clearTimeout(timer);timer=null;revision++;controller?.abort();};
   const destroy=()=>{if(closed)return;closed=true;resume=false;stop();document.removeEventListener('drg-family-read',read);document.removeEventListener('visibilitychange',visible);signal?.removeEventListener('abort',destroy);};
-  const publish=items=>{lastRooms=items;loaded=true;onChange(lastRooms);};
+  const publish=(items,offline=false)=>{lastRooms=items;loaded=true;unavailable=offline;onChange(lastRooms,{unavailable});};
   // A direct conversation can be read before the first catalog arrives.
   // Only a completed catalog request makes the conversation list ready.
-  const read=event=>{if(closed||!loaded)return;publish(lastRooms.map(room=>room.group_id===event.detail?.group_id?{...room,unread:0}:room));};
+  const read=event=>{if(closed||!loaded)return;publish(lastRooms.map(room=>room.group_id===event.detail?.group_id?{...room,unread:0}:room),unavailable);};
   const refresh=()=>{
     if(closed||document.hidden)return Promise.resolve();
     clearTimeout(timer);timer=null;
@@ -268,24 +269,24 @@ export async function watchTelegramRooms(ctx,onChange,{signal}={}){
         const worker=async()=>{while(valid()){
           const index=next++;if(index>=data.items.length)return;
           const group=data.items[index];
-          try{
-            // Only an explicit authoritative zero proves an empty history.
-            const bundled=Object.hasOwn(group,'last_message');
-            const history=bundled||group.latest_message_id===0?null:await request(base(group.id)+'/messages?limit=1');
-            if(!valid())return;
-            const latest=bundled?group.last_message:history?.items.at(-1);
-            items[index]={id:'telegram:'+group.id,group_id:group.id,name:group.title,avatar_url:group.avatar_url,kind:'family',
-            members:[],unread:group.unread||0,mute_until:group.mute_until||0,pinned:false,favorite:false,
-            last_message:latest?{id:latest.id,created:latest.created,body:latest.content_type==='voice'?tText("family_photos:audioMessage"):latest.text,sender:latest.sender,
-              attachments:(latest.media||[]).map(file=>({kind:file.kind==='photo'?'image':file.kind,name:file.name}))}:null};
-          }catch{if(!valid())return;items[index]=null;}
+          let latest=group.last_message;
+          let previewUnavailable=data.previews_available===false&&group.latest_message_id!==0;
+          if(!previewUnavailable&&!Object.hasOwn(group,'last_message')&&group.latest_message_id!==0){
+            try{latest=(await request(base(group.id)+'/messages?limit=1')).items.at(-1);}
+            catch(error){if(accessErrors.includes(error?.status))continue;previewUnavailable=true;}
+          }
+          if(!valid())return;
+          items[index]={id:'telegram:'+group.id,group_id:group.id,name:group.title,avatar_url:group.avatar_url,kind:'family',
+          members:[],unread:group.unread||0,mute_until:group.mute_until||0,pinned:false,favorite:false,preview_unavailable:previewUnavailable,
+          last_message:latest?{id:latest.id,created:latest.created,body:latest.content_type==='voice'?tText("family_photos:audioMessage"):latest.text,sender:latest.sender,
+            attachments:(latest.media||[]).map(file=>({kind:file.kind==='photo'?'image':file.kind,name:file.name}))}:null};
         }};
         await Promise.all(Array.from({length:Math.min(4,data.items.length)},worker));
         if(valid())publish(items.filter(Boolean));
       }catch(error){
-        // A temporary failure should not remove family rows from a list
-        // already on screen. Access errors invalidate the previous snapshot.
-        if(valid()&&(!loaded||[401,403,404,423].includes(error?.status)))publish([]);
+        if(!valid())return;
+        if(accessErrors.includes(error?.status))publish([]);
+        else publish(lastRooms.map(room=>({...room,last_message:null,preview_unavailable:true})),true);
       }
     })().finally(()=>{
       running=null;if(controller===abort)controller=null;
