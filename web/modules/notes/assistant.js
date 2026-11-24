@@ -93,11 +93,25 @@ async function revealText(node) {
   node.removeAttribute('aria-hidden');
 }
 
+function renderedBlocks(editor, ids) {
+  const blockNodes = () => ids.map(id => editor.querySelector('.bn-block-outer[data-id="' + CSS.escape(id) + '"]')).filter(Boolean);
+  const existing = blockNodes();
+  if (existing.length) return existing;
+  return new Promise(resolve => {
+    const finish = blocks => { observer.disconnect(); clearTimeout(timer); resolve(blocks); };
+    const observer = new MutationObserver(() => {
+      const blocks = blockNodes();
+      if (blocks.length) finish(blocks);
+    });
+    const timer = setTimeout(() => finish([]), 750);
+    observer.observe(editor, {childList: true, subtree: true});
+  });
+}
+
 // Highlight a diminishing range instead of editing the text nodes owned by ProseMirror.
 export async function revealNoteBlocks(editor, ids) {
   if (!editor || !ids?.length || !editor.getClientRects().length || !canAnimate()) return;
-  const blocks = ids.map(id => editor.querySelector('.bn-block-outer[data-id="' + CSS.escape(id) + '"]'))
-    .filter(Boolean);
+  const blocks = await renderedBlocks(editor, ids);
   if (!blocks.length) return;
   const roots = blocks.map(block => block.querySelector('.bn-inline-content, pre code')).filter(Boolean);
   const text = textRuns(roots);
