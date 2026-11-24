@@ -1,4 +1,8 @@
 {
+  "release5_2_28Title": "Quick actions for code blocks",
+  "release5_2_28Change1": "Copy the entire code block, including indentation and line breaks, from its top-right corner.",
+  "release5_2_28Change2": "Search for a code language or wrap long lines from the existing block menu.",
+  "release5_2_28Change3": "The copy icon shows a tooltip on hover and confirms copying at the bottom of the window.",
   "release5_2_27Title": "Chat recovery during storage maintenance",
   "release5_2_27Change1": "Preserve unread counts during temporary failures and refresh them once storage returns.",
   "release5_2_27Change2": "Retry a federated local call action once when storage maintenance rejected it before execution.",

@@ -8,9 +8,15 @@ export function selectedBlockRoots(editor,block){
   return blocks.filter(item=>!descendants.has(item.id));
 }
 
+export function inlineText(value){
+  if(typeof value==='string')return value;
+  if(Array.isArray(value))return value.map(inlineText).join('');
+  if(value&&typeof value==='object')return typeof value.text==='string'?value.text:inlineText(value.content);
+  return '';
+}
+
 export function blockText(block){
-  const inline=value=>typeof value==='string'?value:Array.isArray(value)?value.map(inline).join(''):value&&typeof value==='object'?typeof value.text==='string'?value.text:inline(value.content):'';
-  const content=block.type==='table'?(block.content?.rows||[]).map(row=>(row.cells||[]).map(cell=>inline(cell.content??cell)).join(' ')).join('\n'):inline(block.content);
+  const content=block.type==='table'?(block.content?.rows||[]).map(row=>(row.cells||[]).map(cell=>inlineText(cell.content??cell)).join(' ')).join('\n'):inlineText(block.content);
   return [content,...(block.children||[]).map(blockText)].filter(Boolean).join('\n');
 }
 

@@ -8,6 +8,7 @@ import {
 } from '@blocknote/react';
 import './block-menu.css';
 import {selectedBlockRoots,blockText,duplicateBlockTree} from './block-actions.js';
+import {codeLanguages,copyCode} from './code.js';
 import {beginBlockDrag,clearBlockDrag,moveIntoToggle} from './toggle-drop.js';
 
 import {wrapColumns} from './column-actions.js';
@@ -22,6 +23,8 @@ const paths={
   move:['M4 19V8a3 3 0 0 1 3-3h13','m16 1 4 4-4 4'],
   trash:['M3 6h18','M9 6V3h6v3','M6 6l1 15h10l1-15','M10 10v7','M14 10v7'],
   comment:['M4 3h16v13H9l-5 5V3Z','M8 7h8','M8 11h5'],
+  language:['m8 6-6 6 6 6','m16 6 6 6-6 6','m14 4-4 16'],
+  wrap:['M3 6h18','M3 11h13a3 3 0 1 1 0 6h-4','m14 14-3 3 3 3','M3 17h4'],
   up:['m6 14 6-6 6 6'], down:['m6 10 6 6 6-6'],
 };
 function icon(name){return h('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.6,strokeLinecap:'round',strokeLinejoin:'round','aria-hidden':true},(paths[name]||[]).map((d,i)=>h('path',{d,key:i})));}
@@ -55,8 +58,10 @@ function BlockActionsContent({options,page}){
   const selected=useRef(null);
   if(!selected.current&&hovered)selected.current=selectedBlockRoots(editor,hovered).map(item=>item.id);
   const [query,setQuery]=useState('');
+  const [languageQuery,setLanguageQuery]=useState(null);
   const search=useRef(null);
-  useEffect(()=>{const frame=requestAnimationFrame(()=>search.current?.focus());return()=>cancelAnimationFrame(frame);},[]);
+  const selectingLanguage=languageQuery!==null;
+  useEffect(()=>{const frame=requestAnimationFrame(()=>search.current?.focus());return()=>cancelAnimationFrame(frame);},[selectingLanguage]);
   if(!hovered)return null;
   const blocks=(selected.current||[hovered.id]).map(id=>editor.getBlock(id)).filter(Boolean);
   if(!blocks.length)return null;
@@ -68,6 +73,47 @@ function BlockActionsContent({options,page}){
   // Mantine submenus must remain DOM descendants for pointer and keyboard
   // handling. Their parent must not clip the floating panel.
   const submenu=(name,label,children)=>h(MantineMenu.Sub,{key:name,position:'right-start',floatingStrategy:'fixed',middlewares:{flip:true,shift:{crossAxis:true,padding:12},size:{padding:12}}},h(Menu.Trigger,{sub:true},h(Menu.Item,{className:'bn-menu-item drg-block-menu-item',subTrigger:true,icon:icon(name)},label)),h(Menu.Dropdown,{sub:true,className:'bn-menu-dropdown drg-block-submenu'},children));
+  const searchLabel=selectingLanguage?tText('notes:searchCodeLanguage'):tText('notes:searchingForBlockActions');
+  const searchBox=h('div',{className:'drg-block-menu-search'},h('input',{ref:search,type:'search',value:selectingLanguage?languageQuery:query,autoFocus:true,placeholder:selectingLanguage?searchLabel:tText('notes:searchingForActions'),'aria-label':searchLabel,onChange:event=>{
+    (selectingLanguage?setLanguageQuery:setQuery)(event.target.value);
+  },onKeyDown:event=>{
+    if(event.key==='Escape'){
+      if(selectingLanguage){event.preventDefault();event.stopPropagation();setLanguageQuery(null);}
+      return;
+    }
+    event.stopPropagation();
+    if(['ArrowDown','Enter'].includes(event.key)){
+      event.preventDefault();
+      const selector=selectingLanguage?'.drg-code-languages [role="menuitem"]':'[role="menuitem"]';
+      const firstItem=event.currentTarget.closest('.drg-block-menu')?.querySelector(selector);
+      firstItem?.focus();if(event.key==='Enter')firstItem?.click();
+    }
+  }}));
+  const isCode=blocks.length===1&&first.type==='codeBlock';
+  if(isCode&&selectingLanguage){
+    const filter=languageQuery.trim().toLocaleLowerCase(locale());
+    const choices=codeLanguages().filter(([id,{name,aliases=[]}])=>[id,name,...aliases].some(value=>value.toLocaleLowerCase(locale()).includes(filter)));
+    return h(React.Fragment,null,searchBox,
+      h(Menu.Label,null,tText('notes:codeLanguage')),
+      h('div',{className:'drg-code-languages'},choices.length?choices.map(([id,{name}])=>item('language',name,()=>{
+        if(editor.getBlock(first.id)?.type==='codeBlock')editor.updateBlock(first.id,{props:{language:id}});
+      },{key:id,checked:id===first.props.language})):h('p',{className:'drg-block-menu-empty',role:'status'},tText('notes:noCodeLanguagesFound'))),
+      h(Menu.Divider,null),item('up',tText('notes:back'),()=>setLanguageQuery(null),{closeMenuOnClick:false}),
+    );
+  }
+  const codeActions=[];
+  if(isCode){
+    const copy=tText('notes:copyCode'),language=tText('notes:changeCodeLanguage'),wrap=tText('notes:wrapCodeLines');
+    const languageName=codeLanguages().find(([id])=>id===first.props.language)?.[1].name||first.props.language;
+    if(matches(copy))codeActions.push(item('duplicate',copy,async()=>{await copyCode(editor,first.id);options.toast?.(tText('notes:codeCopied'));},{key:'copy-code'}));
+    if(matches(language,tText('notes:codeLanguage'),languageName))codeActions.push(item('language',language,()=>setLanguageQuery(''),{
+      closeMenuOnClick:false,rightSection:h('span',{className:'drg-code-language-name'},languageName),
+    }));
+    if(matches(wrap))codeActions.push(item('wrap',wrap,()=>{
+      const block=editor.getBlock(first.id);
+      if(block?.type==='codeBlock')editor.updateBlock(first.id,{props:{wrapLines:!block.props.wrapLines}});
+    },{checked:!!first.props.wrapLines}));
+  }
   const canConvert=blocks.every(block=>['inline','plain'].includes(editor.schema.blockSpecs[block.type]?.config.content));
   const convertItems=conversions.filter(([label,type])=>editor.schema.blockSpecs[type]&&matches(tText("notes:convert"),label)).map(([label,type,props,symbol])=>h(Menu.Item,{key:label,className:'bn-menu-item drg-block-menu-item',icon:h('span',{className:'drg-block-type-icon','aria-hidden':true},symbol),checked:blocks.every(block=>block.type===type&&Object.entries(props).every(([key,value])=>block.props[key]===value)),onClick:run(()=>{editor.focus();editor.transact(()=>blocks.forEach(block=>editor.updateBlock(block,{type,props})));})},label));
   const colorSections=['textColor','backgroundColor'].flatMap(prop=>{
@@ -113,15 +159,10 @@ function BlockActionsContent({options,page}){
     actions.push(item('comment',tText("notes:comment"),()=>options.onComment(first.id)));
   }
   return h(React.Fragment,null,
-    h('div',{className:'drg-block-menu-search'},h('input',{ref:search,type:'search',value:query,autoFocus:true,placeholder:tText("notes:searchingForActions"),'aria-label':tText("notes:searchingForBlockActions"),onChange:event=>setQuery(event.target.value),onKeyDown:event=>{
-      if(event.key==='Escape')return;
-      event.stopPropagation();
-      if(['ArrowDown','Enter'].includes(event.key)){
-        event.preventDefault();const firstItem=event.currentTarget.closest('.drg-block-menu')?.querySelector('[role="menuitem"]');firstItem?.focus();if(event.key==='Enter')firstItem?.click();
-      }
-    }})),
+    searchBox,
     h(Menu.Label,null,blocks.length>1?tText("notes:selectedBlocks", {value0:(blocks.length)}):typeLabels[first.type]||first.type),
-    h('div',{className:'drg-block-menu-actions'},actions.length?actions:h('p',{className:'drg-block-menu-empty',role:'status'},tText("notes:noActionsFound"))),
+    h('div',{className:'drg-block-menu-actions'},codeActions,codeActions.length&&actions.length?h(Menu.Divider,null):null,
+      codeActions.length||actions.length?actions:h('p',{className:'drg-block-menu-empty',role:'status'},tText("notes:noActionsFound"))),
     h(Menu.Divider,null),
     h('div',{className:'drg-block-menu-meta'},tText("notes:wordsCharacters", {value0:(words), value1:(Array.from(text).length)})),
   );
