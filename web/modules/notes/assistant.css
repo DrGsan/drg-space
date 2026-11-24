@@ -198,6 +198,10 @@
   box-shadow: none;
   background: transparent;
 }
+.notes-ai form[data-ai-input] textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
 .notes-ai-toolbar {
   display: flex;
   align-items: center;

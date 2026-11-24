@@ -41,7 +41,7 @@ function excerpt(label, note) {
   return note ? `<section class="notes-ai-context"><h3>${tHtml(label)} · ${esc(note.title)}</h3>${note.excerpt ? `<p>${esc(note.excerpt)}</p>` : ''}</section>` : '';
 }
 
-export function mountNoteAssistant(host, ctx, {target, initialSource, layout, beforeSave = async () => true}, onSaved) {
+export function mountNoteAssistant(host, ctx, {target, initialSource, layout, refreshTarget, beforeSave = async () => true}, onSaved) {
   const standalone = layout === 'workspace';
   const chat = document.createElement('section');
   chat.className = `notes-ai notes-ai-${layout}`;
@@ -192,6 +192,15 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, layout, be
     busy = true;
     controls();
     try {
+      if (target && !latest && refreshTarget) {
+        const current = await refreshTarget(target);
+        if (!chat.isConnected) return;
+        if (current) {
+          target = current;
+          await refreshContext();
+          if (!contextReady) throw new Error(tText('notes:assistantPageChanged'));
+        }
+      }
       const result = await call('/propose', 'POST', {...input(), prompt: instruction, previous: latest ?? null, history: messages});
       if (!chat.isConnected) { if (result.draft) discard(result.draft); return; }
       if (result.draft) showReview(result);

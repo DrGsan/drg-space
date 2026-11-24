@@ -602,6 +602,7 @@ class NotesWorkspace {
     $("#notion-page", this.host).classList.toggle("has-cover", !!page.cover);
     $("#notion-page", this.host).innerHTML =
       pageLayout(page,{breadcrumbs:this.breadcrumbs(),participants:page.space_id?this.participantAvatars(page):''});
+    if(!this.canAssist(page))this.closeAssistant?.();
     if(this.canAssist(page)){
       const button=document.createElement('button');button.type='button';button.className='icon-btn notes-ai-entry';button.id='note-ai';
       button.setAttribute('aria-label',tText('notes:assistantChat'));button.title=tText('notes:assistantChat');
@@ -1068,6 +1069,10 @@ class NotesWorkspace {
       if(activeId&&this.page?.id!==activeId)throw new Error(tText('notes:assistantPageChanged'));
       return true;
     };
+    const refreshTarget=async current=>{
+      if(!await beforeSave())throw new Error(tText('notes:assistantPageChanged'));
+      if(current.version!==this.page.version)return this.ctx.api('/notes-assistant/pages/'+encodeURIComponent(activeId));
+    };
     const shell=$('.notes-shell',this.host);
     const panel=document.createElement('aside');panel.className='notes-ai-panel';panel.id='note-ai-panel';
     panel.setAttribute('aria-label',tText('notes:assistantChat'));
@@ -1080,7 +1085,7 @@ class NotesWorkspace {
       return trigger;
     };
     setTrigger(true);
-    const dispose=mountNoteAssistant(panel,this.ctx,{target,initialSource:asSource?page:null,beforeSave,layout:'panel'},async id=>{
+    const dispose=mountNoteAssistant(panel,this.ctx,{target,initialSource:asSource?page:null,beforeSave,refreshTarget,layout:'panel'},async id=>{
       if(this.disposed)return;
       const saved=await this.ctx.api('/notes/'+id);
       if(this.disposed)return;
