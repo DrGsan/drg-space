@@ -4,7 +4,7 @@
 .notes-ai {
   min-width: 0;
 }
-.notes-ai h3, .notes-ai h4 {
+.notes-assistant-overlay .notes-ai h3, .notes-assistant-overlay .notes-ai h4 {
   margin: 0 0 .35rem;
   font-size: .95rem;
 }
@@ -93,11 +93,13 @@
   gap: .45rem;
   margin-top: .65rem;
 }
-.notes-ai form textarea {
+.notes-assistant-overlay .notes-ai form textarea {
+  flex: 1 1 0;
+  width: auto;
   min-width: 0;
   resize: vertical;
 }
-.notes-ai form > .primary {
+.notes-assistant-overlay .notes-ai form > .primary {
   width: auto;
   flex: 0 0 auto;
 }

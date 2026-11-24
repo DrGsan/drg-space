@@ -31,7 +31,7 @@ function reviewField(field, draft, before, coverUrl) {
     previous = old == null ? '' : `<p>${esc(old)}</p>`;
     proposed = `<p>${esc(field === 'replace' ? draft.changes.replace_after : next)}</p>`;
   }
-  const label = draft.target && field === 'append' ? 'notes:assistantAppendToEnd' : labels[field];
+  const label = field === 'append' ? draft.target ? 'notes:assistantAppendToEnd' : 'notes:assistantBody' : labels[field];
   return `<section class="notes-ai-change"><h4>${tHtml(label)}</h4>${previous ? `<div class="notes-ai-before"><span>${tHtml('notes:assistantBefore')}</span>${previous}</div>` : ''}<div class="notes-ai-after">${previous ? `<span>${tHtml('notes:assistantAfter')}</span>` : ''}${proposed}</div></section>`;
 }
 
@@ -160,8 +160,8 @@ export function openNoteAssistant(ctx, {target, initialSource, beforeSave}, onSa
     try {
       const result = await call('/propose', 'POST', {...input(), prompt: instruction, previous: latest ?? null, history: messages});
       if (!overlay.isConnected) { if (result.draft) discard(result.draft); return; }
-      if (result.message.trim()) addMessage('assistant', result.message);
       if (result.draft) showReview(result);
+      else if (result.message.trim()) addMessage('assistant', result.message);
     } catch (failure) {
       if (!overlay.isConnected) return;
       error.textContent = failure.message;

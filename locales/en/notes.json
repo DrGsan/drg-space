@@ -27,6 +27,7 @@
   "assistantBefore": "Before",
   "assistantAfter": "After",
   "assistantAddText": "Text to add",
+  "assistantBody": "Note text",
   "assistantAppendToEnd": "Add to the end of the note",
   "assistantReplaceText": "Paragraph to replace",
   "assistantSave": "Save note",

@@ -27,6 +27,7 @@
   "assistantBefore": "Было",
   "assistantAfter": "Будет",
   "assistantAddText": "Добавляемый текст",
+  "assistantBody": "Текст заметки",
   "assistantAppendToEnd": "Добавить в конец заметки",
   "assistantReplaceText": "Замена абзаца",
   "assistantSave": "Сохранить заметку",
