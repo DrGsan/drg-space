@@ -1,6 +1,9 @@
 {
   "assistantCreate": "Создать заметку с ИИ",
   "assistantEdit": "Править с ИИ",
+  "assistantMenu": "ИИ",
+  "assistantSuggestEdits": "Предложить правки",
+  "assistantUseAsSource": "Использовать как источник",
   "assistantIncludeText": "Включить фрагмент текста этой заметки",
   "assistantPrompt": "Что сделать помощнику?",
   "assistantFindSource": "Найти источник по названию",
@@ -15,6 +18,7 @@
   "assistantBefore": "Было",
   "assistantAfter": "Будет",
   "assistantAddText": "Добавляемый текст",
+  "assistantAppendToEnd": "Добавить в конец заметки",
   "assistantReplaceText": "Замена абзаца",
   "assistantApply": "Применить выбранные изменения",
   "assistantSave": "Сохранить заметку",

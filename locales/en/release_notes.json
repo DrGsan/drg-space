@@ -1,8 +1,9 @@
 {
-  "release5_3_0_rc_1Title": "AI assistant for personal notes",
-  "release5_3_0_rc_1Change1": "Draft a personal note or preview changes to its text, title, icon and cover before saving.",
-  "release5_3_0_rc_1Change2": "Review the exact instruction and excerpts that will be sent to OpenAI.",
-  "release5_3_0_rc_1Change3": "Enable the assistant for one account from Administration.",
+  "release5_3_0_rc_2Title": "AI assistant for personal notes",
+  "release5_3_0_rc_2Change1": "Draft a personal note or preview changes to its text, title, icon and cover before saving.",
+  "release5_3_0_rc_2Change2": "Open the AI menu to suggest edits or use the current note as a source for a new draft.",
+  "release5_3_0_rc_2Change3": "Review the exact instruction and excerpts that will be sent to OpenAI.",
+  "release5_3_0_rc_2Change4": "Enable the assistant for one account from Administration.",
   "release5_2_28Title": "Quick actions for code blocks",
   "release5_2_28Change1": "Copy the entire code block, including indentation and line breaks, from its top-right corner.",
   "release5_2_28Change2": "Search for a code language or wrap long lines from the existing block menu.",

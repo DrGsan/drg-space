@@ -31,14 +31,15 @@ function reviewField(field, draft, before, coverUrl) {
     previous = old == null ? '' : `<p>${esc(old)}</p>`;
     proposed = `<p>${esc(field === 'replace' ? draft.changes.replace_after : next)}</p>`;
   }
-  return `<section class="notes-ai-change"><label><input type="checkbox" value="${field}" checked ${fixed ? 'disabled' : ''}>${tHtml(labels[field])}</label>${previous ? `<div class="notes-ai-before"><span>${tHtml('notes:assistantBefore')}</span>${previous}</div>` : ''}<div class="notes-ai-after"><span>${tHtml('notes:assistantAfter')}</span>${proposed}</div></section>`;
+  const operation = draft.target && field === 'append' ? 'notes:assistantAppendToEnd' : labels[field];
+  return `<section class="notes-ai-change"><label><input type="checkbox" value="${field}" checked ${fixed ? 'disabled' : ''}>${tHtml(operation)}</label>${previous ? `<div class="notes-ai-before"><span>${tHtml('notes:assistantBefore')}</span>${previous}</div>` : ''}<div class="notes-ai-after"><span>${tHtml('notes:assistantAfter')}</span>${proposed}</div></section>`;
 }
 
 function excerpt(label, note) {
   return note ? `<section class="notes-ai-context"><h3>${tHtml(label)} · ${esc(note.title)}</h3>${note.excerpt ? `<p>${esc(note.excerpt)}</p>` : ''}</section>` : '';
 }
 
-export function openNoteAssistant(ctx, target, onSaved, onClose) {
+export function openNoteAssistant(ctx, {target, initialSource}, onSaved, onClose) {
   const overlay = ctx.modal(`<h2>${tHtml(target ? 'notes:assistantEdit' : 'notes:assistantCreate')}</h2><div class="notes-ai"><form data-ai-input><label>${tHtml('notes:assistantPrompt')}<textarea name="prompt" maxlength="4000" rows="4" required></textarea></label>${target ? `<label class="notes-ai-option"><input type="checkbox" name="include_target_text">${tHtml('notes:assistantIncludeText')}</label>` : ''}<label>${tHtml('notes:assistantFindSource')}<input type="search" placeholder="${tHtml('notes:searchPages')}" maxlength="200" data-ai-search></label><label>${tHtml('notes:assistantSource')}<select data-ai-source><option value="">${tHtml('notes:assistantNoSource')}</option></select></label><button type="submit" class="primary">${tHtml('notes:assistantReviewInput')}</button></form><div data-ai-stage></div><p data-ai-error role="alert"></p></div>`);
   const form = $('[data-ai-input]', overlay);
   const stage = $('[data-ai-stage]', overlay);
@@ -48,6 +49,13 @@ export function openNoteAssistant(ctx, target, onSaved, onClose) {
   const search = $('[data-ai-search]', form);
   const prompt = form.elements.prompt;
   let items = [], generation = 0, timer, latest, applying = false;
+  function setSources(next, selected) {
+    items = next;
+    source.innerHTML = `<option value="">${tHtml('notes:assistantNoSource')}</option>`;
+    for (const item of items) source.add(new Option(item.title + (item.read_only ? ' · Notion' : ''), item.id));
+    source.value = selected || '';
+  }
+  if (initialSource) setSources([initialSource], initialSource.id);
   const call = (path, method = 'GET', data) => ctx.api(apiRoot + path, method, data, true, {}, {timeoutMs: 45000});
   const discard = draft => call('/draft/' + draft.id, 'DELETE').catch(() => {});
   overlay.addEventListener('beforeclose', event => { if (applying) event.preventDefault(); });
@@ -57,11 +65,10 @@ export function openNoteAssistant(ctx, target, onSaved, onClose) {
     try {
       const result = await call('/pages?q=' + encodeURIComponent(query));
       if (!overlay.isConnected || current !== generation) return;
-      items = result.items.filter(page => page.id !== target?.id);
-      const selected = source.value;
-      source.innerHTML = `<option value="">${tHtml('notes:assistantNoSource')}</option>`;
-      for (const item of items) source.add(new Option(item.title + (item.read_only ? ' · Notion' : ''), item.id));
-      if (items.some(item => item.id === selected)) source.value = selected;
+      const selected = items.find(page => page.id === source.value);
+      const next = result.items.filter(page => page.id !== target?.id);
+      if (selected && !next.some(page => page.id === selected.id)) next.unshift(selected);
+      setSources(next, selected?.id);
     } catch (failure) { if (overlay.isConnected && current === generation) error.textContent = failure.message; }
   }
   search.oninput = () => { clearTimeout(timer); timer = setTimeout(() => sources(search.value.trim()), 200); };

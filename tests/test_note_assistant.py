@@ -93,9 +93,11 @@ def test_scopes_and_disabling(active, monkeypatch):
     share(active, public['id'], 'public')
     assert active.get(ROOT + '/pages').json() == {'items': []}
     assert guest.get(ROOT).json() == {'enabled': False}
+    assert guest.get(ROOT + '/pages/' + public['id']).status_code == 403
     assert guest.get(ADMIN).status_code == 403
     assert guest.post(ROOT + '/propose', json={'prompt': 'test'}).status_code == 403
     for unavailable in (foreign, public):
+        assert active.get(ROOT + '/pages/' + unavailable['id']).status_code == 404
         for kind in ('target', 'source'):
             assert active.post(ROOT + '/context', json={kind: ref(unavailable)}).status_code == 404
     monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: changes(title='Draft', append='Text'))
@@ -117,6 +119,11 @@ def test_notion_read_only_and_provider_failure_do_not_save(active, monkeypatch):
         c.execute('INSERT INTO notion_roots(id,user_id,connection_id,notion_id,note_id,mode,payload,created,updated) VALUES(?,?,?,?,?,?,?,?,?)', ('test-root', uid, 'test-conn', 'root', imported['id'], 'duplex', '{}', stamp, stamp))
         c.execute('INSERT INTO notion_pages(id,user_id,root_id,notion_id,note_id,payload,updated,writable) VALUES(?,?,?,?,?,?,?,?)', ('test-page', uid, 'test-root', 'root', imported['id'], '{}', stamp, 1))
     assert active.post(ROOT + '/context', json={'target': ref(imported)}).status_code == 404
+    option = active.get(ROOT + '/pages/' + imported['id'])
+    assert option.status_code == 200
+    assert option.json() == ref(imported) | {'title': 'Imported', 'read_only': True}
+    ordinary = active.post('/api/notes', json={'title': 'Local'}).json()
+    assert active.get(ROOT + '/pages/' + ordinary['id']).json() == ref(ordinary) | {'title': 'Local', 'read_only': False}
     seen = []
 
     def timeout(key, prompt, *, target, source):
@@ -127,7 +134,7 @@ def test_notion_read_only_and_provider_failure_do_not_save(active, monkeypatch):
     response = active.post(ROOT + '/propose', json={'prompt': 'Use source', 'source': ref(imported)})
     assert response.status_code == 502 and 'secret' not in response.text
     assert seen == [(None, {'title': 'Imported', 'excerpt': 'Source text '})]
-    assert len(active.get('/api/notes').json()) == 1
+    assert len(active.get('/api/notes').json()) == 2
     monkeypatch.delenv('OPENAI_API_KEY')
     assert active.get(ROOT).json() == {'enabled': False}
     assert active.get('/api/notes').status_code == 200

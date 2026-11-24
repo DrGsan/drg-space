@@ -1,6 +1,9 @@
 {
   "assistantCreate": "Create note with AI",
   "assistantEdit": "Edit with AI",
+  "assistantMenu": "AI",
+  "assistantSuggestEdits": "Suggest edits",
+  "assistantUseAsSource": "Use as a source",
   "assistantIncludeText": "Include an excerpt from this note",
   "assistantPrompt": "What should the assistant do?",
   "assistantFindSource": "Find a source by title",
@@ -15,6 +18,7 @@
   "assistantBefore": "Before",
   "assistantAfter": "After",
   "assistantAddText": "Text to add",
+  "assistantAppendToEnd": "Add to the end of the note",
   "assistantReplaceText": "Paragraph to replace",
   "assistantApply": "Apply selected changes",
   "assistantSave": "Save note",

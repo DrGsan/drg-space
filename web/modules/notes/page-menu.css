@@ -84,6 +84,20 @@
 .note-menu-row > span:first-of-type {
   flex: 1;
 }
+.note-menu-group-items {
+  margin-inline-start: 17px;
+  padding-inline-start: 6px;
+  border-inline-start: 1px solid var(--line);
+}
+.note-menu-row[data-page-group] > svg:last-child {
+  width: 13px;
+  height: 13px;
+  flex-basis: 13px;
+  color: var(--muted);
+}
+.note-menu-row[data-page-group][aria-expanded="true"] > svg:last-child {
+  transform: rotate(90deg);
+}
 .note-page-menu .note-menu-row.danger {
   color: var(--danger, #b93838);
 }
