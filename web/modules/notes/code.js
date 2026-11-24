@@ -1,5 +1,6 @@
 import {tText} from "../../core/i18n.js";
 import {mermaidPreview} from './mermaid-preview.js';
+import {inlineText} from './block-actions.js';
 import {createCodeBlockSpec,createExtension} from '@blocknote/core';
 import {createHighlightPlugin} from 'prosemirror-highlight';
 import {createParser} from 'prosemirror-highlight/shiki';
@@ -22,7 +23,16 @@ const languages=Object.assign(Object.create(null),{text:{name:tText("notes:plain
 export const codeBlock=createCodeBlockSpec({defaultLanguage:'text',supportedLanguages:languages});
 // Notion can store bold/italic annotations inside code. A plain-only node
 // silently drops them when a synced copy is opened in the editor.
-codeBlock.config={...codeBlock.config,content:'inline'};
+codeBlock.config={...codeBlock.config,content:'inline',propSchema:{...codeBlock.config.propSchema,wrapLines:{default:false}}};
+
+export function codeLanguages(){return Object.entries(languages);}
+
+export async function copyCode(editor,blockId){
+  const block=editor.getBlock(blockId);
+  if(block?.type!=='codeBlock')throw new Error(tText('notes:couldNotCopyContent'));
+  try{await navigator.clipboard.writeText(inlineText(block.content));}
+  catch{throw new Error(tText('notes:couldNotCopyContent'));}
+}
 // Preserve BlockNote's DOM wrapper and code editing shortcuts.
 const renderCode=codeBlock.implementation.render;
 codeBlock.implementation.render=function(block,editor){
@@ -30,7 +40,37 @@ codeBlock.implementation.render=function(block,editor){
   if(!(language in languages))languages[language]={name:language};
   const rendered=renderCode.call(this,block,editor);
   rendered.dom.querySelector('select')?.setAttribute('aria-label',tText("notes:codeLanguage"));
-  return this.renderType==='nodeView'?mermaidPreview(rendered,block,editor):rendered;
+  if(this.renderType!=='nodeView')return rendered;
+
+  const controls=document.createElement('span');
+  controls.className='note-code-actions';
+  controls.contentEditable='false';
+  const button=document.createElement('button');
+  button.type='button';
+  button.textContent=tText('app:copy');
+  button.setAttribute('aria-label',tText('notes:copyCode'));
+  const feedback=document.createElement('span');
+  feedback.setAttribute('role','status');
+  feedback.className='note-code-feedback';
+  controls.append(button,feedback);
+  rendered.dom.append(controls);
+  let feedbackTimer,disposed=false;
+  button.onclick=async()=>{
+    clearTimeout(feedbackTimer);
+    feedback.textContent='';
+    let message;
+    try{await copyCode(editor,block.id);message=tText('notes:codeCopied');}
+    catch(error){message=error.message;}
+    if(disposed)return;
+    feedback.textContent=message;
+    feedbackTimer=setTimeout(()=>{feedback.textContent='';},2400);
+  };
+  const withPreview=mermaidPreview(rendered,block,editor);
+  return {...withPreview,
+    stopEvent(event){return controls.contains(event.target)||withPreview.stopEvent?.(event)||false;},
+    ignoreMutation(mutation){return controls.contains(mutation.target)||withPreview.ignoreMutation?.(mutation)||false;},
+    destroy(){disposed=true;clearTimeout(feedbackTimer);withPreview.destroy?.();},
+  };
 };
 let highlighter;
 export const codeHighlighter=()=>highlighter??=createHighlighterCore({themes:[light,dark],langs:[python,sql,bash,javascript,typescript,json,html,css,yaml,markdown,dockerfile],engine:createJavaScriptRegexEngine()});

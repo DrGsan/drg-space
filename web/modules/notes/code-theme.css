@@ -68,9 +68,13 @@
 .bn-editor .bn-block-content[data-content-type="codeBlock"] > pre > code {
   display: block;
 }
+.bn-editor .bn-block-content[data-content-type="codeBlock"][data-wrap-lines="true"] > pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .bn-editor .bn-block-content[data-content-type="codeBlock"] > div > select {
   width: auto;
-  max-width: calc(100% - 28px);
+  max-width: min(52%, calc(100% - 28px));
   top: 8px;
   left: 14px;
   margin: 0;
@@ -92,6 +96,51 @@
 .bn-editor .bn-block-content[data-content-type="codeBlock"] > div > select > option {
   color: var(--note-code-text);
   background: var(--note-code-background);
+}
+.bn-editor .note-code-actions {
+  position:absolute;
+  z-index:1;
+  top:6px;
+  right:8px;
+  max-width:calc(48% - 14px);
+  color:var(--note-code-text);
+}
+.bn-editor .note-code-actions button {
+  max-width:100%;
+  padding:4px 7px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  font:inherit;
+  font-size:12px;
+  color:inherit;
+  border:1px solid var(--note-code-border);
+  border-radius:5px;
+  background:var(--note-code-background);
+  cursor:pointer;
+}
+.bn-editor .note-code-actions button:hover {border-color:currentColor}
+.bn-editor .note-code-feedback:not(:empty) {
+  position:absolute;
+  top:calc(100% + 4px);
+  right:0;
+  min-width:max-content;
+  padding:4px 7px;
+  font-size:12px;
+  background:var(--note-code-background);
+  border:1px solid var(--note-code-border);
+  border-radius:5px;
+  pointer-events:none;
+}
+@media (hover:hover) and (pointer:fine) {
+  .bn-editor [data-content-type="codeBlock"]:not(:hover):not(:focus-within) > .note-code-actions:not(:has(.note-code-feedback:not(:empty))) {
+    opacity:0;
+    pointer-events:none;
+  }
+}
+@media (pointer:coarse) {
+  .bn-editor .note-code-actions button {min-height:44px}
+  .bn-editor .bn-block-content[data-content-type="codeBlock"] > pre {padding-top:56px}
 }
 .bn-editor .bn-block-content[data-content-type="codeBlock"] code [style*="--shiki-light"],
 .markdown pre > code [style*="--shiki-light"] {

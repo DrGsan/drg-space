@@ -50,6 +50,18 @@
 .bn-root .drg-block-menu-danger {
   color: var(--bn-colors-highlights-red-text, #b42318);
 }
+.bn-root .drg-code-languages {
+  max-height:min(280px, calc(100dvh - 148px));
+  overflow:auto;
+}
+.bn-root .drg-code-language-name {
+  max-width:100px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  color:var(--muted);
+  font-size:12px;
+}
 .bn-root .drg-block-menu-meta,
 .bn-root .drg-block-menu-empty {
   margin: 0;
