@@ -23,6 +23,10 @@ def changes(**kwargs):
     return ai.Changes(**dict.fromkeys(ai.Changes.model_fields) | kwargs)
 
 
+def reply(intent, **kwargs):
+    return ai.Reply(intent=intent, message='Assistant reply', changes=changes(**kwargs))
+
+
 def suggest(client, **kwargs):
     response = client.post(ROOT + '/propose', json={'prompt': 'Synthetic instruction', **kwargs})
     assert response.status_code == 200, response.text
@@ -42,18 +46,18 @@ def active(monkeypatch):
     return client
 
 
-def test_create_preview_cancel_select_apply_and_prevent_replay(active, monkeypatch):
-    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: changes(title='Draft', icon='📝', cover='forest', append='First.\nSecond.'))
+def test_create_preview_cancel_apply_and_prevent_replay(active, monkeypatch):
+    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: reply('create', title='Draft', icon='📝', cover='forest', append='First.\nSecond.'))
     preview = suggest(active)
     assert active.get('/api/notes').json() == []
     assert active.delete(ROOT + '/draft/' + preview['draft']['id']).status_code == 200
-    payload = {'draft': preview['draft'], 'fields': ['title', 'append', 'icon']}
+    payload = {'draft': preview['draft']}
     assert active.post(ROOT + '/apply', json=payload).status_code == 409
     payload['draft'] = suggest(active)['draft']
     response = active.post(ROOT + '/apply', json=payload)
     assert response.status_code == 200, response.text
     saved = active.get('/api/notes/' + response.json()['id']).json()
-    assert saved['title'] == 'Draft' and saved['icon'] == '📝' and saved['cover'] == ''
+    assert saved['title'] == 'Draft' and saved['icon'] == '📝' and saved['cover'] == 'forest'
     assert [b['content'][0]['text'] for b in saved['blocks']] == ['First.', 'Second.']
     assert active.post(ROOT + '/apply', json=payload).status_code == 409
     assert len(active.get('/api/notes').json()) == 1
@@ -63,11 +67,11 @@ def test_edit_preserves_rich_blocks_and_rejects_changed_version(active, monkeypa
     paragraph = ai.rich_paragraph('Original sentence')
     block = {'type': 'codeBlock', 'id': 'code', 'props': {'language': 'python'}, 'content': 'print(1)', 'children': []}
     page = active.post('/api/notes', json={'title': 'Original', 'body': 'Original sentence\n\n```python\nprint(1)\n```', 'blocks': [paragraph, block]}).json()
-    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: changes(title='Renamed', cover='mountains', replace_before='Original sentence', replace_after='Updated sentence'))
+    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: reply('edit', title='Renamed', cover='mountains', replace_before='Original sentence', replace_after='Updated sentence'))
     preview = suggest(active, target=ref(page), include_target_text=True)
     assert preview['before'] == {'title': 'Original', 'cover': ''}
     assert active.get('/api/notes/' + page['id']).json()['title'] == 'Original'
-    data = {'draft': preview['draft'], 'fields': preview['fields']}
+    data = {'draft': preview['draft']}
     data['draft']['changes']['title'] = 'Tampered'
     assert active.post(ROOT + '/apply', json=data).status_code == 409
     data['draft']['changes']['title'] = 'Renamed'
@@ -78,11 +82,11 @@ def test_edit_preserves_rich_blocks_and_rejects_changed_version(active, monkeypa
     assert saved['title'] == 'Renamed' and saved['cover_url'].endswith('/mountains.webp')
     assert saved['blocks'][0]['id'] == paragraph['id'] and saved['blocks'][0]['content'][0]['text'] == 'Updated sentence'
     assert saved['blocks'][1] == block
-    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: changes(title='Assistant title'))
+    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: reply('edit', title='Assistant title'))
     stale = suggest(active, target=ref(saved))
     result = active.put('/api/notes/' + page['id'], json={'title': 'Manual edit', 'body': saved['body'], 'blocks': saved['blocks'], 'version': saved['version']})
     assert result.status_code == 200, result.text
-    assert active.post(ROOT + '/apply', json={'draft': stale['draft'], 'fields': stale['fields']}).status_code == 409
+    assert active.post(ROOT + '/apply', json={'draft': stale['draft']}).status_code == 409
     assert active.get('/api/notes/' + page['id']).json()['title'] == 'Manual edit'
 
 
@@ -100,10 +104,10 @@ def test_scopes_and_disabling(active, monkeypatch):
         assert active.get(ROOT + '/pages/' + unavailable['id']).status_code == 404
         for kind in ('target', 'source'):
             assert active.post(ROOT + '/context', json={kind: ref(unavailable)}).status_code == 404
-    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: changes(title='Draft', append='Text'))
+    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: reply('create', title='Draft', append='Text'))
     preview = suggest(active)
     configure(active, account_id(guest))
-    assert active.post(ROOT + '/apply', json={'draft': preview['draft'], 'fields': preview['fields']}).status_code == 403
+    assert active.post(ROOT + '/apply', json={'draft': preview['draft']}).status_code == 403
     assert guest.get(ROOT).json() == {'enabled': True}
     configure(active, None)
     assert guest.get(ROOT).json() == {'enabled': False}
@@ -126,7 +130,7 @@ def test_notion_read_only_and_provider_failure_do_not_save(active, monkeypatch):
     assert active.get(ROOT + '/pages/' + ordinary['id']).json() == ref(ordinary) | {'title': 'Local', 'read_only': False}
     seen = []
 
-    def timeout(key, prompt, *, target, source, allow_append):
+    def timeout(key, prompt, *, target, source, previous, history):
         seen.append((target, source))
         raise httpx.ReadTimeout('Provider secret error')
 
@@ -147,32 +151,70 @@ def test_provider_request_opts_out_of_storage_and_uses_no_tools(monkeypatch):
         assert request.headers['Authorization'] == 'Bearer synthetic-key'
         assert args['store'] is False and 'tools' not in args
         assert args['text']['format']['strict'] is True
-        assert json.loads(args['input']) == {'prompt': 'Synthetic prompt', 'target': None, 'source': None}
-        text = changes(title='Synthetic', append='Sample').model_dump_json()
+        assert json.loads(args['input']) == {'prompt': 'Synthetic prompt', 'target': None, 'source': None, 'previous': None, 'history': []}
+        text = reply('create', title='Synthetic', append='Sample').model_dump_json()
         return httpx.Response(200, json={'status': 'completed', 'output': [{'type': 'message', 'content': [{'type': 'output_text', 'text': text}]}]})
 
     client = httpx.Client
     monkeypatch.setattr(ai.httpx, 'Client', lambda **kw: client(transport=httpx.MockTransport(handler), **kw))
-    assert ai.proposal('synthetic-key', 'Synthetic prompt', target=None, source=None).title == 'Synthetic'
+    assert ai.proposal('synthetic-key', 'Synthetic prompt', target=None, source=None).changes.title == 'Synthetic'
 
 
 def test_simple_legacy_paragraphs_can_change_but_attachment_references_are_rejected(active, monkeypatch):
     old = 'Original sentence.'
     page = active.post('/api/notes', json={'title': 'Legacy', 'body': old}).json()
-    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: changes(append='/api/notes/another_note_id/files/another_file_id'))
-    assert active.post(ROOT + '/propose', json={'prompt': 'Test', 'target': ref(page), 'allow_append': True}).status_code == 502
-    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: changes(replace_before=old, replace_after='Updated sentence'))
+    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: reply('edit', append='/api/notes/another_note_id/files/another_file_id'))
+    assert active.post(ROOT + '/propose', json={'prompt': 'Test', 'target': ref(page)}).status_code == 502
+    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: reply('edit', replace_before=old, replace_after='Updated sentence'))
     preview = suggest(active, target=ref(page), include_target_text=True)
-    assert active.post(ROOT + '/apply', json={'draft': preview['draft'], 'fields': preview['fields']}).status_code == 200
+    assert active.post(ROOT + '/apply', json={'draft': preview['draft']}).status_code == 200
     assert active.get('/api/notes/' + page['id']).json()['body'] == 'Updated sentence'
 
 
-def test_appending_text_to_an_existing_note_requires_opt_in(active, monkeypatch):
-    page = active.post('/api/notes', json={'title': 'Local', 'body': 'Original paragraph.'}).json()
-    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: changes(append='New paragraph.'))
-    payload = {'prompt': 'Add a paragraph', 'target': ref(page)}
-    assert active.post(ROOT + '/propose', json=payload).json()['code'] == 'notesAiNoChanges'
-    draft = suggest(active, target=ref(page), allow_append=True)
-    assert draft['fields'] == ['append']
-    assert active.post(ROOT + '/apply', json={'draft': draft['draft'], 'fields': draft['fields']}).status_code == 200
-    assert active.get('/api/notes/' + page['id']).json()['body'].startswith('Original paragraph.\n\nNew paragraph')
+def test_read_and_revise_draft_then_rewrite_existing_note(active, monkeypatch):
+    image = {'id': 'image', 'type': 'image', 'props': {'url': 'https://example.invalid/fixture.png'}}
+    child_id = active.post('/api/notes', json={'title': 'Child'}).json()['id']
+    shortcut = {'id': 'child', 'type': 'pageLink', 'props': {'pageId': child_id, 'title': 'Child'}}
+    old = 'Original paragraph about a fictional park.'
+    page = active.post('/api/notes', json={'title': 'Local', 'body': old,
+        'blocks': [ai.rich_paragraph(old), image, shortcut]}).json()
+    with main.db() as c:
+        c.execute('UPDATE notes SET parent_id=? WHERE id=?', (page['id'], child_id))
+    payload = {'prompt': 'Read this', 'target': ref(page), 'include_target_text': True}
+    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: reply('answer', rewrite='This must never be saved'))
+    read = active.post(ROOT + '/propose', json=payload)
+    assert read.json() == {'message': 'Assistant reply', 'draft': None}
+    assert active.get('/api/notes/' + page['id']).json()['version'] == page['version']
+
+    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: reply('edit', rewrite='New paragraph.'))
+    first = suggest(active, target=ref(page), include_target_text=True)
+    assert first['fields'] == ['rewrite'] and first['retains_attachments'] is True
+
+    def refine(key, prompt, *, target, source, previous, history):
+        assert previous['intent'] == 'edit' and previous['changes']['rewrite'] == 'New paragraph.'
+        assert history == [{'role': 'user', 'text': 'Rewrite the whole note'}]
+        return reply('edit', rewrite='Revised first paragraph.\nRevised second paragraph.')
+
+    monkeypatch.setattr(ai, 'proposal', refine)
+    final = suggest(active, target=ref(page), include_target_text=True, previous=first['draft'],
+                    history=[{'role': 'user', 'text': 'Rewrite the whole note'}])
+    assert active.post(ROOT + '/apply', json={'draft': first['draft']}).status_code == 409
+    assert active.get('/api/notes/' + page['id']).json()['body'] == old
+    saved = active.post(ROOT + '/apply', json={'draft': final['draft']})
+    assert saved.json()['id'] == page['id']
+    rewritten = active.get('/api/notes/' + page['id']).json()
+    assert 'fictional park' not in rewritten['body'] and 'Revised second paragraph' in rewritten['body']
+    assert [block['id'] for block in rewritten['blocks'][-2:]] == ['image', 'child']
+    assert active.get('/api/notes/' + child_id).json()['parent_id'] == page['id']
+    with main.db() as c:
+        assert c.execute('SELECT body FROM note_revisions WHERE note_id=?', (page['id'],)).fetchone()[0] == old
+
+
+def test_create_from_chat_on_existing_note_keeps_the_original(active, monkeypatch):
+    original = active.get('/api/notes/' + note(active)).json()
+    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: reply('create', title='Separate note', append='Separate text'))
+    preview = suggest(active, target=ref(original), include_target_text=True)
+    assert preview['draft']['target'] is None
+    result = active.post(ROOT + '/apply', json={'draft': preview['draft']})
+    assert result.status_code == 200 and result.json()['id'] != original['id']
+    assert active.get('/api/notes/' + original['id']).json()['version'] == original['version']

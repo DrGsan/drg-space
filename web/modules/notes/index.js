@@ -981,11 +981,15 @@ class NotesWorkspace {
     const page=this.page,editable=(!page.role||page.role==='editor')&&(!page.locked||page.unlock_until);
     const canDuplicate=page.notion_sync?canCopyNotionPage(page,this.ctx):editable;
     const actions=pageActions(page,editable,{canDuplicate});
-    if(this.assistantEnabled&&page.manage&&!page.isDraft&&!page.space_id&&!page.federation_shared&&!page.locked&&page.kind!=='database'&&!page.database_id){
-      const children=[];
-      if(editable&&!page.notion_sync)children.push({name:'assistant-edit',label:tText('notes:assistantSuggestEdits'),icon:'edit',aliases:tText('notes:assistantEdit')});
-      children.push({name:'assistant-source',label:tText('notes:assistantUseAsSource'),icon:'source'});
-      actions.push({name:'assistant',label:tText('notes:assistantMenu'),icon:'sparkles',group:'assistant',children});
+    if(this.assistantEnabled&&page.manage&&!page.space_id&&!page.federation_shared&&!page.locked&&page.kind!=='database'&&!page.database_id){
+      const entry={name:'assistant',label:tText('notes:assistantMenu'),icon:'sparkles',group:'assistant'};
+      if(page.isDraft)actions.push({...entry,name:'assistant-edit'});
+      else{
+        const children=[];
+        if(editable&&!page.notion_sync)children.push({name:'assistant-edit',label:tText('notes:assistantOpenChat'),icon:'edit',aliases:tText('notes:assistantEdit')});
+        children.push({name:'assistant-source',label:tText('notes:assistantUseAsSource'),icon:'source'});
+        actions.push({...entry,children});
+      }
     }
     if(page.notion_sync?.can_reorder){
       const roots=this.state.notes.filter(n=>n.parent_id===page.parent_id&&!n.deleted&&n.space_id===page.space_id),index=roots.findIndex(n=>n.id===page.id);
@@ -1030,22 +1034,31 @@ class NotesWorkspace {
     }catch(error){this.ctx.toast(error.message);}
   }
   async assistant({pageId,asSource=false}={}){
-    if(this.closeAssistant||!(await this.flush())||this.disposed)return;
+    const opened=pageId?this.page:null;
+    if(this.closeAssistant||pageId&&opened?.id!==pageId||!(await this.flush())||this.disposed||opened&&opened!==this.page)return;
     let page=null;
-    if(pageId){
-      if(this.page?.id!==pageId)return;
-      page=await this.ctx.api('/notes-assistant/pages/'+encodeURIComponent(pageId));
-      if(this.disposed||this.closeAssistant||this.page?.id!==pageId)return;
+    const draftId=opened?.isDraft?opened.id:null;
+    if(opened&&!draftId){
+      page=await this.ctx.api('/notes-assistant/pages/'+encodeURIComponent(opened.id));
+      if(this.disposed||this.closeAssistant||this.page!==opened)return;
       if(!asSource&&page.read_only){this.ctx.toast(tText('notes:pageIsReadOnly'));return;}
     }
     const target=asSource?null:page;
-    this.closeAssistant=openNoteAssistant(this.ctx,{target,initialSource:asSource?page:null},async id=>{
+    const beforeSave=async()=>{
+      if(!await this.flush()||this.disposed)return false;
+      if(opened&&(this.page!==opened||draftId&&this.page.id!==draftId))throw new Error(tText('notes:assistantPageChanged'));
+      return true;
+    };
+    this.closeAssistant=openNoteAssistant(this.ctx,{target,initialSource:asSource?page:null,beforeSave},async id=>{
       if(this.disposed)return;
       const saved=await this.ctx.api('/notes/'+id);
       if(this.disposed)return;
       const index=this.state.notes.findIndex(note=>note.id===id);
       if(index<0)this.state.notes.push(saved);else this.state.notes[index]=saved;
-      if(!pageId||this.page?.id===pageId)await this.open(id,false);
+      if(!opened||this.page===opened){
+        if(draftId)transferPageView(this.state.me?.id,draftId,id);
+        await this.open(id,false);
+      }
       this.tree();
     },()=>{this.closeAssistant=null;});
   }

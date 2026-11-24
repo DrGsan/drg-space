@@ -1,37 +1,66 @@
+.notes-assistant-overlay .modal {
+  max-width: 620px;
+}
 .notes-ai {
   min-width: 0;
 }
-.notes-ai textarea {
-  min-height: 6rem;
-  resize: vertical;
-}
-.notes-ai h3 {
-  margin-block: .7rem .45rem;
+.notes-ai h3, .notes-ai h4 {
+  margin: 0 0 .35rem;
   font-size: .95rem;
 }
-.notes-ai-context, .notes-ai-change {
-  margin-block: .65rem;
+.notes-ai details {
+  margin-bottom: .55rem;
+  color: var(--muted);
+  font-size: .85rem;
+}
+.notes-ai details summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.notes-ai-source {
+  display: grid;
+  gap: .5rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  margin-top: .6rem;
+}
+.notes-ai-log {
+  position: relative;
+  min-height: 5rem;
+  max-height: min(48vh, 36rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.notes-ai-message, .notes-ai-context, .notes-ai-preview {
+  width: fit-content;
+  max-width: 100%;
+  margin: .55rem 0;
   padding: .6rem .8rem;
   border: 1px solid var(--line);
   border-radius: .65rem;
+  background: var(--white);
 }
-.notes-ai-context p, .notes-ai-change p {
-  margin: .25rem 0;
+.notes-ai-message.user {
+  margin-inline-start: auto;
+  background: var(--blue-light);
+  border-color: transparent;
+}
+.notes-ai-preview {
+  width: 100%;
+}
+.notes-ai-change {
+  padding-block: .5rem;
+  border-top: 1px solid var(--line);
+}
+.notes-ai-message, .notes-ai-context p, .notes-ai-change p {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+.notes-ai-context p, .notes-ai-change p {
+  margin: .2rem 0;
 }
 .notes-ai-context p {
   max-height: 9rem;
   overflow: auto;
-}
-.notes-ai-change label, .notes-ai-option {
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-  margin: 0 0 .4rem;
-}
-.notes-ai input[type=checkbox] {
-  width: auto;
 }
 .notes-ai-before span, .notes-ai-after span {
   display: block;
@@ -39,7 +68,7 @@
   color: var(--muted);
 }
 .notes-ai-before, .notes-ai-after {
-  padding-block: .25rem;
+  padding-block: .2rem;
 }
 .notes-ai-cover {
   height: 4.5rem;
@@ -56,6 +85,25 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: .5rem;
+  margin: .55rem 0;
+}
+.notes-ai form {
+  display: flex;
+  align-items: end;
+  gap: .45rem;
+  margin-top: .65rem;
+}
+.notes-ai form textarea {
+  min-width: 0;
+  resize: vertical;
+}
+.notes-ai form > .primary {
+  width: auto;
+  flex: 0 0 auto;
+}
+.notes-ai-disclosure {
+  margin: .45rem 0 0;
+  font-size: .75rem;
 }
 [data-ai-error]:not(:empty) {
   margin-block: .6rem 0;

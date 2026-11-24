@@ -1,6 +1,6 @@
 # Updating DrG Space
 
-## 5.3.0-rc.2
+## 5.3.0-rc.3
 
 The optional Notes assistant needs `OPENAI_API_KEY` in the application environment and an account selected in Administration. `OPENAI_NOTES_MODEL` can override the default model. Existing installations can leave both variables unset. No database migration, storage-format change, or data-volume change is required.
 

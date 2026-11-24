@@ -2,11 +2,11 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.3.0-rc.2] — 2026-11-24 — AI assistant for personal notes
+## [5.3.0-rc.3] — 2026-11-24 — AI assistant for personal notes
 
-- Draft a personal note or preview changes to its text, title, icon and cover before saving.
-- Open the AI menu to suggest edits or use the current note as a source for a new draft.
-- Review the exact instruction and excerpts that will be sent to OpenAI.
+- Ask the assistant about a personal note in chat, even when starting from a blank page.
+- Draft new notes, rewrite entire pages or refine a proposal before confirming it.
+- Use the current note as a read-only source and inspect the excerpts shared with OpenAI.
 - Enable the assistant for one account from Administration.
 
 - **Installation:** Rebuild Space with the existing Compose files and volumes. Set OPENAI_API_KEY if enabling the assistant.
