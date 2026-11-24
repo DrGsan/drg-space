@@ -97,6 +97,7 @@ def purge_page_assets(c,nids,stamp):
 class CoverSelection(BaseModel):
     model_config=ConfigDict(extra='forbid')
     token:str=Field(max_length=8192)
+    assistant_version:int|None=Field(default=None,ge=1)
 class Position(BaseModel):
     position:int=Field(ge=0,le=100)
 
@@ -127,13 +128,20 @@ def create_note_assets_router(db,ready,tokens,rate,now,fail,data_dir):
         n=note_access(c,nid,s['user_id'],fail)
         if write:require_role(c,n,s['user_id'],fail,session=s,now=now)
         return n
-    def persist(nid,s,kind,body,info=None,request=None):
+    def cover_access(c,nid,s,version):
+        if version is None:return access(c,nid,s,True)
+        from app.modules.note_assistant import cover_target
+        return cover_target(c,nid,version,s,now(),fail)
+    def persist(nid,s,kind,body,info=None,request=None,assistant_version=None):
         data,width,height=thumbnail(body,kind);aid=secrets.token_hex(16)
         try:
             with db() as c:
                 c.execute('BEGIN IMMEDIATE')
                 if request is not None:s=ready(request)
-                n=access(c,nid,s,True)
+                n=cover_access(c,nid,s,assistant_version)
+                if assistant_version is not None:
+                    from app.note_history import snapshot
+                    snapshot(c,n,now(),with_appearance=True)
                 store.write(aid,data)
                 c.execute('INSERT INTO media VALUES(?,?,?,?,?,?,?,?)',(aid,s['user_id'],'image/webp',len(data),width,height,1,now()))
                 c.execute('INSERT INTO note_assets VALUES(?,?,?,?,?)',(aid,nid,kind,json.dumps(info or {}),now()))
@@ -219,11 +227,11 @@ def create_note_assets_router(db,ready,tokens,rate,now,fail,data_dir):
     @r.post('/api/notes/{nid}/select-cover')
     async def select(nid:str,data:CoverSelection,request:Request):
         s=ready(request);rate(request,'note-image',30,subject=s['user_id']);grant=cover_grant(tokens,data.token,s['user_id'],fail)
-        with db() as c:access(c,nid,s,True)
+        with db() as c:cover_access(c,nid,s,data.assistant_version)
         async with lock:
             try:
                 body=await selected_cover(grant)
-                saved=await blocking(persist,nid,s,'cover',body,{'attribution':grant['attribution'],'position':50},request)
+                saved=await blocking(persist,nid,s,'cover',body,{'attribution':grant['attribution'],'position':50},request,data.assistant_version)
                 await track_cover(grant)
                 return saved
             except (httpx.HTTPError,TimeoutError,ValueError,UnidentifiedImageError,OSError,EOFError,Image.DecompressionBombError,Image.DecompressionBombWarning):fail(422,localized_message('thisPhotoIsUnavailableOrExceedsTheMaximum'))

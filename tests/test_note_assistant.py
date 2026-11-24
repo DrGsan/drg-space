@@ -80,6 +80,7 @@ def test_assistant_saves_native_formatting_and_preserves_old_blocks(active, monk
     result = active.post(ROOT + '/apply', json={'draft': preview['draft']})
     assert result.status_code == 200, result.text
     saved = active.get('/api/notes/' + page['id']).json()
+    assert result.json()['updated_blocks'] == [block['id'] for block in saved['blocks'][1:]]
     assert saved['body'] == 'Existing contents\n\n' + preview['formatted']
     assert saved['blocks'][0] == first
     assert [block['type'] for block in saved['blocks'][1:]] == [block.type for block in formatted]
@@ -92,6 +93,41 @@ def test_assistant_saves_native_formatting_and_preserves_old_blocks(active, monk
     denied = active.post(ROOT + '/propose', json={'prompt': 'Add something', 'target': ref(saved)})
     assert denied.status_code == 502
     assert active.get('/api/notes/' + page['id']).json()['version'] == saved['version']
+
+
+def test_assistant_cover_search_uses_editable_note_and_versioned_selection(active, monkeypatch):
+    from tests.test_widgets import image_bytes
+    from app.modules import note_assets
+
+    page = active.get('/api/notes/' + note(active)).json()
+    path = '/api/notes/' + page['id']
+    page = active.patch(path, json={'cover': 'forest', 'version': page['version']}).json()
+    cover = ai.Reply(intent='find_cover', message='', changes=changes(), cover_query='mountain lake panorama')
+    monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: cover)
+    assert suggest(active, target=ref(page)) == {'cover_query': 'mountain lake panorama', 'draft': None}
+    assert 'cover_query' not in suggest(active)
+
+    attribution = {'author': 'Fixture photographer', 'license': 'CC BY 4.0', 'source_url': 'https://commons.wikimedia.org/wiki/File:Test'}
+    token = main.tokens.encode('note-cover', 'fixture', main.now() + 300, owner=account_id(active), provider='commons',
+                               url='https://upload.wikimedia.org/test.png', attribution=attribution)
+    downloads = []
+
+    async def download(grant):
+        downloads.append(grant['url'])
+        return image_bytes()
+
+    monkeypatch.setattr(note_assets, 'selected_cover', download)
+    assert active.post(path + '/select-cover', json={'token': token, 'assistant_version': page['version'] + 1}).status_code == 409
+    assert downloads == []
+    updated = active.post(path + '/select-cover', json={'token': token, 'assistant_version': page['version']})
+    assert updated.status_code == 200, updated.text
+    assert updated.json()['cover_attribution'] == attribution
+    previous = active.get(path + '/history').json()[0]['id']
+    restored = active.post(path + '/history/' + previous + '/restore', params={'version': updated.json()['version']})
+    assert restored.json()['cover'] == 'forest'
+    share(active, page['id'], 'public')
+    assert active.post(path + '/select-cover', json={'token': token, 'assistant_version': restored.json()['version']}).status_code == 404
+    assert len(downloads) == 1
 
 
 def test_edit_preserves_rich_blocks_and_rejects_changed_version(active, monkeypatch):

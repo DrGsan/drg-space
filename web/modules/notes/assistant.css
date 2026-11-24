@@ -1,15 +1,4 @@
-.workspace[data-current-view=assistant] > .content {
-  padding: 0;
-}
-.assistant-workspace {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 360px;
-  height: var(--app-height);
-  background: var(--white);
-}
-.assistant-workspace-header, .notes-ai-panel > header {
+.notes-ai-panel > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -17,30 +6,15 @@
   flex: 0 0 auto;
   border-bottom: 1px solid var(--line);
 }
-.assistant-workspace-header {
-  min-height: 58px;
-  padding: 10px clamp(16px, 4vw, 38px);
-}
-.assistant-workspace-header > div, .assistant-workspace-header button, .notes-ai-panel > header strong {
+.notes-ai-panel > header strong {
   display: flex;
   align-items: center;
   gap: .5rem;
 }
-.assistant-workspace-header h1 {
-  margin: 0;
-  font-size: 1.12rem;
-  letter-spacing: -.02em;
-}
-.assistant-workspace-header button svg, .notes-ai-panel > header svg {
+.notes-ai-panel > header svg {
   width: 17px;
   height: 17px;
   flex: none;
-}
-.assistant-workspace-body {
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
-  background: radial-gradient(ellipse at 50% 25%, color-mix(in srgb, var(--blue) 6%, var(--white)), transparent 65%), var(--white);
 }
 .notes-ai {
   display: flex;
@@ -51,15 +25,6 @@
 }
 .notes-ai [hidden] {
   display: none;
-}
-.notes-ai-workspace {
-  max-width: 790px;
-  margin-inline: auto;
-  padding: clamp(16px, 3vw, 34px);
-}
-.notes-ai-workspace:not(.notes-ai-has-messages) {
-  justify-content: center;
-  padding-bottom: clamp(20px, 10vh, 110px);
 }
 .notes-ai-intro {
   max-width: 520px;
@@ -288,13 +253,33 @@
   font-size: .72rem;
   line-height: 1.35;
 }
-.notes-ai-screen-reader {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
+.notes-ai-status {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  margin: .2rem 0 .6rem;
+  color: var(--muted);
+  font-size: .82rem;
 }
+.notes-ai-status-dot { width: .45rem; height: .45rem; border-radius: 50%; background: var(--blue); }
+@media (prefers-reduced-motion: no-preference) {
+  .notes-ai-status-dot { animation: notes-ai-pulse 1.3s ease-in-out infinite alternate; }
+}
+@keyframes notes-ai-pulse { from { opacity: .35; } to { opacity: 1; } }
+::highlight(note-ai-unwritten) { color: transparent; text-shadow: none; }
+.notes-ai-cover-options { display: grid; gap: .5rem; }
+.notes-ai-cover-options button {
+  display: grid;
+  gap: .2rem;
+  padding: .4rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: .5rem;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+.notes-ai-cover-options img { width: 100%; aspect-ratio: 8 / 3; object-fit: cover; border-radius: .3rem; }
+.notes-ai-cover-options small { color: var(--muted); }
 .notes-ai-spinner {
   width: 14px;
   height: 14px;
@@ -363,14 +348,10 @@
   .notes-shell.assistant-panel-open .notes-workspace.pages-collapsed { grid-template-columns: minmax(0, 1fr); }
   .notes-shell.assistant-panel-open :is(.notes-navigation, .pages-sidebar, .notion-page) { display: none; }
   .notes-shell.assistant-panel-open .notes-ai-panel { border-inline-start: 0; }
-  .assistant-workspace-header { padding: 8px 14px; }
 }
 @media (max-width: 820px) {
-  html.app-standalone .workspace:is([data-current-view=assistant], :has(.assistant-panel-open)) { --mobile-tabs-space: 0px; }
-  html.app-standalone .workspace:is([data-current-view=assistant], :has(.assistant-panel-open)) > .mobile-app-tabs { display: none; }
-  html.app-standalone .workspace[data-current-view=assistant] > .content { padding: 0 0 var(--mobile-tabs-space); overflow: hidden; }
-  html.app-standalone .workspace[data-current-view=assistant] #view-content { height: 100%; min-height: 0; padding: 0; }
-  html.app-standalone .assistant-workspace { height: 100%; min-height: 0; }
+  html.app-standalone .workspace:has(.assistant-panel-open) { --mobile-tabs-space: 0px; }
+  html.app-standalone .workspace:has(.assistant-panel-open) > .mobile-app-tabs { display: none; }
   html.app-standalone .notes-shell.assistant-panel-open .notes-workspace { padding-top: 0; }
   html.app-standalone .notes-shell.assistant-panel-open :is(.notes-navigation, .pages-sidebar, .notion-page) { display: none; }
   html.app-standalone .notes-shell.assistant-panel-open .notes-ai-panel { height: 100%; }

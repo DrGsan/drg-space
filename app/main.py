@@ -927,8 +927,11 @@ if STATIC.exists():
         response=packaged_assets.response(asset,request)
         if response is None:fail(404,localized_message('fileNotFound'))
         return response
-    @app.get('/')
     @app.get('/ai')
+    def legacy_assistant():
+        return Response(status_code=302,headers={'Location':'/'})
+
+    @app.get('/')
     @app.get('/f/{token}')
     @app.get('/page/{token}')
     @app.get('/page/{token}/history')

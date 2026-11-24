@@ -26,7 +26,7 @@ import { pageWordCount, pageActions, showPageMenu, pageMenuIcon, readPageView, s
 import "./page-menu.css";
 import {mountVault,moveIntoVault,unlockVaultNotes,subscribeVaultNotes,vaultNotesActivity,vaultTreeIcon,loadVaultTreeIcon} from '../security/vault.js';
 import {FederatedNotes} from '../federation/notes.js';
-import {mountNoteAssistant} from './assistant.js';
+import {mountNoteAssistant,revealNoteBlocks} from './assistant.js';
 let active;
 // Keep each account's tree open only for this loaded app, across view remounts.
 // A reload creates a fresh module and starts every tree collapsed.
@@ -118,12 +118,6 @@ class NotesWorkspace {
     window.addEventListener('online',online);this.cleanups.push(()=>window.removeEventListener('online',online));
     $("#add-root-page", this.host).onclick = () => this.newPage();
     $('#create-database',this.host).onclick=tool(()=>this.newDatabase());
-    if(this.ctx.canUseAssistant?.()){
-      const button=document.createElement('button');button.type='button';button.className='text-link';
-      button.innerHTML=pageMenuIcon('sparkles')+`<span>${tHtml('notes:assistantMenu')}</span>`;
-      button.onclick=()=>this.ctx.navigate('assistant');
-      $('.pages-sidebar-footer',this.host).prepend(button);
-    }
     $('#show-mentions',this.host).onclick=tool(()=>mentionsDialog(this.ctx));
     $("#show-trash", this.host).onclick = tool(() => this.trash());
     $("#show-templates", this.host).onclick = tool(() => this.templatePicker());
@@ -1085,7 +1079,7 @@ class NotesWorkspace {
       return trigger;
     };
     setTrigger(true);
-    const dispose=mountNoteAssistant(panel,this.ctx,{target,initialSource:asSource?page:null,beforeSave,refreshTarget,layout:'panel'},async id=>{
+    const dispose=mountNoteAssistant(panel,this.ctx,{target,initialSource:asSource?page:null,beforeSave,refreshTarget},async(id,change)=>{
       if(this.disposed)return;
       const saved=await this.ctx.api('/notes/'+id);
       if(this.disposed)return;
@@ -1094,6 +1088,14 @@ class NotesWorkspace {
       if(this.page?.id===activeId&&(id===activeId||draftId)&&!this.state.dirty){
         if(draftId)transferPageView(this.state.me?.id,draftId,id);
         await this.open(id,false);
+        if(this.page?.id===id&&change?.updated_blocks){
+          let ids=change.updated_blocks;
+          if(change.legacy_mode&&this.handle){
+            const document=this.handle.document();
+            ids=(change.legacy_mode==='append'?document.slice(-ids.length):document.slice(0,ids.length)).map(block=>block.id);
+          }
+          await revealNoteBlocks($('#block-editor',this.host),ids);
+        }
       }
       this.tree();
       return saved;
