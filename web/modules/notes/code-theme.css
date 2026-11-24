@@ -108,10 +108,11 @@
   color:var(--note-code-text);
 }
 .bn-editor .note-code-actions button {
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
   max-width:100%;
   padding:4px 7px;
-  overflow:hidden;
-  text-overflow:ellipsis;
   white-space:nowrap;
   font:inherit;
   font-size:12px;
@@ -121,6 +122,8 @@
   background:var(--note-code-background);
   cursor:pointer;
 }
+.bn-editor .note-code-actions button svg {flex:0 0 14px;width:14px;height:14px}
+.bn-editor .note-code-actions button span {min-width:0;overflow:hidden;text-overflow:ellipsis}
 .bn-editor .note-code-actions button:hover {border-color:currentColor}
 .bn-editor .note-code-feedback:not(:empty) {
   position:absolute;

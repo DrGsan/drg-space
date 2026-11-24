@@ -43,6 +43,8 @@ test('copies exact code and changes language or wrapping from the block menu',as
   await expect(sampleBlock.locator('.note-code-actions')).toHaveCSS('opacity','0');
   await sampleBlock.locator('pre').hover();
   await expect(sampleBlock.locator('.note-code-actions')).toHaveCSS('opacity','1');
+  await expect(quick.locator('svg[aria-hidden="true"]')).toBeVisible();
+  await expect(quick.locator('span')).toHaveText('Копировать');
   await quick.click();
   await expect(sampleBlock.getByRole('status')).toHaveText('Код скопирован');
   expect(await page.evaluate(()=>window.copiedCode)).toBe(source);
@@ -88,7 +90,9 @@ test('copies exact code and changes language or wrapping from the block menu',as
     await expect(block.getByLabel('Code language')).toBeDisabled();
     await expect(block.locator('pre')).toHaveCSS('white-space','pre-wrap');
     await expect(block.locator('.note-code-actions')).toHaveCSS('opacity','1');
-    await block.getByRole('button',{name:'Copy code',exact:true}).tap();
+    const touchCopy=block.getByRole('button',{name:'Copy code',exact:true});
+    await expect(touchCopy.locator('svg[aria-hidden="true"]')).toBeVisible();
+    await touchCopy.tap();
     await expect(block.getByRole('status')).toHaveText('Code copied');
     expect(await viewer.evaluate(()=>window.copiedCode)).toBe(source);
 

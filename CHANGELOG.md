@@ -2,7 +2,7 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.2.28-rc.2] — 2026-11-24 — Quick actions for code blocks
+## [5.2.28-rc.3] — 2026-11-24 — Quick actions for code blocks
 
 - Copy the entire code block, including indentation and line breaks, from its top-right corner.
 - Search for a code language or wrap long lines from the existing block menu.

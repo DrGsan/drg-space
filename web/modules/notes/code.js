@@ -1,6 +1,7 @@
 import {tText} from "../../core/i18n.js";
 import {mermaidPreview} from './mermaid-preview.js';
 import {inlineText} from './block-actions.js';
+import {pageMenuIcon} from './page-menu.js';
 import {createCodeBlockSpec,createExtension} from '@blocknote/core';
 import {createHighlightPlugin} from 'prosemirror-highlight';
 import {createParser} from 'prosemirror-highlight/shiki';
@@ -47,7 +48,10 @@ codeBlock.implementation.render=function(block,editor){
   controls.contentEditable='false';
   const button=document.createElement('button');
   button.type='button';
-  button.textContent=tText('app:copy');
+  button.innerHTML=pageMenuIcon('copy');
+  const label=document.createElement('span');
+  label.textContent=tText('app:copy');
+  button.append(label);
   button.setAttribute('aria-label',tText('notes:copyCode'));
   const feedback=document.createElement('span');
   feedback.setAttribute('role','status');
