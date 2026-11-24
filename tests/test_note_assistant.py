@@ -102,10 +102,13 @@ def test_assistant_cover_search_uses_editable_note_and_versioned_selection(activ
     page = active.get('/api/notes/' + note(active)).json()
     path = '/api/notes/' + page['id']
     page = active.patch(path, json={'cover': 'forest', 'version': page['version']}).json()
-    cover = ai.Reply(intent='find_cover', message='', changes=changes(), cover_query='mountain lake panorama')
+    focus = [['mountain', 'mountains'], ['lake']]
+    cover = ai.Reply(intent='find_cover', message='', changes=changes(), cover_query='mountain lake panorama', cover_focus=focus)
     monkeypatch.setattr(ai, 'proposal', lambda *a, **kw: cover)
-    assert suggest(active, target=ref(page)) == {'cover_query': 'mountain lake panorama', 'draft': None}
+    assert suggest(active, target=ref(page)) == {'cover_query': 'mountain lake panorama', 'cover_focus': focus, 'draft': None}
     assert 'cover_query' not in suggest(active)
+    cover.cover_focus = [['filetype:bitmap']]
+    assert active.post(ROOT + '/propose', json={'prompt': 'Find a cover', 'target': ref(page)}).status_code == 502
 
     attribution = {'author': 'Fixture photographer', 'license': 'CC BY 4.0', 'source_url': 'https://commons.wikimedia.org/wiki/File:Test'}
     token = main.tokens.encode('note-cover', 'fixture', main.now() + 300, owner=account_id(active), provider='commons',

@@ -59,6 +59,26 @@ def image_reference(c,nid,value,kind,fail):
 
 def clear_markup(value):return html.unescape(re.sub(r'<[^>]*>','',str(value or '')))[:400]
 
+def cover_words(text):
+    return ' ' + ' '.join(re.findall(r'[a-z0-9]+', text.casefold())) + ' '
+
+
+def cover_focus(groups):
+    if not isinstance(groups, list) or not 1 <= len(groups) <= 3:
+        raise ValueError('Invalid cover focus')
+    for group in groups:
+        if not isinstance(group, list) or not 1 <= len(group) <= 5:
+            raise ValueError('Invalid cover focus group')
+        if any(not isinstance(term, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 '\-]{0,29}", term) for term in group):
+            raise ValueError('Invalid cover focus term')
+    return tuple(tuple(cover_words(term) for term in group) for group in groups)
+
+
+def commons_search_rank(page):
+    rank = page.get('index')
+    return rank if type(rank) is int else float('inf')
+
+
 def commons_cover_url(info):
     """Prefer a bounded rendition; never fall back to an oversized original."""
     width,height=info.get('width',0),info.get('height',0)
@@ -184,12 +204,17 @@ def create_note_assets_router(db,ready,tokens,rate,now,fail,data_dir):
             c.execute('UPDATE note_assets SET payload=? WHERE id=?',(json.dumps(info),aid))
         return {'position':data.position}
     @r.get('/api/note-cover-search')
-    async def search(request:Request,q:str=Query(default='',max_length=120),provider:str='commons'):
+    async def search(request:Request,q:str=Query(default='',max_length=120),provider:str='commons',
+                     focus:str=Query(default='',max_length=650)):
         s=ready(request);rate(request,'cover-search',60,subject=s['user_id'])
         if provider not in ('commons','unsplash'):fail(422,localized_message('unknownPhotoCatalog'))
+        try:
+            groups = cover_focus(json.loads(focus)) if focus else ()
+        except ValueError:
+            fail(422, localized_message('notesAiBadProposal'))
         secret=os.getenv('UNSPLASH_ACCESS_KEY','').strip()
         if provider=='unsplash' and not secret:fail(503,localized_message('unsplashIsNotConfiguredTheAdministratorNeedsThe'))
-        query=q.strip() or 'landscape';key=(provider,query)
+        query=q.strip() or 'landscape';key=(provider,query,groups)
         cached=cache.get(key)
         if cached and cached[0]>now():items=cached[1]
         else:
@@ -199,11 +224,15 @@ def create_note_assets_router(db,ready,tokens,rate,now,fail,data_dir):
                     params={'action':'query','generator':'search','gsrsearch':query+' filetype:bitmap','gsrnamespace':6,'gsrlimit':40,'prop':'imageinfo','iiprop':'url|size|mime|thumbmime|extmetadata','iiurlwidth':1600,'iiurlheight':1200,'format':'json'}
                     body,_,_=await fetch_public('https://commons.wikimedia.org/w/api.php?'+urlencode(params),accept='application/json')
                     pages=json.loads(body).get('query',{}).get('pages',{})
-                    for page in pages.values():
+                    for page in sorted(pages.values(), key=commons_search_rank):
                         info=(page.get('imageinfo') or [{}])[0]
                         url=commons_cover_url(info)
                         if not url:continue
                         meta=info.get('extmetadata',{});get=lambda key:clear_markup(meta.get(key,{}).get('value',''))
+                        if groups:
+                            fields = tuple(cover_words(value) for value in (page.get('title',''), get('ImageDescription'), get('ObjectName'), get('Categories')))
+                            if not all(any(term in field for term in group for field in fields) for group in groups):
+                                continue
                         items.append({'id':str(page['pageid']),'url':url,'thumbnail':url,'title':page.get('title',''),'attribution':{'author':get('Artist'),'license':get('LicenseShortName'),'source_url':info.get('descriptionurl','https://commons.wikimedia.org/')}})
                         if len(items)>=18:break
                 else:

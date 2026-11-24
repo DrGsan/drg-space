@@ -30,6 +30,7 @@
   "assistantTyping": "Typing…",
   "assistantFindingCovers": "Searching for covers…",
   "assistantCoverOptions": "Choose a cover · Wikimedia Commons",
+  "assistantNoMoreCovers": "No more covers match this search. Try a different description.",
   "assistantApplying": "Saving changes…",
   "assistantSaved": "Note saved",
   "editing": "Editing",

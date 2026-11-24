@@ -487,12 +487,12 @@ class NotesWorkspace {
       if(previousTitle?.isConnected&&!this.transferBusy)previousTitle.disabled=previousDisabled;
     }
   }
-  async open(id, flush = true) {
+  async open(id, flush = true, {keepAssistant = false} = {}) {
     id=this.state.notes.find(n=>n.navigation_aliases?.includes(id))?.id||id;
     this.closePageMenu?.(false);
     const current=this.page?.id;
     if (flush && !(await this.flush())) return;
-    if(current!==id)this.closeAssistant?.();
+    if(current!==id&&!keepAssistant)this.closeAssistant?.();
     if(this.remote?.active)this.remote.close();
     this.vault?.destroy();this.vault=null;
     if(id===current&&current?.startsWith('draft_'))id=this.page.id;
@@ -1057,15 +1057,18 @@ class NotesWorkspace {
     }
     this.closeAssistant?.();
     const target=asSource?null:page;
-    const activeId=opened?.id;
-    const beforeSave=async()=>{
+    let activeId=opened?.id;
+    const beforeSave=async expected=>{
       if(!await this.flush()||this.disposed)return false;
+      if(draftId===activeId&&this.page===opened)activeId=opened.id;
       if(activeId&&this.page?.id!==activeId)throw new Error(tText('notes:assistantPageChanged'));
+      if(expected&&(this.page?.id!==expected.id||this.page.version!==expected.version))return false;
       return true;
     };
     const refreshTarget=async current=>{
       if(!await beforeSave())throw new Error(tText('notes:assistantPageChanged'));
-      if(current.version!==this.page.version)return this.ctx.api('/notes-assistant/pages/'+encodeURIComponent(activeId));
+      if(asSource||!activeId||this.page.isDraft)return;
+      if(!current||current.version!==this.page.version)return this.ctx.api('/notes-assistant/pages/'+encodeURIComponent(activeId));
     };
     const shell=$('.notes-shell',this.host);
     const panel=document.createElement('aside');panel.className='notes-ai-panel';panel.id='note-ai-panel';
@@ -1085,9 +1088,10 @@ class NotesWorkspace {
       if(this.disposed)return;
       const index=this.state.notes.findIndex(note=>note.id===id);
       if(index<0)this.state.notes.push(saved);else this.state.notes[index]=saved;
-      if(this.page?.id===activeId&&(id===activeId||draftId)&&!this.state.dirty){
-        if(draftId)transferPageView(this.state.me?.id,draftId,id);
-        await this.open(id,false);
+      const adoptDraft=draftId&&activeId===draftId;
+      if(this.page?.id===activeId&&(id===activeId||adoptDraft)&&!this.state.dirty){
+        if(adoptDraft){transferPageView(this.state.me?.id,draftId,id);activeId=id;}
+        await this.open(id,false,{keepAssistant:!!adoptDraft});
         if(this.page?.id===id&&change?.updated_blocks){
           let ids=change.updated_blocks;
           if(change.legacy_mode&&this.handle){
@@ -1098,7 +1102,7 @@ class NotesWorkspace {
         }
       }
       this.tree();
-      return saved;
+      return !asSource&&saved.id===activeId?saved:null;
     });
     this.closeAssistant=focus=>{
       this.closeAssistant=null;

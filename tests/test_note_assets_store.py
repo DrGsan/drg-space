@@ -51,6 +51,69 @@ def test_cover_search_uses_signed_selection_tokens_and_preserves_attribution(mon
     assert c.get('/api/notes/'+nid).json()['cover_attribution']['license']=='CC BY 4.0'
     assert calls[-1]=='https://thumb.wikimedia.org/test.jpg'
 
+
+def test_commons_cover_search_preserves_relevance_and_filters_by_focus(monkeypatch):
+    from app.modules import note_assets
+
+    c, _, _ = owner()
+
+    def page(pageid, index, title, metadata=None, *, width=1800, height=900):
+        return {
+            'pageid': pageid,
+            'index': index,
+            'title': title,
+            'imageinfo': [{
+                'width': width,
+                'height': height,
+                'size': 200_000,
+                'mime': 'image/jpeg',
+                'url': f'https://upload.wikimedia.org/fixture-{pageid}.jpg',
+                'extmetadata': {key: {'value': value} for key, value in (metadata or {}).items()},
+            }],
+        }
+
+    pages = [
+        page(10, 4, 'File:Snowy mountain lake.jpg'),
+        page(20, 2, 'File:Vintage terminal.jpg'),
+        page(30, 3, 'File:Desktop setup.jpg', {
+            'ImageDescription': '<p>Developer using a command&nbsp;line</p>',
+            'Categories': '<span>Mac OS X</span>',
+        }),
+        page(40, 1, 'File:Mac Terminal portrait.jpg', width=900, height=1800),
+        page(50, 5, 'File:macOS Terminal window.jpg'),
+        page(60, 6, 'File:Flower petals.jpg', {
+            'ImageDescription': '<span class="terminal mac">Flowers</span>',
+            'Artist': 'Terminal Mac',
+        }),
+        page(70, 7, 'File:Laptop simulator.jpg', {'ObjectName': 'Mac Terminal simulator'}),
+    ]
+
+    async def fetch(url, **kwargs):
+        body = {'query': {'pages': {str(item['pageid']): item for item in pages}}}
+        return json.dumps(body).encode(), url, 'application/json'
+
+    monkeypatch.setattr(note_assets, 'fetch_public', fetch)
+
+    def result_ids(focus=None):
+        params = {'q': 'cover relevance fixture'}
+        if focus is not None:
+            params['focus'] = json.dumps(focus)
+        response = c.get('/api/note-cover-search', params=params)
+        assert response.status_code == 200, response.text
+        return [item['id'] for item in response.json()['items']]
+
+    # Requests deliberately share the same provider and search string. A cached
+    # manual result or a different focus must not bypass or poison filtering.
+    manual = ['20', '30', '10', '50', '60', '70']
+    terminal = [['terminal', 'command line'], ['mac', 'macos', 'mac os x']]
+    lake = [['lake'], ['mountain']]
+    assert result_ids() == manual
+    assert result_ids(terminal) == ['30', '50', '70']
+    assert result_ids(lake) == ['10']
+    assert result_ids() == manual
+    assert result_ids(terminal) == ['30', '50', '70']
+
+
 @pytest.mark.parametrize('encrypted',[True,False])
 def test_streaming_objects_roundtrip_chunks_empty_and_detect_truncation(tmp_path,encrypted):
     cipher=DataCipher.ephemeral() if encrypted else DataCipher(enabled=False)

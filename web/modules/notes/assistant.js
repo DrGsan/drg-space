@@ -61,20 +61,27 @@ function animateText(node, {runs, length}, paint) {
     let animation;
     const finish = () => {
       cancelAnimationFrame(animation);
+      clearTimeout(fallback);
       document.removeEventListener('visibilitychange', finish);
       resolve();
     };
     function frame(now) {
       const count = Math.min(length, Math.ceil(length * (now - start) / duration));
-      for (; active < runs.length; active++) {
-        const run = runs[active];
-        if (count <= run.start) break;
-        paint(run, count - run.start);
-        if (count < run.start + run.characters.length) break;
+      try {
+        for (; active < runs.length; active++) {
+          const run = runs[active];
+          if (count <= run.start) break;
+          paint(run, count - run.start);
+          if (count < run.start + run.characters.length) break;
+        }
+      } catch {
+        finish();
+        return;
       }
       if (count === length || !node.isConnected) finish();
       else animation = requestAnimationFrame(frame);
     }
+    const fallback = setTimeout(finish, duration + 250);
     document.addEventListener('visibilitychange', finish);
     animation = requestAnimationFrame(frame);
   });
@@ -167,6 +174,7 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
   const search = $('[data-ai-search]', chat);
   const prompt = form.elements.prompt;
   const history = [];
+  const shownCovers = new Set();
   let items = [], sourcePage = initialSource, searchGeneration = 0, contextGeneration = 0, timer;
   let destroyed = false;
   let busy = false, phase = 'assistantGenerating', contextReady = false, loadedSources = false;
@@ -175,7 +183,7 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
   const input = () => ({target: reference(target), source: reference(sourcePage), include_target_text: !!target});
   const scrollLog = () => { log.scrollTop = log.scrollHeight; };
   function controls() {
-    submit.disabled = busy || !contextReady;
+    submit.disabled = busy;
     $('[data-ai-send-icon]', submit).hidden = busy;
     $('[data-ai-spinner]', submit).hidden = !busy;
     status.hidden = !busy;
@@ -188,16 +196,17 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
     source.disabled = busy;
     search.disabled = busy;
   }
+  function rememberMessage(role, text) {
+    history.push({role, text: [...text].slice(0, 1600).join('')});
+    if (history.length > 6) history.shift();
+  }
   function addMessage(role, text, remember = true) {
     const node = document.createElement('p');
     node.className = 'notes-ai-message ' + (role === 'user' ? 'user' : 'assistant');
     node.textContent = text;
     log.append(node);
     controls();
-    if (remember) {
-      history.push({role, text: [...text].slice(0, 1600).join('')});
-      if (history.length > 6) history.shift();
-    }
+    if (remember) rememberMessage(role, text);
     scrollLog();
     return node;
   }
@@ -264,7 +273,7 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
   form.onsubmit = async event => {
     event.preventDefault();
     const instruction = prompt.value.trim();
-    if (!instruction || busy || !contextReady) return;
+    if (!instruction || busy) return;
     const messages = history.slice();
     const node = addMessage('user', instruction);
     prompt.value = '';
@@ -272,19 +281,23 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
     busy = true;
     setPhase('assistantGenerating');
     try {
-      if (target && refreshTarget) {
+      if (refreshTarget) {
         const current = await refreshTarget(target);
         if (!chat.isConnected) return;
         if (current) {
           target = current;
-          await refreshContext();
-          if (!contextReady) throw new Error(tText('notes:assistantPageChanged'));
+          contextReady = false;
         }
+      }
+      if (!contextReady) {
+        await refreshContext();
+        if (!chat.isConnected) return;
+        if (!contextReady) throw new Error(error.textContent || tText('notes:assistantPageChanged'));
       }
       const result = await call('/propose', 'POST', {...input(), prompt: instruction, history: messages});
       if (result.draft) await save(result);
       else if (!chat.isConnected) return;
-      else if (result.cover_query) await showCovers(result.cover_query);
+      else if (result.cover_query) await showCovers(result.cover_query, result.cover_focus);
       else if (result.message.trim()) {
         setPhase('assistantTyping');
         await revealText(addMessage('assistant', result.message));
@@ -310,23 +323,32 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
     phase = next;
     controls();
   }
-  async function showCovers(query) {
+  async function showCovers(query, focus) {
     setPhase('assistantFindingCovers');
-    const search = phrase => ctx.api('/note-cover-search?provider=commons&q=' + encodeURIComponent(phrase));
+    const search = phrase => {
+      const params = new URLSearchParams({q: phrase});
+      if (focus?.length) params.set('focus', JSON.stringify(focus));
+      return ctx.api('/note-cover-search?' + params, 'GET', undefined, true, {}, {timeoutMs: 20000});
+    };
     let {items: photos} = await search(query);
     const keywords = query.split(/\s+/);
-    if (chat.isConnected && !photos.length && keywords.length > 3) {
-      ({items: photos} = await search(keywords.slice(0, 3).join(' ')));
+    if (chat.isConnected && !photos.some(photo => !shownCovers.has(photo.id)) && keywords.length > 2) {
+      const {items: alternate} = await search(keywords.slice(0, Math.min(3, keywords.length - 1)).join(' '));
+      photos = [...new Map([...photos, ...alternate].map(photo => [photo.id, photo])).values()];
     }
     if (!chat.isConnected) return;
-    if (!photos.length) {
-      addMessage('assistant', tText('notes:noPhotosFoundTryADifferentRequest'));
+    const choices = photos.filter(photo => !shownCovers.has(photo.id)).slice(0, 3);
+    if (!choices.length) {
+      const message = tText(photos.length ? 'notes:assistantNoMoreCovers' : 'notes:noPhotosFoundTryADifferentRequest');
+      addMessage('assistant', message, false);
+      rememberMessage('assistant', `${message} Wikimedia Commons: ${query}.`);
       return;
     }
+    rememberMessage('assistant', `Wikimedia Commons cover options for ${query}: ${choices.map(photo => photo.title).join(', ')}.`);
     const ref = reference(target);
     const gallery = document.createElement('section');
     gallery.className = 'notes-ai-preview';
-    gallery.innerHTML = `<h3>${tHtml('notes:assistantCoverOptions')}</h3><div class="notes-ai-cover-options">${photos.slice(0, 3).map((photo, index) => `<button type="button" data-ai-cover-choice="${index}"><img src="${esc(photo.thumbnail)}" alt="" referrerpolicy="no-referrer"><span>${esc(photo.title.replace(/^File:/i, ''))}</span><small>${esc(photo.attribution.author)} · ${esc(photo.attribution.license)}</small></button>`).join('')}</div>`;
+    gallery.innerHTML = `<h3>${tHtml('notes:assistantCoverOptions')}</h3><div class="notes-ai-cover-options">${choices.map((photo, index) => `<button type="button" data-ai-cover-choice="${index}"><img src="${esc(photo.thumbnail)}" alt="" referrerpolicy="no-referrer"><span>${esc(photo.title.replace(/^File:/i, ''))}</span><small>${esc(photo.attribution.author)} · ${esc(photo.attribution.license)}</small></button>`).join('')}</div>`;
     gallery.querySelectorAll('[data-ai-cover-choice]').forEach(button => {
       button.onclick = async () => {
         if (busy) return;
@@ -334,10 +356,10 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
         error.textContent = '';
         setPhase('assistantApplying');
         try {
-          if (!await beforeSave()) throw new Error(tText('notes:assistantPageChanged'));
+          if (!await beforeSave(ref)) throw new Error(tText('notes:assistantPageChanged'));
           if (!chat.isConnected) return;
           await ctx.api('/notes/' + encodeURIComponent(ref.id) + '/select-cover', 'POST',
-            {token: photos[Number(button.dataset.aiCoverChoice)].selection_token, assistant_version: ref.version});
+            {token: choices[Number(button.dataset.aiCoverChoice)].selection_token, assistant_version: ref.version});
           await savedMessage(ref.id, true, await refreshSaved(ref.id));
           gallery.remove();
         } catch (failure) {
@@ -345,13 +367,14 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
         } finally { busy = false; controls(); }
       };
     });
+    choices.forEach(photo => shownCovers.add(photo.id));
     log.append(gallery);
     scrollLog();
   }
   const refreshSaved = (id, changes) => onSaved(id, changes).catch(failure => { ctx.toast(failure.message); return null; });
   async function savedMessage(id, showHistory, page) {
     if (!chat.isConnected) return;
-    const confirmation = addMessage('assistant', tText('notes:assistantSaved'), false);
+    const confirmation = addMessage('assistant', tText('notes:assistantSaved'));
     const link = document.createElement('button');
     link.type = 'button';
     link.className = 'text-link notes-ai-note-link';
@@ -365,7 +388,7 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
       historyLink.textContent = tText('notes:pageHistory');
       confirmation.append(historyLink);
     }
-    if (page && target?.id === id) { target = page; await refreshContext(); }
+    if (page && (target?.id === id || !target && page.id === id)) { target = page; await refreshContext(); }
   }
   async function save(result) {
     const {draft} = result;
@@ -373,7 +396,7 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
     let saved;
     try {
       if (!chat.isConnected) return;
-      if (!await beforeSave()) throw new Error(tText('notes:assistantPageChanged'));
+      if (!await beforeSave(draft.target)) throw new Error(tText('notes:assistantPageChanged'));
       if (!chat.isConnected) return;
       saved = await call('/apply', 'POST', {draft});
       if (!chat.isConnected) return;
