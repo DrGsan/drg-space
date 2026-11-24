@@ -1,4 +1,12 @@
 {
+  "notesAiUnavailable": "The notes assistant is unavailable for this account.",
+  "notesAiPageUnavailable": "This note is unavailable for the assistant.",
+  "notesAiStale": "The note or proposal has changed. Reopen the assistant and generate a new preview.",
+  "notesAiPromptRequired": "Enter an instruction first.",
+  "notesAiProviderError": "OpenAI could not prepare a proposal. Try again later.",
+  "notesAiBadProposal": "The proposed changes are invalid. Request a new proposal.",
+  "notesAiNoChanges": "The proposal contains no changes. Try a more specific instruction.",
+  "notesAiParagraphUnavailable": "The original paragraph must be unique, plain text and visible in the excerpt. Try a different paragraph or add text instead.",
   "outlineCollectionJsonWithoutAttachments": "To restore collection icons, select the Outline JSON export without attachments along with the Markdown archive.",
   "dateUnitsDaysWeeksMonthsYears": "Date units: days, weeks, months, years.",
   "unknownDateUnit": "Unknown date unit.",

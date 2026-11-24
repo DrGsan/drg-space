@@ -12,6 +12,7 @@ def administrator_route(request):
         ('GET', '/api/admin/users'), ('POST', '/api/admin/users'),
         ('POST', '/api/admin/users/delete'), ('POST', '/api/admin/users/restore'),
         ('GET', '/api/admin/registration'), ('POST', '/api/invites'), ('GET', '/api/invites'),
+        ('GET', '/api/admin/notes-assistant'), ('PUT', '/api/admin/notes-assistant'),
         ('GET', '/api/presence'),
     }:
         return True

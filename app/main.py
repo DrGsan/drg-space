@@ -566,7 +566,7 @@ modules_router, module_guard = create_module_services(db, ready, fail, integrati
 app.include_router(modules_router)
 notes_ready = module_guard('notes')
 from app.modules.notes import create_notes_router
-notes_router, owned_note = create_notes_router(db, notes_ready, lambda:now(), fail,DATA,lambda *event:realtime_router.publication_update(*event))
+notes_router, owned_note = create_notes_router(db, notes_ready, lambda:now(), fail,DATA,lambda *event:realtime_router.publication_update(*event),assistant_admin=admin_access.require,rate=rate)
 app.include_router(notes_router)
 from app.modules.note_members import create_note_members_router
 app.include_router(create_note_members_router(db,notes_ready,rate,lambda:now(),fail))

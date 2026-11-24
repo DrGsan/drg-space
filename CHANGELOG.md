@@ -2,6 +2,15 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.3.0-rc.1] — 2026-11-24 — AI assistant for personal notes
+
+- Draft a personal note or preview changes to its text, title, icon and cover before saving.
+- Review the exact instruction and excerpts that will be sent to OpenAI.
+- Enable the assistant for one account from Administration.
+
+- **Installation:** Rebuild Space with the existing Compose files and volumes. Set OPENAI_API_KEY if enabling the assistant.
+- **Compatibility:** No migration or storage-format change is required.
+
 ## [5.2.28] — 2026-11-24 — Quick actions for code blocks
 
 - Copy the entire code block, including indentation and line breaks, from its top-right corner.

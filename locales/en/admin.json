@@ -1,4 +1,12 @@
 {
+  "notesAssistant": "Notes assistant",
+  "notesAssistantDescription": "OpenAI access for one local account",
+  "notesAssistantAccount": "Account with access",
+  "notesAssistantOff": "Disabled",
+  "notesAssistantOn": "Enabled",
+  "notesAssistantKeySet": "The OpenAI key is configured on the server.",
+  "notesAssistantKeyMissing": "Set OPENAI_API_KEY on the server to enable the assistant.",
+  "notesAssistantSaved": "Assistant settings saved",
   "administration": "Administration",
   "toSettings": "To settings",
   "accessControl": "Access control",

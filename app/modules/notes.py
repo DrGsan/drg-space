@@ -15,6 +15,8 @@ from pydantic import BaseModel, Field, field_validator
 
 ALLOWED_BLOCKS={'paragraph','heading','bulletListItem','numberedListItem','checkListItem','toggleListItem','quote','codeBlock','table','image','video','audio','file','divider','pageLink','callout','columnList','column'}
 COVERS={'','blue','sage','sand','rose','night'}
+PHOTO_COVERS={name:'/assets/wallpapers/'+name+'.webp' for name in ('forest','mountains','nature-coast','cozy-library','space-stars')}
+COVERS.update(PHOTO_COVERS)
 
 class PageInput(BaseModel):
     title: str = Field(min_length=1,max_length=200)
@@ -99,7 +101,7 @@ def validate_blocks(blocks,fail):
     if len(encoded.encode())>500000:fail(422,localized_message('pageIsTooLarge'))
 
 
-def create_notes_router(db,ready,now,fail,data_dir=None,publication_update=None,router=None):
+def create_notes_router(db,ready,now,fail,data_dir=None,publication_update=None,router=None,*,assistant_admin=None,rate=None):
     router=router or Router()
     def owned(c,nid,uid,include_deleted=False):
         return note_access(c,nid,uid,fail,include_deleted)
@@ -173,23 +175,27 @@ def create_notes_router(db,ready,now,fail,data_dir=None,publication_update=None,
             if not trash:result.sort(key=lambda n:(n['position'],-n['updated']))
             return conditional(result,s,catalog_revision) if catalog and catalog_revision is not None else result
 
+    def insert_page(c,data,s):
+        validate_blocks(data.blocks,fail);nid=secrets.token_urlsafe(12);scope=data.space_id
+        if data.parent_id:
+            parent=owned(c,data.parent_id,s['user_id']);require_role(c,parent,s['user_id'],fail,session=s,now=now)
+            if scope is not None and parent['space_id']!=scope:fail(422,localized_message('subpagesMustBeInTheSameWorkspace'))
+            scope=parent['space_id']
+        if scope and not data.parent_id:space_access(c,scope,s['user_id'],fail)
+        parent_ok(c,data.parent_id,None,s['user_id'],scope);linked_pages_ok(c,data.blocks,s['user_id'],scope)
+        from app.modules.note_files import validate_file_links
+        validate_file_links(c,nid,data.body,data.blocks,s['user_id'],fail)
+        position=c.execute('SELECT COALESCE(MAX(position),-1)+1 FROM notes WHERE parent_id IS ? AND space_id IS ? AND (space_id IS NOT NULL OR user_id=?) AND deleted IS NULL',(data.parent_id,scope,s['user_id'])).fetchone()[0]
+        c.execute('INSERT INTO notes(id,user_id,title,body,created,updated,blocks,parent_id,space_id,position) VALUES(?,?,?,?,?,?,?,?,?,?)',(nid,s['user_id'],data.title,data.body,now(),now(),json.dumps(data.blocks) if data.blocks is not None else None,data.parent_id,scope,position))
+        if data.parent_id and c.execute('SELECT 1 FROM note_databases WHERE note_id=?',(data.parent_id,)).fetchone():
+            c.execute('INSERT INTO database_records(note_id,database_id,properties) VALUES(?,?,?)',(nid,data.parent_id,'{}'))
+        return nid
+
     @router.post('/api/notes')
     def create_page(data:PageInput,request:Request):
-        s=ready(request);validate_blocks(data.blocks,fail);nid=secrets.token_urlsafe(12)
+        s=ready(request)
         with db() as c:
-            c.execute('BEGIN IMMEDIATE');scope=data.space_id
-            if data.parent_id:
-                parent=owned(c,data.parent_id,s['user_id']);require_role(c,parent,s['user_id'],fail,session=s,now=now)
-                if scope is not None and parent['space_id']!=scope:fail(422,localized_message('subpagesMustBeInTheSameWorkspace'))
-                scope=parent['space_id']
-            if scope and not data.parent_id:space_access(c,scope,s['user_id'],fail)
-            parent_ok(c,data.parent_id,None,s['user_id'],scope);linked_pages_ok(c,data.blocks,s['user_id'],scope)
-            from app.modules.note_files import validate_file_links
-            validate_file_links(c,nid,data.body,data.blocks,s['user_id'],fail)
-            position=c.execute('SELECT COALESCE(MAX(position),-1)+1 FROM notes WHERE parent_id IS ? AND space_id IS ? AND (space_id IS NOT NULL OR user_id=?) AND deleted IS NULL',(data.parent_id,scope,s['user_id'])).fetchone()[0]
-            c.execute('INSERT INTO notes(id,user_id,title,body,created,updated,blocks,parent_id,space_id,position) VALUES(?,?,?,?,?,?,?,?,?,?)',(nid,s['user_id'],data.title,data.body,now(),now(),json.dumps(data.blocks) if data.blocks is not None else None,data.parent_id,scope,position))
-            if data.parent_id and c.execute('SELECT 1 FROM note_databases WHERE note_id=?',(data.parent_id,)).fetchone():
-                c.execute('INSERT INTO database_records(note_id,database_id,properties) VALUES(?,?,?)',(nid,data.parent_id,'{}'))
+            c.execute('BEGIN IMMEDIATE');nid=insert_page(c,data,s)
             return serialize(owned(c,nid,s['user_id']),c,s['user_id'],s)
 
     @router.get('/api/notes/search')
@@ -499,4 +505,7 @@ def create_notes_router(db,ready,now,fail,data_dir=None,publication_update=None,
 
     from app.note_subpages import register_subpages
     register_subpages(router,db,ready,now,fail,owned,serialize,publication_update)
+    if assistant_admin is not None:
+        from app.modules.note_assistant import register
+        register(router,db,ready,assistant_admin,rate,now,fail,insert_page)
     return router,owned

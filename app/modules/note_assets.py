@@ -39,7 +39,9 @@ def thumbnail(body,kind):
         return stream.getvalue(),image.width,image.height
 
 def asset_payload(c,n,url_prefix=None):
+    from app.modules.notes import PHOTO_COVERS
     output={}
+    if n['cover'] in PHOTO_COVERS:output['cover_url']=PHOTO_COVERS[n['cover']]
     for kind in ('icon','cover'):
         aid=asset_id(n[kind])
         if not aid:continue

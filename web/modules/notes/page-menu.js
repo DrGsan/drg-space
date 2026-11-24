@@ -35,6 +35,7 @@ export function applyPageView(host, value) {
   host.classList.toggle('page-small-text', value.small_text === true);
 }
 const paths = {
+  edit: '<path d="m15 5 4 4m-15 7 1-4L16 1l4 4L9 16H4Z" transform="translate(0 2)"/>',
   star: '<path d="m12 3 2.8 5.7 6.3.9-4.6 4.4 1.1 6.3-5.6-3-5.6 3 1.1-6.3L3 9.6l6.2-.9Z"/>',
   link: '<path d="m10 13 4-4M8 16l-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2-1 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" transform="translate(1 0)"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4"/>',

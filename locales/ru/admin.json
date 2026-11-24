@@ -1,4 +1,12 @@
 {
+  "notesAssistant": "ИИ-помощник заметок",
+  "notesAssistantDescription": "Доступ к OpenAI для одного локального аккаунта",
+  "notesAssistantAccount": "Аккаунт с доступом",
+  "notesAssistantOff": "Отключено",
+  "notesAssistantOn": "Включено",
+  "notesAssistantKeySet": "Ключ OpenAI настроен на сервере.",
+  "notesAssistantKeyMissing": "Чтобы включить помощника, задайте OPENAI_API_KEY на сервере.",
+  "notesAssistantSaved": "Настройки помощника сохранены",
   "administration": "Управление",
   "toSettings": "В настройки",
   "accessControl": "Доступ к управлению",

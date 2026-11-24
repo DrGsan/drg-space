@@ -10,6 +10,12 @@ Child pages belong to a hierarchy. Moving and ordering pages preserves identity 
 
 Note databases add typed properties, records, named views, filters and sorting. Their access follows the owning page and space. Duplicating or importing records validates their database relationships instead of copying arbitrary foreign IDs.
 
+## Notes assistant
+
+When configured, **Tools → Create note with AI** drafts a new personal note. **Edit with AI** in a personal page menu can suggest a new title, emoji, built-in cover, added text or replacement of one plain paragraph. Choose which changes to apply in the preview. Apply is tied to the note version shown in the preview and rejects changes made in another tab.
+
+Set `OPENAI_API_KEY` in the server environment and choose one local account in **Administration → Notes assistant**. Choose **Disabled** to revoke access. Space uses the OpenAI Responses API with `store: false`, with the provider's normal data controls still applying. The send step shows the instruction and the note excerpts first. A personal note synced from Notion can be selected as a reference. The assistant works with plain text from personal notes and its own suggested content. Shared notes, locked notes, the secret vault, database entries and attachments are outside its scope. [OpenAI data controls](https://developers.openai.com/api/docs/guides/your-data)
+
 ## Collaboration and access
 
 Shared editing uses the existing authorization and document synchronization protocol. Reconnection, conflicts and access revocation must preserve local drafts where recovery is possible. Temporary editor state is not permission to publish or write after access has been removed.

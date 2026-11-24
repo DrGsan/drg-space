@@ -26,6 +26,7 @@ import { pageWordCount, pageActions, showPageMenu, pageMenuIcon, readPageView, s
 import "./page-menu.css";
 import {mountVault,moveIntoVault,unlockVaultNotes,subscribeVaultNotes,vaultNotesActivity,vaultTreeIcon,loadVaultTreeIcon} from '../security/vault.js';
 import {FederatedNotes} from '../federation/notes.js';
+import {openNoteAssistant} from './assistant.js';
 let active;
 // Keep each account's tree open only for this loaded app, across view remounts.
 // A reload creates a fresh module and starts every tree collapsed.
@@ -117,6 +118,13 @@ class NotesWorkspace {
     window.addEventListener('online',online);this.cleanups.push(()=>window.removeEventListener('online',online));
     $("#add-root-page", this.host).onclick = () => this.newPage();
     $('#create-database',this.host).onclick=tool(()=>this.newDatabase());
+    this.ctx.api('/notes-assistant').then(({enabled})=>{
+      if(this.disposed||!enabled)return;
+      this.assistantEnabled=true;
+      const button=document.createElement('button');button.type='button';button.textContent=tText('notes:assistantCreate');
+      button.onclick=tool(()=>this.assistant());
+      $('.pages-tool-menu',tools).prepend(button);
+    }).catch(()=>{});
     $('#show-mentions',this.host).onclick=tool(()=>mentionsDialog(this.ctx));
     $("#show-trash", this.host).onclick = tool(() => this.trash());
     $("#show-templates", this.host).onclick = tool(() => this.templatePicker());
@@ -219,6 +227,7 @@ class NotesWorkspace {
   }
   destroy() {
     this.remote?.destroy();
+    this.closeAssistant?.();
     this.vault?.destroy();this.vault=null;
     this.closeTrash?.(false);
     this.historyView?.destroy();
@@ -972,6 +981,9 @@ class NotesWorkspace {
     const page=this.page,editable=(!page.role||page.role==='editor')&&(!page.locked||page.unlock_until);
     const canDuplicate=page.notion_sync?canCopyNotionPage(page,this.ctx):editable;
     const actions=pageActions(page,editable,{canDuplicate});
+    if(this.assistantEnabled&&page.manage&&!page.isDraft&&!page.space_id&&!page.federation_shared&&!page.locked&&!page.notion_sync&&page.kind!=='database'&&!page.database_id){
+      actions.push({name:'assistant',label:tText('notes:assistantEdit'),icon:'edit',group:'page'});
+    }
     if(page.notion_sync?.can_reorder){
       const roots=this.state.notes.filter(n=>n.parent_id===page.parent_id&&!n.deleted&&n.space_id===page.space_id),index=roots.findIndex(n=>n.id===page.id);
       for(const action of actions){if(action.name==='move-up')action.disabled=index<=0;if(action.name==='move-down')action.disabled=index<0||index===roots.length-1;}
@@ -994,6 +1006,7 @@ class NotesWorkspace {
       if(this.page?.id!==page.id)return;
       if(action==='copy-link')return this.copyPageLink();
       if(action==='copy-content')return this.copyPageContents();
+      if(action==='assistant')return this.assistant(page.id);
       if(!(await this.flush())||this.page?.id!==page.id)return;
       if(action==='trash'&&this.page.isDraft)return this.removePage(this.page.id);
       if(!(await this.persistDraft()))return;
@@ -1012,6 +1025,20 @@ class NotesWorkspace {
       if(action==='duplicate')return await this.duplicatePage(this.page);
       if(action==='trash')return this.removePage(this.page.id);
     }catch(error){this.ctx.toast(error.message);}
+  }
+  async assistant(targetId){
+    if(this.closeAssistant||!(await this.flush())||this.disposed)return;
+    if(targetId&&this.page?.id!==targetId)return;
+    const target=targetId?this.page:null;
+    this.closeAssistant=openNoteAssistant(this.ctx,target,async id=>{
+      if(this.disposed)return;
+      const saved=await this.ctx.api('/notes/'+id);
+      if(this.disposed)return;
+      const index=this.state.notes.findIndex(note=>note.id===id);
+      if(index<0)this.state.notes.push(saved);else this.state.notes[index]=saved;
+      if(!targetId||this.page?.id===targetId)await this.open(id,false);
+      this.tree();
+    },()=>{this.closeAssistant=null;});
   }
   async duplicatePage(page){
     const linked=Boolean(page.notion_sync);

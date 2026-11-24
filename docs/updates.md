@@ -1,5 +1,13 @@
 # Updating DrG Space
 
+## 5.3.0-rc.1
+
+The optional Notes assistant needs `OPENAI_API_KEY` in the application environment and an account selected in Administration. `OPENAI_NOTES_MODEL` can override the default model. Existing installations can leave both variables unset. No database migration, storage-format change, or data-volume change is required.
+
+```sh
+docker compose up -d --build --no-deps app
+```
+
 ## 5.2.28
 
 Code blocks have a compact copy button and add searchable language selection and line wrapping to the block menu. Older code blocks retain their default wrapping. No database migration, storage-format change, or environment change is required. Rebuild Space with the same Compose files and data volumes:
