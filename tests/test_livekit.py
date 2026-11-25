@@ -222,3 +222,16 @@ def test_failed_room_creation_never_reserves_a_participant(sfu):
     failing.clear()
     assert enter(room)[1].status_code == 200
     assert a.get('/api/calls/guest-rooms').json()['items'][0]['count'] == 2
+
+
+def test_delete_rebinds_only_a_room_whose_worker_is_missing(sfu, monkeypatch):
+    methods = []
+    def handle(request):
+        method = request.url.path.rsplit('/', 1)[-1]
+        methods.append(method)
+        if len(methods) == 1:
+            return httpx.Response(500, json={'code': 'unknown', 'msg': 'could not find object'})
+        return httpx.Response(200, json={})
+    monkeypatch.setattr(livekit, '_http', httpx.Client(transport=httpx.MockTransport(handle)))
+    livekit.delete_room(uuid.uuid4().hex)
+    assert methods == ['DeleteRoom', 'CreateRoom', 'DeleteRoom']
