@@ -1,7 +1,7 @@
 {
-  "release5_3_1_rc_1Title": "Notes during scheduled maintenance",
-  "release5_3_1_rc_1Change1": "Notes open automatically after brief scheduled storage maintenance.",
-  "release5_3_1_rc_1Change2": "The sidebar keeps the existing list while refreshing.",
+  "release5_3_1Title": "Notes during scheduled maintenance",
+  "release5_3_1Change1": "Notes open automatically after brief scheduled storage maintenance.",
+  "release5_3_1Change2": "The sidebar keeps the existing list while refreshing.",
   "release5_3_0Title": "AI assistant for personal notes",
   "release5_3_0Change1": "Open the AI composer at the bottom of a note and expand or collapse the conversation above it.",
   "release5_3_0Change2": "See when the assistant is thinking and watch new text appear in chat and in the note. Restore the previous version from note history.",

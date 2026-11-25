@@ -1,6 +1,6 @@
 # Updating DrG Space
 
-## 5.3.1-rc.1
+## 5.3.1
 
 The notes catalog recovers after a short scheduled storage lock. The browser retries reads and keeps an existing list visible. Rebuild Space with the current Compose configuration and volumes. No database migration, environment change or storage conversion is required.
 
