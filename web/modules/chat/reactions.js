@@ -1,7 +1,7 @@
 import {tText,tHtml} from "../../core/i18n.js";
 import {esc} from '../../core/ui.js';
 import {personAvatar,personName} from '../../core/people.js';
-import {telegramPerson,customEmoji} from '../family-photos/details.js';
+import {telegramAuthor,telegramPerson,customEmoji} from '../family-photos/details.js';
 import './reactions.css';
 export const reactionEmojis=['👍','❤️','😂','🔥','👏','😢','😮','🎉','🤔','👀','✅','🙏','😁','😍','💯','🤝','🥰','💔','😎','😡','👎','👌','😱','🫡'];
 function groups(message,me){
@@ -16,7 +16,7 @@ function groups(message,me){
  }
  return [...result.values()];
 }
-const label=person=>person.source==='telegram'?person.name||tText("chat:telegramParticipant"):personName(person);
+const label=person=>person.source==='telegram'?telegramAuthor(person.name):personName(person);
 const avatar=person=>person.source==='telegram'?telegramPerson(person):personAvatar(person);
 export function reactionsMarkup(message,me,{readOnly=false}={}){
  return `<div class="chat-reactions">${groups(message,me).map(group=>`<span class="chat-reaction ${group.mine?'is-mine':''}"><button type="button" ${readOnly?'data-reaction-people':'data-reaction-toggle'}="${esc(group.id)}" ${readOnly?'':`aria-pressed="${group.mine}"`} aria-label="${tHtml("chat:reaction", {value0:(esc(group.emoji)), value1:(group.count)})}" title="${esc(group.people.map(label).join(', ')||tText("chat:telegramReaction"))}">${group.asset?customEmoji(group.asset,group.emoji):esc(group.emoji)}${group.people.length?'':`<span>${group.count}</span>`}</button>${group.people.length?`<button type="button" class="chat-reaction-people" data-reaction-people="${esc(group.id)}" aria-label="${tHtml("chat:whoReactedWith", {value0:(esc(group.emoji))})}">${group.people.slice(0,3).map(avatar).join('')}</button>`:''}</span>`).join('')}</div>`;

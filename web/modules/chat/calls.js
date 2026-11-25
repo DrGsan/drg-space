@@ -33,7 +33,7 @@ export const callsController={
   destroy(){document.dispatchEvent(new Event('drg-call-reset'));active?.destroy();active=null;},
 };
 class VoiceCalls {
-  constructor(ctx){this.ctx=ctx;this.uid=ctx.state.me.id;this.device=crypto.randomUUID();this.disposed=false;this.candidates=[];this.remoteCandidates=new Set();this.sequence=0;this.createAudioReceiver();this.outputLayoutChange=()=>this.drawOutputs();window.addEventListener('resize',this.outputLayoutChange);this.audioSession=navigator.audioSession;this.sessionChange=()=>this.audioSessionChanged();this.audioSession?.addEventListener?.('statechange',this.sessionChange);this.deviceChange=()=>{if(this.stream)this.refreshAudioOutput();};navigator.mediaDevices?.addEventListener?.('devicechange',this.deviceChange);this.focus=()=>{if(document.hidden){this.availabilityAbort?.abort();return;}this.refreshAvailability(true);this.poll(true);if(this.stream&&!document.hidden)this.refreshAudioOutput();};this.inbox=()=>this.poll(true);window.addEventListener('focus',this.focus);document.addEventListener('visibilitychange',this.focus);document.addEventListener('drg-incoming-call',this.inbox);this.beforeUnload=()=>this.availabilityAbort?.abort();window.addEventListener('beforeunload',this.beforeUnload);this.pagehide=()=>{this.availabilityAbort?.abort();const call=this.call;if(callLive(call)&&call.owned){if(call.federation){this.api('/'+call.id+'/end','POST',{reason:'hangup'}).catch(()=>{});this.close();return;}this.close();fetch('/api/calls/'+call.id+'/end',{method:'POST',credentials:'same-origin',keepalive:true,headers:{'Content-Type':'application/json','X-CSRF-Token':csrfCookie()},body:JSON.stringify({reason:'hangup'})}).catch(()=>{});}};window.addEventListener('pagehide',this.pagehide);this.timer=setInterval(()=>this.poll(),2000);this.fullscreenChange=()=>this.draw();document.addEventListener('fullscreenchange',this.fullscreenChange);this.clock=setInterval(()=>this.tick(),1000);this.availabilityTimer=setInterval(()=>this.refreshAvailability(),15000);this.refreshAvailability();}
+  constructor(ctx){this.ctx=ctx;this.uid=ctx.state.me.id;this.device=crypto.randomUUID();this.disposed=false;this.candidates=[];this.remoteCandidates=new Set();this.iceGeneration=0;this.sequence=0;this.createAudioReceiver();this.outputLayoutChange=()=>this.drawOutputs();window.addEventListener('resize',this.outputLayoutChange);this.audioSession=navigator.audioSession;this.sessionChange=()=>this.audioSessionChanged();this.audioSession?.addEventListener?.('statechange',this.sessionChange);this.deviceChange=()=>{if(this.stream)this.refreshAudioOutput();};navigator.mediaDevices?.addEventListener?.('devicechange',this.deviceChange);this.focus=()=>{if(document.hidden){this.availabilityAbort?.abort();return;}this.refreshAvailability(true);this.poll(true);if(this.stream&&!document.hidden)this.refreshAudioOutput();};this.inbox=()=>this.poll(true);window.addEventListener('focus',this.focus);document.addEventListener('visibilitychange',this.focus);document.addEventListener('drg-incoming-call',this.inbox);this.beforeUnload=()=>this.availabilityAbort?.abort();window.addEventListener('beforeunload',this.beforeUnload);this.pagehide=()=>{this.availabilityAbort?.abort();const call=this.call;if(callLive(call)&&call.owned){if(call.federation){this.api('/'+call.id+'/end','POST',{reason:'hangup'}).catch(()=>{});this.close();return;}this.close();fetch('/api/calls/'+call.id+'/end',{method:'POST',credentials:'same-origin',keepalive:true,headers:{'Content-Type':'application/json','X-CSRF-Token':csrfCookie()},body:JSON.stringify({reason:'hangup'})}).catch(()=>{});}};window.addEventListener('pagehide',this.pagehide);this.timer=setInterval(()=>this.poll(),2000);this.fullscreenChange=()=>this.draw();document.addEventListener('fullscreenchange',this.fullscreenChange);this.clock=setInterval(()=>this.tick(),1000);this.availabilityTimer=setInterval(()=>this.refreshAvailability(),15000);this.refreshAvailability();}
   async api(path,method='GET',data,signal){
     const id=/^\/([^/?]+)\//.exec(path)?.[1],route=(id&&this.federationRoutes?.get(id))||this.call?.federation;
     if(route){
@@ -86,13 +86,68 @@ class VoiceCalls {
       if(this.call&&this.call.id!==call.id)return;
       this.call=call;this.draw();
       if(!callLive(call)){this.release();this.scheduleClose();return;}
-      if(call.owned&&this.pc){
-        if(call.sdp&&!this.pc.remoteDescription){await this.pc.setRemoteDescription({type:call.outgoing?'answer':'offer',sdp:call.sdp});}
-        if(this.pc.remoteDescription)for(const item of call.candidates||[]){const key=JSON.stringify(item);if(!this.remoteCandidates.has(key)){await this.pc.addIceCandidate(item);this.remoteCandidates.add(key);}}
-        if(Date.now()-(this.lastSignal||0)>10000||this.candidates.length)await this.signal();
-      }
-    }catch(error){if(!this.disposed&&this.call){if([401,403,404,409].includes(error.status)){this.close();this.ctx.toast(error.message);}else{this.networkAt??=Date.now();if(Date.now()-this.networkAt>30000)this.end('failed');else this.status(tText("chat:checkingConnection"));}}}
+      if(call.owned&&this.pc)await this.syncTransport(call);
+    }catch(error){if(!this.disposed&&this.call&&seq===this.sequence){if([401,403,404,409].includes(error.status)){this.close();this.ctx.toast(error.message);}else if(!this.recoverUntil){this.networkAt??=Date.now();if(Date.now()-this.networkAt>30000)this.end('failed');else this.status(tText("chat:checkingConnection"));}}}
     finally{this.polling=false;if(this.pollAgain){this.pollAgain=false;if(!this.disposed)queueMicrotask(()=>this.poll(true));}}
+  }
+  startRecovery(){
+    if(this.recoverUntil)return;
+    this.recoverUntil=Date.now()+45000;
+    this.nextTransportAttempt=Date.now()+1300;
+    this.connected=false;
+    this.status(tText("chat:restoringAudio"));
+  }
+  async syncTransport(call){
+    let pc=this.pc;
+    if(Number.isInteger(call.ice_generation)){
+      if(call.outgoing&&call.restart_requested)this.startRecovery();
+      if(call.ice_generation<this.iceGeneration){
+        // The offer is still being delivered. Retry the same generation.
+        if(this.pendingSdp)await this.signal();
+        return;
+      }
+      const answering=!call.outgoing&&call.ice_generation>this.iceGeneration;
+      const offering=call.outgoing&&this.recoverUntil&&Date.now()>=this.nextTransportAttempt;
+      if(answering||offering){
+        if(this.signaling)return;
+        this.startRecovery();
+        if(answering&&Date.now()<(this.nextAnswerAttempt||0))return;
+        this.nextTransportAttempt=Date.now()+9000;
+        this.nextAnswerAttempt=Date.now()+2500;
+        const seq=this.sequence;
+        this.negotiating=true;
+        try{
+          // A restarted relay loses its allocations. Both peers need fresh
+          // transports; keep the microphone, visual tracks and audio output.
+          pc=await this.peer(this.stream);
+          if(answering){
+            await pc.setRemoteDescription({type:'offer',sdp:call.sdp});
+            this.visualSlots=pc.getTransceivers().filter(t=>t.receiver.track.kind==='video');
+            this.visualSlots.forEach(t=>t.direction='sendrecv');
+          }else{
+            this.visualSlots=['camera','screen'].map(()=>pc.addTransceiver('video',{direction:'sendrecv'}));
+          }
+          for(const [i,kind] of ['camera','screen'].entries()){
+            const track=this[kind+'Stream']?.getVideoTracks()[0];
+            if(track)await this.visualSlots[i].sender.replaceTrack(track);
+          }
+          await pc.setLocalDescription(answering?await pc.createAnswer():await pc.createOffer());
+          if(this.pc!==pc||this.sequence!==seq)return;
+          this.iceGeneration=answering?call.ice_generation:call.ice_generation+1;
+          this.pendingSdp=pc.localDescription.sdp;
+          this.requestRestart=false;
+        }finally{if(this.sequence===seq)this.negotiating=false;}
+        await this.signal();
+        return;
+      }
+    }
+    if(call.sdp&&!pc.remoteDescription)await pc.setRemoteDescription({type:call.outgoing?'answer':'offer',sdp:call.sdp});
+    if(pc!==this.pc)return;
+    if(pc.remoteDescription)for(const item of call.candidates||[]){
+      const key=JSON.stringify(item);
+      if(!this.remoteCandidates.has(key)){await pc.addIceCandidate(item);if(pc!==this.pc)return;this.remoteCandidates.add(key);}
+    }
+    if(this.pendingSdp||this.requestRestart||Date.now()-(this.lastSignal||0)>10000||this.candidates.length)await this.signal();
   }
   async media(){
     if(!navigator.mediaDevices?.getUserMedia||!window.RTCPeerConnection)throw new Error(tText("chat:aBrowserWithWebrtcSupportAndAccessTo"));
@@ -111,14 +166,22 @@ class VoiceCalls {
   }
   async peer(stream){
     const seq=this.sequence;const config=await this.api('/config');if(this.disposed||!this.call||seq!==this.sequence)throw new Error(tText("chat:callCancelled"));if(!config.available)throw new Error(tText("chat:theCallServerIsUnavailablePleaseTryAgain"));
-    this.pc=new RTCPeerConnection({iceServers:config.iceServers,bundlePolicy:'max-bundle'});this.relay=config.relay_configured;const pc=this.pc;
+    const previous=this.pc,pc=new RTCPeerConnection({iceServers:config.iceServers,bundlePolicy:'max-bundle'});
+    this.pc=pc;this.relay=config.relay_configured;
+    if(previous){
+      previous.close();this.audioDiagnostics?.stop();this.remoteVideo?.clear();this.resumeTask=null;
+      this.remoteCandidates.clear();this.candidates=[];this.pendingSdp=null;
+    }
     this.audioDiagnostics=new CallAudioDiagnostics(pc,stream.getAudioTracks()[0],()=>{if(this.qualityOpen)this.drawOutputs();});
     for(const track of stream.getTracks()){pc.addTrack(track,stream);track.onended=()=>{if(this.pc===pc)this.end('failed');};}
     pc.onicecandidate=event=>{if(this.pc===pc&&event.candidate){this.candidates.push(event.candidate.toJSON());if(this.call?.owned)this.signal().catch(()=>{});}};
     pc.ontrack=event=>{if(this.pc!==pc)return;if(event.track.kind==='video'){this.remoteVideo??=new Map();this.remoteVideo.set(event.transceiver,new MediaStream([event.track]));this.draw();return;}this.audio.srcObject=new MediaStream([event.track]);this.resumeRemoteAudio(pc);};
     pc.onconnectionstatechange=()=>{
       if(this.pc!==pc)return;
-      if(pc.connectionState==='connected'){clearTimeout(this.disconnectTimer);this.networkAt=null;this.connected=true;this.signal().catch(()=>{});this.draw();}
+      if(pc.connectionState==='connected'){clearTimeout(this.disconnectTimer);this.networkAt=null;this.recoverUntil=0;this.requestRestart=false;this.connected=true;this.signal().catch(()=>{});this.draw();}
+      if(['disconnected','failed'].includes(pc.connectionState)&&this.call?.status==='active'&&Number.isInteger(this.call.ice_generation)){
+        this.startRecovery();this.requestRestart=!this.call.outgoing;this.poll(true);return;
+      }
       if(pc.connectionState==='failed')this.end('failed');
       if(pc.connectionState==='disconnected'){this.status(tText("chat:restoringAudio"));clearTimeout(this.disconnectTimer);this.disconnectTimer=setTimeout(()=>{if(this.pc===pc&&pc.connectionState==='disconnected')this.end('failed');},20000);}
     };
@@ -150,13 +213,13 @@ class VoiceCalls {
   }
   async signal(sdp){
     if(sdp)this.pendingSdp=sdp;
-    if(this.signaling||!this.call?.owned||!this.pc||this.disposed)return;
-    const id=this.call.id,seq=this.sequence,batch=this.candidates.splice(0),description=this.pendingSdp;this.mediaDirty=false;this.signaling=true;
+    if(this.signaling||this.negotiating||!this.call?.owned||!this.pc||this.disposed)return;
+    const id=this.call.id,seq=this.sequence,pc=this.pc,batch=this.candidates.splice(0),description=this.pendingSdp;this.mediaDirty=false;this.signaling=true;
     try{
-      const saved=await this.api('/'+id+'/signal','POST',{device:this.device,candidates:batch,connected:!!this.connected,media:{muted:!!this.muted,camera:!!this.cameraStream,screen:!!this.screenStream},...(description?{sdp:description}:{})});
-      if(this.call?.id===id&&seq===this.sequence&&!this.disposed){if(this.pendingSdp===description)this.pendingSdp=null;this.lastSignal=Date.now();this.networkAt=null;this.call=saved;this.draw();}
-    }catch(error){if(this.call?.id===id&&seq===this.sequence)this.candidates.unshift(...batch);throw error;}
-    finally{this.signaling=false;if((this.pendingSdp||this.mediaDirty)&&this.call?.id===id&&!this.disposed)setTimeout(()=>this.signal().catch(()=>{}),1000);}
+      const saved=await this.api('/'+id+'/signal','POST',{device:this.device,candidates:batch,connected:!!this.connected,...(Number.isInteger(this.call.ice_generation)?{ice_generation:this.iceGeneration,...(this.requestRestart?{restart_requested:true}:{})}:{}),media:{muted:!!this.muted,camera:!!this.cameraStream,screen:!!this.screenStream},...(description?{sdp:description}:{})});
+      if(this.call?.id===id&&seq===this.sequence&&this.pc===pc&&!this.disposed){if(this.pendingSdp===description)this.pendingSdp=null;this.lastSignal=Date.now();this.networkAt=null;this.call=saved;if(saved.restart_requested&&!saved.outgoing)this.requestRestart=false;this.draw();}
+    }catch(error){if(this.call?.id===id&&seq===this.sequence&&this.pc===pc)this.candidates.unshift(...batch);throw error;}
+    finally{this.signaling=false;if((this.pendingSdp||this.mediaDirty)&&this.call?.id===id&&!this.disposed)setTimeout(()=>{if(this.pc===pc&&seq===this.sequence)this.signal().catch(()=>{});},1000);}
   }
   async end(reason='hangup'){
     const call=this.call;if(!call||this.ending)return;this.ending=true;this.release();
@@ -165,7 +228,10 @@ class VoiceCalls {
     finally{this.ending=false;if(this.call?.id===call.id){this.call={...call,status:reason==='failed'?'failed':reason==='decline'?'declined':'ended',ended:Date.now()/1000};this.draw();this.scheduleClose();document.dispatchEvent(new Event('drg-call-change'));}}
   }
   status(text){const el=this.panel?.querySelector('[data-call-status]');if(el)el.textContent=text;}
-  tick(){if(this.call?.status==='active'&&this.connected)this.status(callDuration(Date.now()/1000-this.call.connected));if(this.call?.status==='ringing'&&!this.call.outgoing&&!this.accepting&&this.ctx.state.me.settings?.notifications?.sound!==false&&Date.now()-(this.lastRing||0)>3000){this.lastRing=Date.now();ring();}}
+  tick(){if(this.recoverUntil&&this.call?.status==='active'){
+    if(Date.now()>=this.recoverUntil){this.end('failed');return;}
+    this.status(tText("chat:restoringAudio"));
+  }else if(this.call?.status==='active'&&this.connected)this.status(callDuration(Date.now()/1000-this.call.connected));if(this.call?.status==='ringing'&&!this.call.outgoing&&!this.accepting&&this.ctx.state.me.settings?.notifications?.sound!==false&&Date.now()-(this.lastRing||0)>3000){this.lastRing=Date.now();ring();}}
   async toggleVisual(kind){
     const field=kind+'Stream',slot=this.visualSlots?.[kind==='camera'?0:1],pc=this.pc,id=this.call?.id,seq=this.sequence;
     if(this.visualBusy||!pc||!callLive(this.call))return;
@@ -286,7 +352,7 @@ class VoiceCalls {
     const hint=$('[data-call-hint]',this.panel);hint.hidden=call.status!=='failed';hint.textContent=tText("chat:checkYourNetworkAndMicrophoneCameraPermissions");this.drawOutputs();this.tick();
   }
   scheduleClose(){clearTimeout(this.closeTimer);this.closeTimer=setTimeout(()=>this.close(),6000);}
-  release(){this.resumeTask=null;this.sessionInterrupted=false;this.audioBlocked=false;this.outputOpen=false;this.qualityOpen=false;this.gainBusy=false;this.audioToolStatus='';this.audioDiagnostics?.stop();this.audioDiagnostics=null;this.outputs.reset();this.sequence++;this.visualAbort?.abort();this.visualAbort=null;this.visualBusy=false;for(const field of ['cameraStream','screenStream']){this[field]?.getTracks().forEach(t=>t.stop());this[field]=null;}this.remoteVideo?.clear();this.visualSlots=null;this.mediaDirty=false;this.mediaAbort?.abort();this.mediaAbort=null;clearTimeout(this.disconnectTimer);const pc=this.pc;this.pc=null;pc?.close();this.stream?.getTracks().forEach(t=>t.stop());this.stream=null;this.audio.srcObject=null;this.candidates=[];this.pendingSdp=null;this.remoteCandidates.clear();this.connected=false;this.muted=false;this.networkAt=null;this.lastRing=0;this.audio.pause();this.audio.remove();this.releaseAudioSession?.();this.releaseAudioSession=null;if(!this.disposed)this.createAudioReceiver();}
+  release(){this.resumeTask=null;this.sessionInterrupted=false;this.audioBlocked=false;this.outputOpen=false;this.qualityOpen=false;this.gainBusy=false;this.audioToolStatus='';this.audioDiagnostics?.stop();this.audioDiagnostics=null;this.outputs.reset();this.sequence++;this.visualAbort?.abort();this.visualAbort=null;this.visualBusy=false;for(const field of ['cameraStream','screenStream']){this[field]?.getTracks().forEach(t=>t.stop());this[field]=null;}this.remoteVideo?.clear();this.visualSlots=null;this.mediaDirty=false;this.mediaAbort?.abort();this.mediaAbort=null;clearTimeout(this.disconnectTimer);this.recoverUntil=0;this.nextAnswerAttempt=0;this.requestRestart=false;this.negotiating=false;this.iceGeneration=0;const pc=this.pc;this.pc=null;pc?.close();this.stream?.getTracks().forEach(t=>t.stop());this.stream=null;this.audio.srcObject=null;this.candidates=[];this.pendingSdp=null;this.remoteCandidates.clear();this.connected=false;this.muted=false;this.networkAt=null;this.lastRing=0;this.audio.pause();this.audio.remove();this.releaseAudioSession?.();this.releaseAudioSession=null;if(!this.disposed)this.createAudioReceiver();}
   close(){clearTimeout(this.closeTimer);this.release();this.call=null;this.lastPoll=undefined;this.minimized=false;this.panel?.remove();this.panel=null;this.drawKey=null;this.lastSignal=0;this.submitted=false;document.dispatchEvent(new Event('drg-call-change'));}
   destroy(){this.disposed=true;this.availabilityAbort?.abort();const call=this.call;if(callLive(call)&&call.owned)this.api('/'+call.id+'/end','POST',{reason:'hangup'}).catch(()=>{});this.close();clearInterval(this.timer);clearInterval(this.clock);clearInterval(this.availabilityTimer);document.removeEventListener('fullscreenchange',this.fullscreenChange);this.audio.remove();navigator.mediaDevices?.removeEventListener?.('devicechange',this.deviceChange);this.audioSession?.removeEventListener?.('statechange',this.sessionChange);window.removeEventListener('resize',this.outputLayoutChange);window.removeEventListener('focus',this.focus);window.removeEventListener('pagehide',this.pagehide);window.removeEventListener('beforeunload',this.beforeUnload);document.removeEventListener('visibilitychange',this.focus);document.removeEventListener('drg-incoming-call',this.inbox);}
 }

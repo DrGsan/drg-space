@@ -10,7 +10,7 @@ try{
  const page=await browser.newPage();await page.route('http://127.0.0.1:8002/**',r=>r.fulfill({contentType:'text/html',body:'<main></main>'}));await page.goto('http://127.0.0.1:8002/');await page.clock.install();await page.addScriptTag({content:bundle.outputFiles[0].text});
  await page.evaluate(()=>{
   window.s={hidden:false,live:true,paths:[],call:null,held:false,pending:[],draws:0};Object.defineProperty(document,'hidden',{get:()=>s.hidden,configurable:true});
-  CallTest.VoiceCalls.prototype.draw=function(){s.draws++;};CallTest.VoiceCalls.prototype.tick=()=>{};
+  CallTest.VoiceCalls.prototype.draw=function(){s.draws++;};
   window.ctx={state:{me:{id:'synthetic-user',settings:{}}},moduleEnabled:()=>true,toast(){},async api(path){s.paths.push(path);if(s.held)await new Promise(resolve=>s.pending.push(resolve));return path==='/calls/config'?{available:true}:path.startsWith('/calls/current')?{call:structuredClone(s.call)}:{};}};
   window.unregister=CallTest.registerInboxConnection(ctx.state.me.id,()=>s.live);window.v=new CallTest.VoiceCalls(ctx);
   window.count=()=>s.paths.filter(p=>p.startsWith('/calls/current')).length;
@@ -28,6 +28,19 @@ try{
  await page.evaluate(()=>{s.held=true;v.poll(true);});await page.clock.runFor(100);const held=await page.evaluate(()=>count());
  await page.evaluate(()=>{s.call={id:'queued-incoming-call',status:'ringing',outgoing:false,owned:false};for(let i=0;i<12;i++)document.dispatchEvent(new Event('drg-incoming-call'));s.held=false;s.pending.splice(0).forEach(resolve=>resolve());});await page.clock.runFor(200);
  assert.equal(await page.evaluate(()=>v.call?.id),'queued-incoming-call');assert(await page.evaluate(()=>count())<=held+1,'event burst coalesces one follow-up');
+ // A prolonged transport outage has one deadline, even across repeated events.
+ await page.evaluate(()=>{
+   s.call={id:'disconnected-call-1234',status:'active',owned:true,outgoing:true,ice_generation:0};
+   v.call=s.call;v.startRecovery();s.deadline=v.recoverUntil;
+ });
+ await page.clock.runFor(20000);await page.evaluate(()=>v.startRecovery());
+ assert.equal(await page.evaluate(()=>v.recoverUntil),await page.evaluate(()=>s.deadline));
+ await page.clock.runFor(24900);
+ assert(!await page.evaluate(()=>s.paths.includes('/calls/disconnected-call-1234/end')));
+ await page.clock.runFor(1100);
+ assert.equal(await page.evaluate(()=>s.paths.filter(p=>p==='/calls/disconnected-call-1234/end').length),1);
+ assert.equal(await page.evaluate(()=>v.call?.status),'failed');
+
  await page.evaluate(()=>{s.call=null;v.close();unregister();v.destroy();});const ended=await page.evaluate(()=>s.paths.length);await page.evaluate(()=>{visible(false);document.dispatchEvent(new Event('drg-incoming-call'));});await page.clock.runFor(45000);assert.equal(await page.evaluate(()=>s.paths.length),ended,'logout removes intervals/listeners and ignores late work');
  console.log('Call polling passed: idle <=4/45s, config1, immediate inbound, active/offline2s, hidden0, resume, coalescing and logout');
 }finally{await browser.close();}

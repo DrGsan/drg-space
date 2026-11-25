@@ -64,6 +64,8 @@
   "lastSuccessfulVerification": "Последняя успешная проверка: {{value0}}",
   "openNewConversation": "Открыть новую переписку",
   "openNewGroup": "Открыть новую группу",
+  "unspecifiedAuthor": "Автор не уточнён",
+  "unknownSender": "Неизвестный отправитель",
   "telegramParticipant": "Участник Telegram",
   "avatar": "Аватар {{value0}}",
   "audioMessage": "Аудиосообщение",

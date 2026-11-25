@@ -129,7 +129,7 @@ def create_guest_calls_router(db, ready, rate, now, fail, public_url, *, federat
             peers.append({'id': row[side + '_id'], 'description': data.get(side + '_sdp'), 'candidates': data.get(side + '_ice', [])})
         return {'room': room_info(c, room), 'self': me['id'], 'participants': participants, 'peers': peers}
 
-    def join(c, room, data, uid=None):
+    def join(c, room, data, uid=None, *, check_only=False):
         name = data.name.strip()
         if uid:
             person = actor(c, uid, now())
@@ -155,20 +155,44 @@ def create_guest_calls_router(db, ready, rate, now, fail, public_url, *, federat
                 fail(409, localized_message('firstEndTheCurrentCall'))
             if room_info(c, room)['count'] >= MAX_PEOPLE:
                 fail(409, localized_message('theCallAlreadyHas8ParticipantsTryAgain'))
+            if check_only:
+                return
             token = secrets.token_urlsafe(32)
             payload = {'name': name[:60], 'token': token, 'nonce': digest(data.nonce), 'muted': True}
             c.execute('INSERT INTO guest_call_participants(id,room_id,user_id,secret_hash,created,seen,payload) VALUES(?,?,?,?,?,?,?)',
                       (data.id, room['id'], uid, digest(token), now(), now(), json.dumps(payload)))
             me = c.execute('SELECT * FROM guest_call_participants WHERE id=?', (data.id,)).fetchone()
+        if check_only:
+            return
         c.execute('UPDATE guest_call_participants SET seen=? WHERE id=?', (now(), me['id']))
         return state(c, room, me) | {'credential': payload['token'],
             'configuration': {'iceServers':[],'available':True} if sfu else calls.ice_config('guest-' + me['id'], now(), fail, lifetime=room['expires'] - now())}
 
-    def connect_media(result):
-        if result['room']['transport']=='livekit':
-            try:result['livekit']=livekit.connect(result['room']['id'],result['self'],result['room']['expires'],now())
-            except livekit.Unavailable:fail(503,localized_message('livekitUnavailable'))
-        return result
+    def admit(data, *, rid=None, token=None, uid=None):
+        def target(c):
+            row = load_room(c, rid=rid, token=token)
+            if uid and row['owner_id'] != uid:
+                fail(404, localized_message('callNotFound'))
+            return row
+
+        if data.transport == 'livekit' and not livekit.available():
+            fail(503, localized_message('livekitUnavailable'))
+        with db() as c:
+            c.execute('BEGIN IMMEDIATE')
+            purge_guest_calls(c, now())
+            if uid:
+                calls.purge_calls(c, now(), users=(uid,))
+            room = target(c)
+            join(c, room, data, uid, check_only=True)
+        try:
+            grant = livekit.connect(room['id'], data.id, room['expires'], now())
+        except livekit.Unavailable:
+            fail(503, localized_message('livekitUnavailable'))
+        # Count membership only after the SFU is ready. Authorize again in the
+        # commit transaction in case a different device joined or the host left.
+        with db() as c:
+            c.execute('BEGIN IMMEDIATE')
+            return join(c, target(c), data, uid) | {'livekit': grant}
 
     @r.post('/api/calls/guest-rooms')
     def create(data: Create, request: Request):
@@ -238,14 +262,7 @@ def create_guest_calls_router(db, ready, rate, now, fail, public_url, *, federat
     @r.post('/api/calls/guest-rooms/{rid}/join')
     def owner_join(rid: str, data: Join, request: Request):
         s = ready(request)
-        if data.transport=='livekit' and not livekit.available():fail(503,localized_message('livekitUnavailable'))
-        with db() as c:
-            c.execute('BEGIN IMMEDIATE'); purge_guest_calls(c, now()); calls.purge_calls(c, now(), users=(s['user_id'],))
-            room = load_room(c, rid=rid)
-            if room['owner_id'] != s['user_id']:
-                fail(404, localized_message('callNotFound'))
-            result=join(c, room, data, s['user_id'])
-        return connect_media(result)
+        return admit(data, rid=rid, uid=s['user_id'])
 
     @r.post('/api/calls/guest-rooms/{rid}/end')
     def end(rid: str, request: Request):
@@ -286,11 +303,25 @@ def create_guest_calls_router(db, ready, rate, now, fail, public_url, *, federat
         if not re.fullmatch(TOKEN, token):
             fail(410, localized_message('linkIsInvalidOrExpired'))
         rate(request, 'guest-call-join', 24, period=60, subject=digest(token))
-        if data.transport=='livekit' and not livekit.available():fail(503,localized_message('livekitUnavailable'))
+        return admit(data, token=token)
+
+    @r.post('/api/guest-calls/rooms/{rid}/reconnect')
+    def reconnect(rid: str, request: Request):
+        rate(request, 'guest-reconnect-ip', 180, period=60)
         with db() as c:
-            c.execute('BEGIN IMMEDIATE'); purge_guest_calls(c, now())
-            result=join(c, load_room(c, token=token), data)
-        return connect_media(result)
+            room, me = auth(c, rid, request)
+            if json.loads(room['payload']).get('transport') != 'livekit':
+                fail(409, localized_message('legacyGuestInvitationClosed'))
+            identity, expires = me['id'], room['expires']
+        rate(request, 'guest-reconnect', 15, period=60, subject=identity)
+        try:
+            grant = livekit.connect(rid, identity, expires, now())
+        except livekit.Unavailable:
+            fail(503, localized_message('livekitUnavailable'))
+        # A leave, expiry or host revocation may race the external request.
+        with db() as c:
+            auth(c, rid, request)
+        return grant
 
     @r.post('/api/guest-calls/rooms/{rid}/sync')
     def sync(rid: str, data: Sync, request: Request):

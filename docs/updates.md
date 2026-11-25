@@ -1,5 +1,9 @@
 # Updating DrG Space
 
+## 5.3.2-rc.1
+
+Rebuild Space with the existing Compose files. Update Media to 1.14.8-rc.1 for verified Telegram sender names on archived messages. The release uses the existing call settings and storage schema.
+
 ## 5.3.1
 
 The notes catalog recovers after a short scheduled storage lock. The browser retries reads and keeps an existing list visible. Rebuild Space with the current Compose configuration and volumes. No database migration, environment change or storage conversion is required.

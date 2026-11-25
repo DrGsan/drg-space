@@ -8,6 +8,7 @@ import {previewFile} from '../chat/uploads.js';
 import {prepareVideos} from '../chat/media.js';
 import {attachmentSize} from '../chat/message-layout.js';
 import {personName} from '../../core/people.js';
+import {telegramAuthor} from './details.js';
 
 export function telegramComposer(host,ctx,gid,{sent,changed,closeMenus=()=>{}}){
   const form=$('[data-fp-compose]',host),input=$('#fp-message',form),attach=$('[data-attach-chat]',form),submit=$('[type=submit]',form),fileInput=$('[data-chat-files]',form),status=$('[data-chat-upload-status]',form),cancel=$('[data-cancel-chat-upload]',form);
@@ -30,7 +31,7 @@ export function telegramComposer(host,ctx,gid,{sent,changed,closeMenus=()=>{}}){
   };
   const drawReply=()=>{
     const target=$('[data-chat-reply]',form);target.hidden=!reply||!!editing;
-    target.innerHTML=reply?`<div><strong>${tHtml("family_photos:reply", {value0:(esc(personName(reply.site_profile||{login:reply.sender})))})}</strong><span>${esc(reply.text||tText("family_photos:attachment"))}</span></div><button type="button" class="chat-icon-button" data-cancel-reply aria-label="${tHtml("family_photos:cancelReply")}">×</button>`:'';
+    target.innerHTML=reply?`<div><strong>${tHtml("family_photos:reply", {value0:(esc(reply.site_profile?personName(reply.site_profile):telegramAuthor(reply.sender)))})}</strong><span>${esc(reply.text||tText("family_photos:attachment"))}</span></div><button type="button" class="chat-icon-button" data-cancel-reply aria-label="${tHtml("family_photos:cancelReply")}">×</button>`:'';
     $('[data-cancel-reply]',target)?.addEventListener('click',()=>{reply=null;retry=null;drawReply();});
   };
   const drawEdit=()=>{

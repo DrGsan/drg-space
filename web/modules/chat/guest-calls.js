@@ -116,14 +116,54 @@ class GuestCall {
       if(this.closed){publicApi('rooms/'+joined.room.id+'/leave','POST',{},joined.credential).catch(()=>{});return;}
       this.credential=joined.credential;this.self=joined.self;this.configuration=joined.configuration;
       if(joined.room.transport==='livekit'){
-        const {LiveKitGuest}=sfuModule||await loadLiveKit();if(this.closed)return;
-        this.sfu=new LiveKitGuest({outputs:this.outputs,changed:()=>{if(!this.closed){this.drawPeople();this.schedule();}},failed:message=>this.close(message),ended:()=>this.close(tText("chat:callEnded2")),playback:()=>{if(!this.closed)$('[data-guest-resume-audio]',this.panel).hidden=false;}});
-        await abortable(()=>this.sfu.connect(joined.livekit,this.stream,this.muted),{signal:this.abort.signal,timeoutMs:30000,message:tText("chat:livekitDisconnected")});if(this.closed)return;
+        this.LiveKitGuest=(sfuModule||await loadLiveKit()).LiveKitGuest;
+        if(this.closed)return;
+        await this.connectLiveKit(joined.livekit);
+        if(this.closed)return;
       }
       await this.apply(joined);await this.sync();if(this.closed)return;
       this.timer=setInterval(()=>this.sync(),this.sfu?15000:2000);this.clockTimer=setInterval(()=>this.tick(),1000);this.tick();
       document.dispatchEvent(new Event('drg-guest-call-change'));
     }catch(error){if(this.closed)return;const message=error.name==='NotAllowedError'?tText("chat:allowMicrophoneAccessInBrowserSettings"):error.name==='NotFoundError'?tText("chat:microphoneNotFound"):error.message;this.close(message);this.failed?.(message);if(!this.owner)this.ctx.toast(message);}
+  }
+  async connectLiveKit(access){
+    const adapter=new this.LiveKitGuest({
+      outputs:this.outputs,
+      changed:()=>{if(!this.closed){this.drawPeople();this.schedule();}},
+      failed:()=>this.scheduleMediaRecovery(),
+      ended:()=>this.close(tText('chat:callEnded2')),
+      playback:()=>{if(!this.closed)$('[data-guest-resume-audio]',this.panel).hidden=false;},
+    });
+    this.sfu=adapter;
+    try{
+      await abortable(()=>adapter.connect(access,this.stream,this.muted),{signal:this.abort.signal,timeoutMs:30000,message:tText('chat:livekitDisconnected')});
+      if(!this.closed)await adapter.mute(this.muted);
+    }catch(error){adapter.close();throw error;}
+  }
+  scheduleMediaRecovery(){
+    if(this.closed||this.recoveryTimer||this.recoveringMedia)return;
+    this.mediaRecoveryAt??=Date.now();
+    if(Date.now()-this.mediaRecoveryAt>=120000){this.close(tText('chat:connectionToServerLostReconnect'));return;}
+    this.status(tText('chat:restoringConnection'));
+    this.recoveryTimer=setTimeout(()=>this.recoverMedia(),this.retryDelay||800);
+  }
+  async recoverMedia(){
+    this.recoveryTimer=null;
+    if(this.closed)return;
+    this.recoveringMedia=true;
+    try{
+      const access=await publicApi('rooms/'+this.room.id+'/reconnect','POST',{},this.credential,this.abort.signal);
+      if(this.closed)return;
+      this.sfu.close();
+      await this.connectLiveKit(access);
+      if(this.closed)return;
+      if(this.sfu.connected){this.mediaRecoveryAt=null;this.retryDelay=0;this.drawPeople();}
+    }catch(error){
+      if([401,403,404,410].includes(error.status)){this.close(error.message);return;}
+    }finally{
+      this.recoveringMedia=false;
+      if(!this.closed&&this.mediaRecoveryAt){this.retryDelay=Math.min((this.retryDelay||1000)*2,8000);this.scheduleMediaRecovery();}
+    }
   }
   enqueue(id,description,candidate){
     if(this.closed)return;const pending=this.outgoing.get(id)||{peer_id:id,candidates:[]};if(description)pending.description=description;if(candidate&&pending.candidates.length<100)pending.candidates.push(candidate);this.outgoing.set(id,pending);this.schedule();
@@ -244,7 +284,7 @@ class GuestCall {
   }
   drop(peer){this.outputs.remove(peer.audio);peer.pc.onicecandidate=peer.pc.ontrack=peer.pc.onconnectionstatechange=null;peer.pc.close();peer.audio.pause();peer.audio.srcObject=null;peer.audio.remove();}
   close(message){
-    if(this.closed)return this.leaving;this.closed=true;this.resumeTask=null;this.abort.abort();clearInterval(this.timer);clearInterval(this.clockTimer);clearTimeout(this.signalTimer);
+    if(this.closed)return this.leaving;this.closed=true;this.resumeTask=null;this.abort.abort();clearInterval(this.timer);clearInterval(this.clockTimer);clearTimeout(this.signalTimer);clearTimeout(this.recoveryTimer);
     this.sfu?.close();this.sfu=null;this.stream?.getTracks().forEach(t=>t.stop());for(const peer of this.peers.values())this.drop(peer);this.peers.clear();this.outputs.reset();this.releaseAudioSession?.();this.releaseAudioSession=null;this.panel.remove();
     if(this.credential)this.leaving=fetch('/api/guest-calls/rooms/'+this.room.id+'/leave',{method:'POST',credentials:'omit',keepalive:true,headers:{'Accept-Language':locale(),'Content-Type':'application/json',Authorization:'Bearer '+this.credential},body:'{}'}).catch(()=>{});
     window.removeEventListener('resize',this.outputLayoutChange);window.removeEventListener('pagehide',this.unload);window.removeEventListener('focus',this.focus);document.removeEventListener('visibilitychange',this.focus);document.removeEventListener('drg-call-reset',this.reset);navigator.mediaDevices?.removeEventListener('devicechange',this.deviceChanged);this.audioSession?.removeEventListener?.('statechange',this.sessionChange);
