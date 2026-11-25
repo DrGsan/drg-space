@@ -1294,6 +1294,7 @@
   "notionPageOutsideSync": "This page is outside the selected tree; the link opens its Notion original.",
   "storageBusyTitle": "A data operation is in progress",
   "storageBusyHint": "The server needs a little time to finish the current operation. Try loading this page again shortly.",
+  "storageScheduledRetryHint": "Scheduled maintenance is in progress. This page will retry automatically. You can also retry manually.",
   "storageBusyRetry": "Try loading again",
   "storageBusyAddressHint": "Your current address and sign-in details are preserved.",
   "invalidChatRecording": "Invalid voice message or video note metadata.",

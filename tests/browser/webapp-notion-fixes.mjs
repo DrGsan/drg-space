@@ -43,7 +43,7 @@ try{
   await api('/language','PUT',{language:lang});await context.addCookies([{name:'drg_language',value:lang,url:origin}]);await block();const page=await context.newPage();await page.setViewportSize({width,height:844});await page.addInitScript(({standalone,width})=>{Object.defineProperty(navigator,'standalone',{get:()=>standalone});localStorage.setItem('drg-appearance',JSON.stringify({mode:width===390?'dark':'light'}));},{standalone,width});
   const address=origin+(width===390?'/?source=maintenance-check#notes':'/page/'+note.id+'#retained-fragment');const r=await page.goto(address);expect(r.status()).toBe(503);expect(r.headers()['cache-control']).toBe('no-store');
   await page.screenshot({path:`${folder}/70-${phase}-${engine.name()}-${width}-${lang}.png`});
-  const raw=await context.request.get('/api/me',{headers:{Accept:'text/html'}});expect(raw.status()).toBe(503);expect((await raw.json()).code).toBe('operationWithDataIsInProgressRetryLater');
+  const raw=await context.request.get('/api/me',{headers:{Accept:'text/html'}});expect(raw.status()).toBe(503);expect((await raw.json()).code).toBe('storage_busy');
   if(!before){
    await expect(page.getByRole('heading')).toContainText(lang==='ru'?'Выполняется операция с данными':'A data operation is in progress');expect(page.url()).toBe(address);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
    const retry=page.getByRole('button',{name:lang==='ru'?'Повторить загрузку':'Try loading again',exact:true});await retry.click();await expect(page.getByRole('heading')).toBeVisible();expect(page.url()).toBe(address);

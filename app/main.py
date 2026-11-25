@@ -230,7 +230,7 @@ async def security(request: Request, call_next):
     except StorageError:
         from app.storage_unavailable import document_navigation,unavailable
         if storage_gate.exclusive_pending and document_navigation(request):
-            response=unavailable(request,HTTPError(503,localized_message('operationWithDataIsInProgressRetryLater')))
+            response=unavailable(request,HTTPError(503,localized_message('operationWithDataIsInProgressRetryLater')),storage_gate)
         else:response = JSONResponse({'detail': 'Не удалось проверить режим доступа. Повторите позже.'}, status_code=503)
     if response is None and request.url.path not in HEALTH_PROBES and not request.url.path.startswith('/assets/'):
         try:

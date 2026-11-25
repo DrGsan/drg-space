@@ -3,6 +3,7 @@ import {$,esc,date} from '../../core/ui.js';
 import {pageIcon,pageCover} from '../../core/page-assets.js';
 import {mountBlockEditor,pageBlocks} from './editor-runtime.js';
 import {compareBlocks} from './history-diff.js';
+import {readStorage} from '../../core/storage-read.js';
 import './history.css';
 
 export function mountHistory(host,ctx,pageId,onClose,{trashPage=null}={}){
@@ -12,6 +13,8 @@ export function mountHistory(host,ctx,pageId,onClose,{trashPage=null}={}){
   let current,revisions=[],selected=null,detail=null,preview,observer,disposed=false,sequence=0,loading=false,more=false,restoring=false;
   const $s=selector=>$(selector,screen),status=$s('.history-status'),compare=$s('.history-compare input'),restore=$s('.history-restore'),confirm=$s('.history-confirm');
   const base='/notes/'+pageId,path='/page/'+pageId+'/history';
+  const lifetime=new AbortController();
+  let revisionRead;
   function notice(message){status.textContent=message;}
   function controls(){restore.hidden=!!trashPage;restore.disabled=!!trashPage||!detail||restoring;compare.disabled=!detail||restoring;$s('.history-more').disabled=loading||restoring;}
   function timeline(){
@@ -48,15 +51,16 @@ export function mountHistory(host,ctx,pageId,onClose,{trashPage=null}={}){
   }
   async function select(id){
     if(restoring)return;const token=++sequence;selected=id;detail=null;confirm.hidden=true;controls();timeline();notice(tText("notes:loadingVersion"));
-    try{const value=id?await ctx.api(base+'/history/'+encodeURIComponent(id)+(trashPage?'?trash=true':'')):null;if(disposed||token!==sequence)return;detail=value;paint();timeline();screen.classList.remove('show-history-list');$s('.history-list-toggle').setAttribute('aria-expanded','false');$s('.history-scroll').scrollTop=0;}
+    revisionRead?.abort();revisionRead=new AbortController();
+    try{const value=id?await readStorage(ctx.api,base+'/history/'+encodeURIComponent(id)+(trashPage?'?trash=true':''),revisionRead.signal):null;if(disposed||token!==sequence)return;detail=value;paint();timeline();screen.classList.remove('show-history-list');$s('.history-list-toggle').setAttribute('aria-expanded','false');$s('.history-scroll').scrollTop=0;}
     catch(error){if(!disposed&&token===sequence){notice(error.message);controls();}}
   }
   async function load(append=false){
     if(loading)return;loading=true;controls();notice(tText("notes:loadingHistory"));
     try{
-      const entries=await ctx.api(base+'/history?limit=100'+(trashPage?'&trash=true':'')+(append?'&before='+encodeURIComponent(revisions.at(-1).id):''));
+      const entries=await readStorage(ctx.api,base+'/history?limit=100'+(trashPage?'&trash=true':'')+(append?'&before='+encodeURIComponent(revisions.at(-1).id):''),lifetime.signal);
       if(disposed)return;revisions=append?[...revisions,...entries]:entries;more=entries.length===100;
-      if(!append){current=trashPage||await ctx.api(base);if(disposed)return;await select(null);}else notice(tText("notes:versionsLoaded", {value0:(revisions.length)}));
+      if(!append){current=trashPage||await readStorage(ctx.api,base,lifetime.signal);if(disposed)return;await select(null);}else notice(tText("notes:versionsLoaded", {value0:(revisions.length)}));
     }catch(error){if(!disposed){notice(error.message);const retry=document.createElement('button');retry.className='text-link';retry.textContent=tText("notes:retry");retry.onclick=()=>{retry.remove();load(false);};status.append(' ',retry);}}
     finally{loading=false;if(!disposed){timeline();controls();}}
   }
@@ -74,5 +78,5 @@ export function mountHistory(host,ctx,pageId,onClose,{trashPage=null}={}){
   const pop=()=>{if(location.pathname!==path&&!disposed)onClose(false);};window.addEventListener('popstate',pop);
   const key=event=>{if(event.key==='Escape'&&!restoring){if(!confirm.hidden){confirm.hidden=true;restore.focus();}else onClose();}};screen.addEventListener('keydown',key);
   load();$s('.history-close').focus();
-  return {destroy(){disposed=true;sequence++;preview?.destroy();observer?.disconnect();window.removeEventListener('popstate',pop);screen.remove();}};
+  return {destroy(){disposed=true;lifetime.abort();revisionRead?.abort();sequence++;preview?.destroy();observer?.disconnect();window.removeEventListener('popstate',pop);screen.remove();}};
 }

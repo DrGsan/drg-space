@@ -1,5 +1,6 @@
 import {tText,tHtml,locale} from "../../core/i18n.js";
 import {watchNoteCatalog} from './catalog-refresh.js';
+import {readStorage} from '../../core/storage-read.js';
 import {notionImportDialog} from '../portability/notion.js';
 import {canCopyNotionPage,mountNotionSource} from '../portability/notion-source.js';
 import {pageLayout} from './page-layout.js';
@@ -71,6 +72,8 @@ class NotesWorkspace {
     if(ctx.state.notesSpace!=='private'&&!(ctx.state.spaces||[]).some(s=>s.id===ctx.state.notesSpace))ctx.state.notesSpace='private';
     this.sidebarConfig=readSidebar(account);
     this.disposed = false;
+    this.catalogLifetime = new AbortController();
+    this.fullRefreshVersion = 0;
     this.cleanups = [];
     this.secretExpanded=new Set();
     this.secretItems=null;
@@ -141,11 +144,38 @@ class NotesWorkspace {
     if(page&&location.pathname==='/page/'+page.id+'/history'){this.page={...page};this.history(false);}
     else if (page&&(!mobileApp()||!this.state.notesList)) this.open(page.id, false);
     else this.empty();
-    this.cleanups.push(watchNoteCatalog(this.ctx,(notes,spaces)=>this.applyCatalog(notes,spaces)));
+    this.stopCatalog?.();
+    this.stopCatalog=watchNoteCatalog(this.ctx,(notes,spaces)=>this.applyCatalog(notes,spaces),{
+      onUnavailable:(error,retry)=>this.catalogStatus(error,retry),
+    });
+  }
+  catalogStatus(error,retry){
+    let status=this.host.querySelector('[data-notes-catalog-status]');
+    if(!error){status?.remove();return;}
+    if(!status){
+      status=document.createElement('div');
+      status.dataset.notesCatalogStatus='';
+      status.className='hint';
+      status.setAttribute('role','status');
+      $('#page-tree',this.host).before(status);
+    }
+    const button=document.createElement('button');
+    button.type='button';
+    button.className='text-link';
+    button.dataset.notesCatalogRetry='';
+    button.textContent=tText("app:tryLoadingAgain");
+    button.onclick=async()=>{button.disabled=true;try{await retry();}finally{button.disabled=false;}};
+    status.replaceChildren(error.message+' ',button);
   }
   applyCatalog(notes,spaces){
     const previous=this.state.notes;
-    const merged=notes.map(note=>{const old=previous.find(n=>n.id===note.id);return old&&old.version>note.version&&JSON.stringify(old.navigation_aliases||[])===JSON.stringify(note.navigation_aliases||[])?old:{...old,...note};});
+    const merged=notes.map(note=>{
+      const old=previous.find(n=>n.id===note.id);
+      if(old&&old.version>note.version&&JSON.stringify(old.navigation_aliases||[])===JSON.stringify(note.navigation_aliases||[]))return old;
+      // A new metadata revision cannot certify the cached document body.
+      if(old&&old.version!==note.version&&!Object.hasOwn(note,'body'))return note;
+      return {...old,...note};
+    });
     for(const draft of previous.filter(n=>n.isDraft&&!merged.some(item=>item.id===n.id)))merged.push(draft);
     if(JSON.stringify(merged)===JSON.stringify(previous)&&JSON.stringify(spaces)===JSON.stringify(this.state.spaces))return;
     this.state.notes=merged;this.state.spaces=spaces;
@@ -220,6 +250,9 @@ class NotesWorkspace {
     }finally{this.goingBack=false;}
   }
   destroy() {
+    this.stopCatalog?.();
+    this.pageRead?.abort();
+    this.catalogLifetime.abort();
     this.remote?.destroy();
     this.closeAssistant?.();
     this.vault?.destroy();this.vault=null;
@@ -241,11 +274,12 @@ class NotesWorkspace {
     this.cleanups.forEach((fn) => fn());
   }
   empty() {
+    this.pageRead?.abort();
     this.closeAssistant?.();
     if(this.remote?.active)this.remote.close();
     this.vault?.destroy();this.vault=null;
     const space=(this.state.spaces||[]).find(s=>s.id===this.state.notesSpace);
-    if(space?.deletion){$('#add-root-page',this.host).disabled=true;deletionScreen($('#notion-page',this.host),space,this.ctx,async()=>{this.state.spaces=(await this.ctx.api('/social')).spaces;this.state.notes=await this.ctx.api('/notes');this.mount();});return;}
+    if(space?.deletion){$('#add-root-page',this.host).disabled=true;deletionScreen($('#notion-page',this.host),space,this.ctx,async()=>{this.state.spaces=(await readStorage(this.ctx.api,'/social',this.catalogLifetime.signal)).spaces;await this.refresh();if(!this.disposed)this.mount();});return;}
     $('#add-root-page',this.host).disabled=false;
     if(mobileApp())this.sidebar(true);
     $("#notion-page", this.host).innerHTML =
@@ -399,11 +433,22 @@ class NotesWorkspace {
       this.searching=false;this.tree();
     },220);
   }
-  async refresh() {
-    this.state.notes = await this.ctx.api("/notes");
+  refresh() {
+    // Overlapping mutations may complete on opposite sides of the same read.
+    this.fullRefreshVersion++;
+    if(!this.fullRefresh)this.fullRefresh=this.refreshAfterChanges().finally(()=>{this.fullRefresh=null;});
+    return this.fullRefresh;
+  }
+  async refreshAfterChanges() {
+    const signal=this.catalogLifetime.signal;
+    let version,notes;
+    do{
+      version=this.fullRefreshVersion;
+      notes=await readStorage(this.ctx.api,'/notes',signal);
+    }while(version!==this.fullRefreshVersion);
     if (!this.disposed){
+      this.applyCatalog(notes,this.state.spaces);
       const latest=this.state.notes.find(n=>n.id===this.page?.id);if(latest){this.page.participants=latest.participants;this.page.external=latest.external;const button=$('#page-participants',this.host);if(button){const holder=document.createElement('div');holder.innerHTML=this.participantAvatars(this.page);button.innerHTML=holder.firstElementChild.innerHTML;button.title=holder.firstElementChild.title;}}
-      this.tree();
     }
   }
   async newDatabase(parent=null,blockId=null){
@@ -430,14 +475,16 @@ class NotesWorkspace {
       return result.page;
     }finally{this.subpageCreating=false;}
   }
-  async repairChildLinks(page){
+  async repairChildLinks(page,signal){
     if(page.isDraft||page.notion_sync||page.kind==='database'||page.role!=='editor'||page.locked&&!(page.unlock_until>Date.now()/1000))return page;
     const children=this.state.notes.filter(note=>note.parent_id===page.id).map(note=>note.id);
     const links=pageLinkIds(page.blocks),dangling=links.some(id=>!this.state.notes.some(note=>note.id===id));
     if(!dangling&&children.every(id=>links.includes(id)))return page;
-    const latest=await this.ctx.api('/notes/'+page.id);
+    const latest=await readStorage(this.ctx.api,'/notes/'+page.id,signal);
+    signal.throwIfAborted();
     const missing=children.filter(id=>!pageLinkIds(latest.blocks).includes(id));if(!dangling&&!missing.length)return latest;
     const result=await this.ctx.api('/notes/'+page.id+'/subpages','POST',{version:latest.version,repair_ids:missing,parent_blocks:latest.blocks===null?pageBlocks(latest):null});
+    signal.throwIfAborted();
     const index=this.state.notes.findIndex(note=>note.id===page.id);if(index>=0)this.state.notes[index]=result.parent;
     return result.parent;
   }
@@ -488,27 +535,37 @@ class NotesWorkspace {
     }
   }
   async open(id, flush = true, {keepAssistant = false} = {}) {
+    if(this.disposed)return;
+    this.pageRead?.abort();
+    this.pageRead=new AbortController();
+    const signal=this.pageRead.signal;
     id=this.state.notes.find(n=>n.navigation_aliases?.includes(id))?.id||id;
     this.closePageMenu?.(false);
     const current=this.page?.id;
-    if (flush && !(await this.flush())) return;
+    if (flush && !(await this.flush()) || signal.aborted) return;
     if(current!==id&&!keepAssistant)this.closeAssistant?.();
     if(this.remote?.active)this.remote.close();
     this.vault?.destroy();this.vault=null;
     if(id===current&&current?.startsWith('draft_'))id=this.page.id;
     if(this.page?.id!==id)await this.releaseLease(true);
+    if(signal.aborted)return;
     if(this.page?.id!==id)this.discardDraft();
     let page = this.state.notes.find((n) => n.id === id);
     if (!page) {
       this.ctx.toast(tText("notes:pageIsUnavailable"));
       return;
     }
-    try{
-      // Catalog refreshes carry metadata only. Linked pages must load their
-      // current document before rendering a newer source version.
-      if(page.notion_sync){page=await this.ctx.api('/notes/'+id);const index=this.state.notes.findIndex(note=>note.id===id);if(index>=0)this.state.notes[index]=page;}
-      page=await this.repairChildLinks(page);
-    }catch(error){this.ctx.toast(error.message);}
+    if(page.notion_sync||(!page.isDraft&&!Object.hasOwn(page,'body'))){
+      try{page=await readStorage(this.ctx.api,'/notes/'+id,signal);}
+      catch(error){if(!signal.aborted)this.ctx.toast(error.message);return;}
+      if(signal.aborted)return;
+      const index=this.state.notes.findIndex(note=>note.id===id);
+      if(index<0)return;
+      this.state.notes[index]=page;
+    }
+    try{page=await this.repairChildLinks(page,signal);}
+    catch(error){if(!signal.aborted)this.ctx.toast(error.message);}
+    if(signal.aborted)return;
     clearTimeout(this.timer);
     this.live?.destroy();this.live=null;
     this.handle?.destroy();this.handle=null;
@@ -1303,7 +1360,7 @@ class NotesWorkspace {
     const dialog = $('.modal', el);
     dialog.classList.add('note-move-dialog');
     dialog.setAttribute('aria-labelledby', 'note-move-title');
-    el.querySelector('[data-move-secret]')?.addEventListener('click',async()=>{try{if(!await this.flush())return;const item=this.page;$('.modal-close',el).click();if(await moveIntoVault(this.ctx,'notes',item)){this.state.notes=await this.ctx.api('/notes');this.page=null;this.state.selected=null;this.tree();if(await this.openVault())await this.vault.openNote(item.id);}}catch(error){this.ctx.toast(error.message);}});
+    el.querySelector('[data-move-secret]')?.addEventListener('click',async()=>{try{if(!await this.flush())return;const item=this.page;$('.modal-close',el).click();if(await moveIntoVault(this.ctx,'notes',item)){await this.refresh();if(this.disposed)return;this.page=null;this.state.selected=null;this.tree();if(await this.openVault())await this.vault.openNote(item.id);}}catch(error){this.ctx.toast(error.message);}});
     el.querySelectorAll('[data-move-expand]').forEach(button => {
       button.onclick = () => {
         const nested = button.parentElement.nextElementSibling;

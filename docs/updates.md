@@ -1,5 +1,13 @@
 # Updating DrG Space
 
+## 5.3.1-rc.1
+
+The notes catalog recovers after a short scheduled storage lock. The browser retries reads and keeps an existing list visible. Rebuild Space with the current Compose configuration and volumes. No database migration, environment change or storage conversion is required.
+
+```sh
+docker compose up -d --build --no-deps app
+```
+
 ## 5.3.0
 
 The optional Notes assistant needs `OPENAI_API_KEY` in the application environment and an account selected in Administration. `OPENAI_NOTES_MODEL` can override GPT-6.1 Terra, which defaults to medium reasoning. Existing installations can leave both variables unset. No database migration, storage-format change, or data-volume change is required.
