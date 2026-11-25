@@ -2,12 +2,12 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.3.2-rc.1] — 2026-11-26 — Chat recovery, RSS and calls
+## [5.3.2] — 2026-11-26 — Chat recovery, RSS and calls
 
 - Catch up on messages and edits when you return to a chat after a background disconnect.
 - Keep recent RSS headlines when switching sections. Refresh the widget to fetch immediately.
 - Use verified Telegram names for family messages, including people without a username.
-- Recover an ongoing call after a brief media-service interruption and keep failed joins out of the participant list.
+- Recover an ongoing call after a brief media-service interruption, preserve the microphone mute setting and keep failed joins out of the participant list.
 
 - **Installation:** Rebuild the app with the current Compose settings.
 
