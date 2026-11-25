@@ -26,6 +26,7 @@ import { pageWordCount, pageActions, showPageMenu, pageMenuIcon, readPageView, s
 import "./page-menu.css";
 import {mountVault,moveIntoVault,unlockVaultNotes,subscribeVaultNotes,vaultNotesActivity,vaultTreeIcon,loadVaultTreeIcon} from '../security/vault.js';
 import {FederatedNotes} from '../federation/notes.js';
+import {mountNoteAssistant,revealNoteBlocks} from './assistant.js';
 let active;
 // Keep each account's tree open only for this loaded app, across view remounts.
 // A reload creates a fresh module and starts every tree collapsed.
@@ -81,7 +82,7 @@ class NotesWorkspace {
   }
   async mount() {
     this.mounted=false;
-    this.host.innerHTML = `<div class="notes-shell"><div class="notes-navigation"><h1 class="mobile-notes-title">${tHtml("notes:notes")}</h1><button type="button" class="notes-main-menu" id="notes-main-menu" title="${mobileApp()?tText("notes:toNotesList"):tText("notes:mainMenu")}" aria-label="${mobileApp()?tText("notes:toNotesList"):tText("notes:mainMenu")}">${pageMenuIcon('back')}<span class="notes-main-menu-label">${mobileApp()?tText("notes:notes"):tText("notes:mainMenu")}</span></button><button class="icon-btn" id="toggle-pages-sidebar" aria-label="${tHtml("notes:collapseNoteMenu")}" aria-expanded="true" aria-controls="pages-sidebar" title="${tHtml("notes:collapseNoteMenu")}">☰</button>${this.ctx.notesInboxButton||''}</div><div class="notes-workspace"><aside class="pages-sidebar" id="pages-sidebar" aria-label="${tHtml("notes:notePages")}" tabindex="-1"><div class="pages-sidebar-head"><select id="notes-space" aria-label="${tHtml("notes:noteWorkspace")}"><option value="private">${tHtml("notes:personalWorkspace")}</option>${(this.state.spaces||[]).filter(s=>s.kind==='family').map(s=>`<option value="${esc(s.id)}">${esc(spaceTemplate(s).label)} · ${esc(s.name)}</option>`).join('')}</select><button class="icon-btn" id="add-root-page" aria-label="${tHtml("notes:createPage")}" title="${tHtml("notes:createPage")}">＋</button></div><input id="search-pages" type="search" maxlength="200" placeholder="${tHtml("notes:searchPages")}" aria-label="${tHtml("notes:searchNotes")}" title="${tHtml("notes:searchByNameAndContent")}"><div id="page-tree" aria-live="polite"></div><div class="pages-sidebar-footer"><button class="text-link" id="customize-sidebar">${pageMenuIcon("settings")}<span>${tHtml("notes:customizeThePanel")}</span></button><details class="pages-tools" id="pages-tools"><summary aria-label="${tHtml("notes:pageTools")}">${pageMenuIcon("dots")}<span>${tHtml("notes:tools")}</span></summary><div class="pages-tool-menu"><button type="button" id="show-templates">${tHtml("notes:templates")}</button><button type="button" id="create-database">${tHtml("notes:newDatabase")}</button><button type="button" id="show-mentions">${tHtml("notes:mentions")}</button></div></details><button class="text-link" id="show-trash">${pageMenuIcon("trash")}<span>${tHtml("notes:trash")}</span></button></div></aside><main class="notion-page" id="notion-page"></main></div></div>`;
+    this.host.innerHTML = `<div class="notes-shell"><div class="notes-navigation"><h1 class="mobile-notes-title">${tHtml("notes:notes")}</h1><button type="button" class="notes-main-menu" id="notes-main-menu" title="${mobileApp()?tText("notes:toNotesList"):tText("notes:mainMenu")}" aria-label="${mobileApp()?tText("notes:toNotesList"):tText("notes:mainMenu")}">${pageMenuIcon('back')}<span class="notes-main-menu-label">${mobileApp()?tText("notes:notes"):tText("notes:mainMenu")}</span></button><button class="icon-btn" id="toggle-pages-sidebar" aria-label="${tHtml("notes:collapseNoteMenu")}" aria-expanded="true" aria-controls="pages-sidebar" title="${tHtml("notes:collapseNoteMenu")}">☰</button>${this.ctx.notesInboxButton||''}</div><div class="notes-workspace"><aside class="pages-sidebar" id="pages-sidebar" aria-label="${tHtml("notes:notePages")}" tabindex="-1"><div class="pages-sidebar-head"><select id="notes-space" aria-label="${tHtml("notes:noteWorkspace")}"><option value="private">${tHtml("notes:personalWorkspace")}</option>${(this.state.spaces||[]).filter(s=>s.kind==='family').map(s=>`<option value="${esc(s.id)}">${esc(spaceTemplate(s).label)} · ${esc(s.name)}</option>`).join('')}</select><button class="icon-btn" id="add-root-page" aria-label="${tHtml("notes:createPage")}" title="${tHtml("notes:createPage")}">＋</button></div><input id="search-pages" type="search" maxlength="200" placeholder="${tHtml("notes:searchPages")}" aria-label="${tHtml("notes:searchNotes")}" title="${tHtml("notes:searchByNameAndContent")}"><div id="page-tree" aria-live="polite"></div><div class="pages-sidebar-footer"><button class="text-link" id="customize-sidebar">${pageMenuIcon("settings")}<span>${tHtml("notes:customizeThePanel")}</span></button><details class="pages-tools" id="pages-tools"><summary aria-label="${tHtml("notes:pageTools")}">${pageMenuIcon("dots")}<span>${tHtml("notes:tools")}</span></summary><div class="pages-tool-menu"><button type="button" id="show-templates">${tHtml("notes:templates")}</button><button type="button" id="create-database">${tHtml("notes:newDatabase")}</button><button type="button" id="show-mentions">${tHtml("notes:mentions")}</button></div></details><button class="text-link" id="show-trash">${pageMenuIcon("trash")}<span>${tHtml("notes:trash")}</span></button></div></aside><div class="notes-document"><main class="notion-page" id="notion-page"></main></div></div></div>`;
     const pendingControls=[...this.host.querySelectorAll('button,input,select')].filter(node=>node.id!=='notes-main-menu');
     for(const node of pendingControls)node.disabled=true;
     $('#notes-main-menu',this.host).onclick=()=>this.ctx.navigate('home');
@@ -200,6 +201,7 @@ class NotesWorkspace {
     button.setAttribute('aria-expanded',String(open));button.setAttribute('aria-label',label);button.title=label;
   }
   async back(){
+    if(this.closeAssistant){this.closeAssistant(true);return;}
     if(this.goingBack)return;
     this.goingBack=true;
     try{
@@ -219,6 +221,7 @@ class NotesWorkspace {
   }
   destroy() {
     this.remote?.destroy();
+    this.closeAssistant?.();
     this.vault?.destroy();this.vault=null;
     this.closeTrash?.(false);
     this.historyView?.destroy();
@@ -238,6 +241,7 @@ class NotesWorkspace {
     this.cleanups.forEach((fn) => fn());
   }
   empty() {
+    this.closeAssistant?.();
     if(this.remote?.active)this.remote.close();
     this.vault?.destroy();this.vault=null;
     const space=(this.state.spaces||[]).find(s=>s.id===this.state.notesSpace);
@@ -483,11 +487,12 @@ class NotesWorkspace {
       if(previousTitle?.isConnected&&!this.transferBusy)previousTitle.disabled=previousDisabled;
     }
   }
-  async open(id, flush = true) {
+  async open(id, flush = true, {keepAssistant = false} = {}) {
     id=this.state.notes.find(n=>n.navigation_aliases?.includes(id))?.id||id;
     this.closePageMenu?.(false);
     const current=this.page?.id;
     if (flush && !(await this.flush())) return;
+    if(current!==id&&!keepAssistant)this.closeAssistant?.();
     if(this.remote?.active)this.remote.close();
     this.vault?.destroy();this.vault=null;
     if(id===current&&current?.startsWith('draft_'))id=this.page.id;
@@ -591,6 +596,18 @@ class NotesWorkspace {
     $("#notion-page", this.host).classList.toggle("has-cover", !!page.cover);
     $("#notion-page", this.host).innerHTML =
       pageLayout(page,{breadcrumbs:this.breadcrumbs(),participants:page.space_id?this.participantAvatars(page):''});
+    if(!this.canAssist(page))this.closeAssistant?.();
+    if(this.canAssist(page)){
+      const button=document.createElement('button');button.type='button';button.className='icon-btn notes-ai-entry';button.id='note-ai';
+      button.setAttribute('aria-label',tText('notes:assistantChat'));button.title=tText('notes:assistantChat');
+      button.innerHTML=pageMenuIcon('sparkles');button.setAttribute('aria-expanded',String(!!this.closeAssistant));
+      if(this.closeAssistant)button.setAttribute('aria-controls','note-ai-panel');
+      button.onclick=()=>{
+        if(this.closeAssistant){this.closeAssistant(true);return;}
+        this.assistant({pageId:page.id,asSource:!!page.notion_sync}).catch(error=>this.ctx.toast(error.message));
+      };
+      $('#page-actions',screen).before(button);
+    }
     if(page.kind==='database'){const heading=document.createElement('div');heading.className='database-page-heading';const title=$('#page-title',this.host);title.before(heading);heading.append($('#change-icon',this.host),title);}
     this.viewPreferences=readPageView(this.state.me?.id,page.id);
     const participants=$('#page-participants',this.host);if(participants)participants.onclick=()=>permissionsDialog(page,this.ctx,()=>this.refresh());
@@ -972,6 +989,16 @@ class NotesWorkspace {
     const page=this.page,editable=(!page.role||page.role==='editor')&&(!page.locked||page.unlock_until);
     const canDuplicate=page.notion_sync?canCopyNotionPage(page,this.ctx):editable;
     const actions=pageActions(page,editable,{canDuplicate});
+    if(this.canAssist(page)){
+      const entry={name:'assistant',label:tText('notes:assistantMenu'),icon:'sparkles',group:'assistant'};
+      if(page.isDraft)actions.push({...entry,name:'assistant-edit'});
+      else{
+        const children=[];
+        if(editable&&!page.notion_sync)children.push({name:'assistant-edit',label:tText('notes:assistantOpenChat'),icon:'edit',aliases:tText('notes:assistantEdit')});
+        children.push({name:'assistant-source',label:tText('notes:assistantUseAsSource'),icon:'source'});
+        actions.push({...entry,children});
+      }
+    }
     if(page.notion_sync?.can_reorder){
       const roots=this.state.notes.filter(n=>n.parent_id===page.parent_id&&!n.deleted&&n.space_id===page.space_id),index=roots.findIndex(n=>n.id===page.id);
       for(const action of actions){if(action.name==='move-up')action.disabled=index<=0;if(action.name==='move-down')action.disabled=index<0||index===roots.length-1;}
@@ -994,6 +1021,7 @@ class NotesWorkspace {
       if(this.page?.id!==page.id)return;
       if(action==='copy-link')return this.copyPageLink();
       if(action==='copy-content')return this.copyPageContents();
+      if(action==='assistant-edit'||action==='assistant-source')return await this.assistant({pageId:page.id, asSource:action==='assistant-source'});
       if(!(await this.flush())||this.page?.id!==page.id)return;
       if(action==='trash'&&this.page.isDraft)return this.removePage(this.page.id);
       if(!(await this.persistDraft()))return;
@@ -1012,6 +1040,91 @@ class NotesWorkspace {
       if(action==='duplicate')return await this.duplicatePage(this.page);
       if(action==='trash')return this.removePage(this.page.id);
     }catch(error){this.ctx.toast(error.message);}
+  }
+  canAssist(page){
+    return this.ctx.canUseAssistant?.()&&page.manage&&!page.space_id&&!page.federation_shared&&!page.locked&&page.kind!=='database'&&!page.database_id;
+  }
+  async assistant({pageId,asSource=false}={}){
+    const opened=pageId?this.page:null;
+    if(pageId&&opened?.id!==pageId||!(await this.flush())||this.disposed||opened&&opened!==this.page)return;
+    const opening=this.assistantOpening=Symbol();
+    let page=null;
+    const draftId=opened?.isDraft?opened.id:null;
+    if(opened&&!draftId){
+      page=await this.ctx.api('/notes-assistant/pages/'+encodeURIComponent(opened.id));
+      if(this.disposed||this.assistantOpening!==opening||this.page!==opened)return;
+      if(!asSource&&page.read_only){this.ctx.toast(tText('notes:pageIsReadOnly'));return;}
+    }
+    this.closeAssistant?.();
+    const target=asSource?null:page;
+    let activeId=opened?.id;
+    const beforeSave=async expected=>{
+      if(!await this.flush()||this.disposed)return false;
+      if(draftId===activeId&&this.page===opened)activeId=opened.id;
+      if(activeId&&this.page?.id!==activeId)throw new Error(tText('notes:assistantPageChanged'));
+      if(expected&&(this.page?.id!==expected.id||this.page.version!==expected.version))return false;
+      return true;
+    };
+    const refreshTarget=async current=>{
+      if(!await beforeSave())throw new Error(tText('notes:assistantPageChanged'));
+      if(asSource||!activeId||this.page.isDraft)return;
+      if(!current||current.version!==this.page.version)return this.ctx.api('/notes-assistant/pages/'+encodeURIComponent(activeId));
+    };
+    const shell=$('.notes-shell',this.host);
+    const panel=document.createElement('aside');panel.className='notes-ai-dock';panel.id='note-ai-panel';
+    panel.setAttribute('aria-label',tText('notes:assistantChat'));
+    $('.notes-document',shell).append(panel);
+    shell.classList.add('assistant-dock-open');
+    const viewport=window.visualViewport;
+    const position=()=>{
+      if(!viewport||Math.abs(viewport.scale-1)>.01)return;
+      const covered=Math.max(0,window.innerHeight-viewport.height-viewport.offsetTop);
+      panel.style.setProperty('--notes-ai-keyboard',covered+'px');
+      panel.style.setProperty('--notes-ai-view-height',viewport.height+'px');
+    };
+    viewport?.addEventListener('resize',position);
+    viewport?.addEventListener('scroll',position);
+    position();
+    const setTrigger=open=>{
+      const trigger=$('#note-ai',this.host);
+      if(trigger){trigger.setAttribute('aria-expanded',String(open));if(open)trigger.setAttribute('aria-controls',panel.id);else trigger.removeAttribute('aria-controls');}
+      return trigger;
+    };
+    setTrigger(true);
+    const dispose=mountNoteAssistant(panel,this.ctx,{target,initialSource:asSource?page:null,beforeSave,refreshTarget},async(id,change)=>{
+      if(this.disposed)return;
+      const saved=await this.ctx.api('/notes/'+id);
+      if(this.disposed)return;
+      const index=this.state.notes.findIndex(note=>note.id===id);
+      if(index<0)this.state.notes.push(saved);else this.state.notes[index]=saved;
+      const adoptDraft=draftId&&activeId===draftId;
+      if(this.page?.id===activeId&&(id===activeId||adoptDraft)&&!this.state.dirty){
+        if(adoptDraft){transferPageView(this.state.me?.id,draftId,id);activeId=id;}
+        await this.open(id,false,{keepAssistant:!!adoptDraft});
+        if(this.page?.id===id&&change?.updated_blocks){
+          let ids=change.updated_blocks;
+          if(change.legacy_mode&&this.handle){
+            const document=this.handle.document();
+            ids=(change.legacy_mode==='append'?document.slice(-ids.length):document.slice(0,ids.length)).map(block=>block.id);
+          }
+          await revealNoteBlocks($('#block-editor',this.host),ids);
+        }
+      }
+      this.tree();
+      return !asSource&&saved.id===activeId?saved:null;
+    });
+    this.closeAssistant=focus=>{
+      this.closeAssistant=null;
+      viewport?.removeEventListener('resize',position);
+      viewport?.removeEventListener('scroll',position);
+      dispose();panel.remove();shell.classList.remove('assistant-dock-open');
+      const trigger=setTrigger(false);
+      if(focus)trigger?.focus();
+    };
+    const close=$('[data-ai-close]',panel);
+    close.onclick=()=>this.closeAssistant?.(true);
+    panel.addEventListener('keydown',event=>{if(event.key==='Escape'){event.stopPropagation();this.closeAssistant?.(true);}});
+    if(matchMedia('(max-width: 900px)').matches)close.focus({preventScroll:true});
   }
   async duplicatePage(page){
     const linked=Boolean(page.notion_sync);
@@ -1210,6 +1323,7 @@ class NotesWorkspace {
     if(this.workspaceScope()!=='private')return false;
     if(this.vault&&!this.vault.disposed){if(this.vault.locked)return !!await this.vault.open();return !!await this.vault.ready;}
     if(!await unlockVaultNotes(this.ctx)||!await this.flush())return false;
+    this.closeAssistant?.();
     await this.releaseLease(true);this.discardDraft();this.historyView?.destroy();this.closePageMenu?.(false);this.closeContext?.();
     this.live?.destroy();this.live=null;this.handle?.destroy();this.handle=null;this.database?.destroy();this.database=null;this.discussions?.destroy();this.discussions=null;
     clearInterval(this.readTimer);clearTimeout(this.timer);clearTimeout(this.maxSaveTimer);clearTimeout(this.lockTimer);
@@ -1246,6 +1360,7 @@ class NotesWorkspace {
     }catch(error){this.ctx.toast(error.message);}
   }
   async openTrash(note){
+    this.closeAssistant?.();
     if(!(await this.flush()))return;
     const previous=this.page?.id;
     await this.releaseLease(true);this.live?.destroy();this.live=null;this.handle?.destroy();this.database?.destroy();this.database=null;this.discussions?.destroy();clearInterval(this.readTimer);clearTimeout(this.lockTimer);this.linkObserver?.disconnect();

@@ -10,6 +10,12 @@ Child pages belong to a hierarchy. Moving and ordering pages preserves identity 
 
 Note databases add typed properties, records, named views, filters and sorting. Their access follows the owning page and space. Duplicating or importing records validates their database relationships instead of copying arbitrary foreign IDs.
 
+## Notes assistant
+
+Use the AI button in the note editor to open the composer at the bottom of the note. Answers appear above the input. Use the conversation button to collapse or reopen the transcript, or close the composer when finished. Ask a question or describe what to write, add or revise. The assistant can format sections, lists, inline emphasis and native code blocks. The assistant saves requested edits automatically and reveals the new text in chat and in the visible editor. Ask for an online cover to see Wikimedia Commons photos, then select a photo to apply it and save its attribution. Ask for a follow-up change in the same conversation or open **Page history** from the saved message to restore the previous version. A full rewrite retains existing page shortcuts and attachments. **AI → Use as a source** starts a chat with the current page selected as its reference.
+
+Set `OPENAI_API_KEY` in the server environment and choose one local account in **Administration → Notes assistant**. Choose **Disabled** to revoke access. Space uses the OpenAI Responses API with `store: false`, with the provider's normal data controls still applying. **Context for OpenAI** shows the note excerpts included when sending a message. A personal note synced from Notion can be selected as a reference. The assistant works with plain text from personal notes and its own suggested content. Shared notes, locked notes, the secret vault, database entries and attachment contents are outside its scope. [OpenAI data controls](https://developers.openai.com/api/docs/guides/your-data)
+
 ## Collaboration and access
 
 Shared editing uses the existing authorization and document synchronization protocol. Reconnection, conflicts and access revocation must preserve local drafts where recovery is possible. Temporary editor state is not permission to publish or write after access has been removed.

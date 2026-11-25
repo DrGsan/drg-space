@@ -1,4 +1,12 @@
 {
+  "release5_3_0Title": "AI assistant for personal notes",
+  "release5_3_0Change1": "Open the AI composer at the bottom of a note and expand or collapse the conversation above it.",
+  "release5_3_0Change2": "See when the assistant is thinking and watch new text appear in chat and in the note. Restore the previous version from note history.",
+  "release5_3_0Change3": "Use the current note as a read-only source and inspect the excerpts shared with OpenAI.",
+  "release5_3_0Change4": "Enable the assistant for one account from Administration.",
+  "release5_3_0Change5": "Structure guides with headings, lists and editable code blocks that keep the code language and indentation.",
+  "release5_3_0Change6": "Find matching covers in Wikimedia Commons and ask for more options in the same chat.",
+  "release5_3_0Change7": "Continue chatting after filling a blank note or after a temporary error loading note context.",
   "release5_2_28Title": "Quick actions for code blocks",
   "release5_2_28Change1": "Copy the entire code block, including indentation and line breaks, from its top-right corner.",
   "release5_2_28Change2": "Search for a code language or wrap long lines from the existing block menu.",

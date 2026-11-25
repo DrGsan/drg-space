@@ -9,6 +9,7 @@ import {managedAccount,managedPassword} from './accounts.js';
 import {accountsTable,accountDetails} from './account-table.js';
 import {mountFamilyPhotoAccess} from './family-photos.js';
 import {mountAdminSecurity} from './security.js';
+import {mountNotesAssistant} from './notes-assistant.js';
 import './workspace.css';
 import { $,esc,date,formBind,bytes } from '../../core/ui.js';
 import { csrfCookie,refreshSession } from '../../core/auth.js';
@@ -31,6 +32,7 @@ function mountAdminContent(host,ctx){
   sectionHeader(host,ctx);
   const security=document.createElement('section');security.className='panel admin-security';security.dataset.securityAdmin='';security.innerHTML=`<p role="status">${tHtml("admin:openTheSectionToUploadTheSecurityLog")}</p>`;
   if(isOwner)$('[data-registration-admin]',host).before(security);
+  $('[data-accounts-admin]',host).after(Object.assign(document.createElement('section'),{className:'panel',id:'notes-assistant-admin'}));
   const groups=document.createElement('div');groups.className='admin-preference-groups';
   host.querySelectorAll(':scope > .panel').forEach(panel=>groups.append(panel));host.append(groups);
   preferenceSections(groups,[
@@ -38,11 +40,13 @@ function mountAdminContent(host,ctx){
     {id:'registration',selector:'[data-registration-admin]',group:tText("admin:access2"),title:tText("admin:registrationAndInvitations"),description:tText("admin:openRegistrationAndLinksForNewParticipants"),icon:'users-round'},
     {id:'family-photos',selector:'[data-family-photo-access]',group:tText("admin:access2"),title:tText("admin:familyPhotos"),description:tText("admin:groupsAndUsersWithAccessToThePhoto"),icon:'users-round'},
     {id:'accounts',selector:'[data-accounts-admin]',group:tText("admin:users"),title:tText("admin:accountsAndData"),description:tText("admin:userProfilesContactsPasswordsAndQuotas"),icon:'shield-user'},
+    {id:'notes-assistant',selector:'#notes-assistant-admin',group:tText('admin:users'),title:tText('admin:notesAssistant'),description:tText('admin:notesAssistantDescription'),icon:'shield-user'},
     {id:'backups',selector:'.admin-backups',group:tText("admin:websiteData"),title:tText("admin:backup"),description:tText("admin:createEncryptedCopyAndRestore"),icon:'folder-closed'},
   ],{userId:ctx.state.me.id,scope:'admin'});
   if(isOwner&&ctx.state.adminFamilyExportRequested)$('[data-preference-key=family-photos]',host).open=true;
   if(isOwner&&ctx.state.adminSecurityRequested){$('[data-preference-key=security]',host).open=true;delete ctx.state.adminSecurityRequested;}
   mountRegistration($('[data-registration-admin]',host),ctx);
+  mountNotesAssistant($('#notes-assistant-admin',host),ctx);
   if(isOwner)mountAdminSecurity($('[data-security-admin]',host),ctx);
   if(isOwner)mountFamilyPhotoAccess($('[data-family-photo-access]',host),ctx);
   $('[data-back-settings]',host).onclick=()=>ctx.navigate('settings');

@@ -35,6 +35,11 @@ export function applyPageView(host, value) {
   host.classList.toggle('page-small-text', value.small_text === true);
 }
 const paths = {
+  close: '<path d="m6 6 12 12M18 6 6 18"/>',
+  edit: '<path d="m15 5 4 4m-15 7 1-4L16 1l4 4L9 16H4Z" transform="translate(0 2)"/>',
+  sparkles: '<path d="m11 3 1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9L11 3Zm8 10v6m-3-3h6M5 16v4m-2-2h4"/>',
+  source: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8m-8 4h8m-8 4h4"/>',
+  chevron: '<path d="m9 6 6 6-6 6"/>',
   star: '<path d="m12 3 2.8 5.7 6.3.9-4.6 4.4 1.1 6.3-5.6-3-5.6 3 1.1-6.3L3 9.6l6.2-.9Z"/>',
   link: '<path d="m10 13 4-4M8 16l-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2-1 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" transform="translate(1 0)"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4"/>',
@@ -67,7 +72,11 @@ export function showPageMenu({ anchor, page={}, view=defaults(), mode, editable,
   menu.setAttribute('role', compact ? 'menu' : 'dialog');
   menu.setAttribute('aria-label', label);
   const groups = [...new Set(actions.map(action => action.group))];
-  const row = action => `<button type="button" ${action.disabled?'disabled':''} ${action.id ? `id="${esc(action.id)}"` : ''} ${compact?'role="menuitem"':typeof action.checked === 'boolean' ? `role="switch" aria-checked="${action.checked}"` : ''} data-page-action="${esc(action.name)}" data-search="${esc(action.label + ' ' + (action.aliases || ''))}" class="note-menu-row ${action.danger ? 'danger' : ''}">${pageMenuIcon(action.icon)}<span>${esc(action.label)}</span>${typeof action.checked === 'boolean' ? '<span class="note-menu-switch" aria-hidden="true"></span>' : ''}</button>`;
+  const row = action => {
+    const id = esc(`${menu.id}-${action.name}`);
+    const item = `<button type="button" ${action.disabled?'disabled':''} ${action.id ? `id="${esc(action.id)}"` : ''} ${compact?'role="menuitem"':typeof action.checked === 'boolean' ? `role="switch" aria-checked="${action.checked}"` : ''} ${action.children ? `data-page-group="${esc(action.name)}" aria-expanded="false" aria-controls="${id}"` : `data-page-action="${esc(action.name)}"`} data-search="${esc(action.label + ' ' + (action.aliases || ''))}" class="note-menu-row ${action.danger ? 'danger' : ''}">${pageMenuIcon(action.icon)}<span>${esc(action.label)}</span>${typeof action.checked === 'boolean' ? '<span class="note-menu-switch" aria-hidden="true"></span>' : ''}${action.children ? pageMenuIcon('chevron') : ''}</button>`;
+    return action.children ? `<div class="note-menu-group">${item}<div class="note-menu-group-items" id="${id}" hidden>${action.children.map(row).join('')}</div></div>` : item;
+  };
   const searchMarkup = compact ? '' : `<div class="note-menu-search"><input type="search" maxlength="100" placeholder="${tHtml("notes:searchingForActions")}" aria-label="${tHtml("notes:searchPageActions")}"></div>`;
   const fontsMarkup = compact ? '' : `<div class="note-menu-section note-font-options" data-search="${tHtml('notes:fontSearchTerms')}"><div class="note-menu-fonts" role="group" aria-label="${tHtml("notes:pageFont")}">${[['default', tText("notes:normal")], ['serif', tText("notes:serif")], ['mono', tText("notes:mono")]].map(([font, label]) => `<button type="button" data-page-font="${font}" aria-pressed="${view.font === font}"><span class="note-font-sample note-font-${font}" aria-hidden="true">Ag</span><span>${label}</span></button>`).join('')}</div></div>`;
   const smallMarkup = compact ? '' : `<div class="note-menu-section" data-menu-group><button type="button" class="note-menu-row" role="switch" aria-checked="${view.small_text}" data-page-small data-search="${tHtml('notes:smallTextSearchTerms')}">${pageMenuIcon('small')}<span>${tHtml("notes:smallText")}</span><span class="note-menu-switch" aria-hidden="true"></span></button></div>`;
@@ -90,8 +99,20 @@ export function showPageMenu({ anchor, page={}, view=defaults(), mode, editable,
     menu.style.top = `${placeBelow ? rect.bottom + 4 : Math.max(top + margin, rect.top - menu.offsetHeight - 4)}px`;
   };
   const outside = event => { if (!menu.contains(event.target) && !anchor.contains(event.target)) close(false); };
+  const expand = (button, open) => {
+    button.setAttribute('aria-expanded', String(open));
+    button.nextElementSibling.hidden = !open;
+  };
   const keys = event => {
-    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); }
+    const group = event.target.closest?.('.note-menu-group');
+    const disclosure = group?.querySelector('[data-page-group]');
+    if (disclosure?.getAttribute('aria-expanded') === 'true' && ['ArrowLeft', 'Escape'].includes(event.key)) {
+      event.preventDefault(); event.stopPropagation(); expand(disclosure, false); position(); disclosure.focus(); return;
+    }
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); return; }
+    if (event.key === 'ArrowRight' && event.target === disclosure) {
+      event.preventDefault(); expand(disclosure, true); position(); disclosure.nextElementSibling.querySelector('button:not([hidden]):not(:disabled)')?.focus(); return;
+    }
     if (event.key === 'Tab') { close(); return; }
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
     if (event.target.matches('input') && event.key !== 'ArrowDown') return;
@@ -122,13 +143,29 @@ export function showPageMenu({ anchor, page={}, view=defaults(), mode, editable,
     onClose?.();
   };
   const search = menu.querySelector('input');
+  const disclosures = [...menu.querySelectorAll('[data-page-group]')];
   if(search)search.oninput = () => {
     const query = search.value.trim().toLocaleLowerCase(locale());
-    menu.querySelectorAll('[data-search]').forEach(item => { item.hidden = !item.dataset.search.toLocaleLowerCase(locale()).includes(query); });
+    const matches = item => item.dataset.search.toLocaleLowerCase(locale()).includes(query);
+    menu.querySelectorAll('[data-search]').forEach(item => { item.hidden = !matches(item); });
+    for (const button of disclosures) {
+      const children = [...button.nextElementSibling.querySelectorAll('[data-search]')];
+      const group = button.parentElement;
+      const ownMatch = matches(button);
+      if (ownMatch) children.forEach(child => { child.hidden = false; });
+      group.hidden = !ownMatch && children.every(child => child.hidden);
+      button.hidden = group.hidden;
+      expand(button, !!query && !group.hidden);
+    }
     menu.querySelectorAll('[data-menu-group]').forEach(group => { group.hidden = ![...group.children].some(child => !child.hidden); });
     menu.querySelector('.note-menu-footer').hidden = !!query;
     menu.querySelector('.note-menu-empty').hidden = [...menu.querySelectorAll('[data-search]')].some(item => !item.hidden);
     position();
+  };
+  for (const button of disclosures) button.onclick = () => {
+    const opening = button.getAttribute('aria-expanded') !== 'true';
+    expand(button, opening); position();
+    if (opening) button.nextElementSibling.scrollIntoView({block: 'nearest'});
   };
   menu.querySelectorAll('[data-page-action]').forEach(button => button.onclick = () => { close(); onAction(button.dataset.pageAction); });
   menu.querySelectorAll('[data-page-font]').forEach(button => button.onclick = () => {

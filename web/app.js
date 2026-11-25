@@ -84,6 +84,7 @@ let sharedHandle;
 let workspaceUpdate;
 let navigationRequest=0;
 let disposeAppearance;
+const canUseAssistant=()=>Boolean(state.me?.notes_assistant_enabled&&moduleEnabled(state,"notes"));
 let disposeAdmin;
 let registrationOpen=false;
 let restoredWorkspaceFor=null;
@@ -285,7 +286,8 @@ function enrollment() {
       if(location.pathname.startsWith("/f/"))return await fileSharedScreen();
       if(location.pathname.startsWith("/share/"))return await sharedScreen();
       if(location.pathname.startsWith("/invite/"))return await workspaceInvitation();
-      history.replaceState({},"","/");state.view=mobileApp()?"chat":"home";state.selected=null;restoredWorkspaceFor=state.me.id;await loadWorkspace();
+      history.replaceState({},"","/");state.view=mobileApp()?"chat":"home";
+      state.selected=null;restoredWorkspaceFor=state.me.id;await loadWorkspace();
     }finally{
       if(result?.invitation_friendship?.status==='unavailable')toast(result.invitation_friendship.message);
     }
@@ -488,6 +490,7 @@ function context() {
     sharePanel,
     notesInboxButton: `<button class="icon-btn inbox-button" id="open-inbox" aria-label="${tHtml("app:notifications")}" title="${tHtml("app:notifications")}">${inboxIcon}</button>`,
     moduleEnabled: (id) => moduleEnabled(state, id),
+    canUseAssistant,
     renderWorkspace,
     loadWorkspace,
     restored: (login) => {

@@ -39,7 +39,9 @@ def thumbnail(body,kind):
         return stream.getvalue(),image.width,image.height
 
 def asset_payload(c,n,url_prefix=None):
+    from app.modules.notes import PHOTO_COVERS
     output={}
+    if n['cover'] in PHOTO_COVERS:output['cover_url']=PHOTO_COVERS[n['cover']]
     for kind in ('icon','cover'):
         aid=asset_id(n[kind])
         if not aid:continue
@@ -56,6 +58,26 @@ def image_reference(c,nid,value,kind,fail):
     return aid
 
 def clear_markup(value):return html.unescape(re.sub(r'<[^>]*>','',str(value or '')))[:400]
+
+def cover_words(text):
+    return ' ' + ' '.join(re.findall(r'[a-z0-9]+', text.casefold())) + ' '
+
+
+def cover_focus(groups):
+    if not isinstance(groups, list) or not 1 <= len(groups) <= 3:
+        raise ValueError('Invalid cover focus')
+    for group in groups:
+        if not isinstance(group, list) or not 1 <= len(group) <= 5:
+            raise ValueError('Invalid cover focus group')
+        if any(not isinstance(term, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9 '\-]{0,29}", term) for term in group):
+            raise ValueError('Invalid cover focus term')
+    return tuple(tuple(cover_words(term) for term in group) for group in groups)
+
+
+def commons_search_rank(page):
+    rank = page.get('index')
+    return rank if type(rank) is int else float('inf')
+
 
 def commons_cover_url(info):
     """Prefer a bounded rendition; never fall back to an oversized original."""
@@ -95,6 +117,7 @@ def purge_page_assets(c,nids,stamp):
 class CoverSelection(BaseModel):
     model_config=ConfigDict(extra='forbid')
     token:str=Field(max_length=8192)
+    assistant_version:int|None=Field(default=None,ge=1)
 class Position(BaseModel):
     position:int=Field(ge=0,le=100)
 
@@ -125,13 +148,20 @@ def create_note_assets_router(db,ready,tokens,rate,now,fail,data_dir):
         n=note_access(c,nid,s['user_id'],fail)
         if write:require_role(c,n,s['user_id'],fail,session=s,now=now)
         return n
-    def persist(nid,s,kind,body,info=None,request=None):
+    def cover_access(c,nid,s,version):
+        if version is None:return access(c,nid,s,True)
+        from app.modules.note_assistant import cover_target
+        return cover_target(c,nid,version,s,now(),fail)
+    def persist(nid,s,kind,body,info=None,request=None,assistant_version=None):
         data,width,height=thumbnail(body,kind);aid=secrets.token_hex(16)
         try:
             with db() as c:
                 c.execute('BEGIN IMMEDIATE')
                 if request is not None:s=ready(request)
-                n=access(c,nid,s,True)
+                n=cover_access(c,nid,s,assistant_version)
+                if assistant_version is not None:
+                    from app.note_history import snapshot
+                    snapshot(c,n,now(),with_appearance=True)
                 store.write(aid,data)
                 c.execute('INSERT INTO media VALUES(?,?,?,?,?,?,?,?)',(aid,s['user_id'],'image/webp',len(data),width,height,1,now()))
                 c.execute('INSERT INTO note_assets VALUES(?,?,?,?,?)',(aid,nid,kind,json.dumps(info or {}),now()))
@@ -174,12 +204,17 @@ def create_note_assets_router(db,ready,tokens,rate,now,fail,data_dir):
             c.execute('UPDATE note_assets SET payload=? WHERE id=?',(json.dumps(info),aid))
         return {'position':data.position}
     @r.get('/api/note-cover-search')
-    async def search(request:Request,q:str=Query(default='',max_length=120),provider:str='commons'):
+    async def search(request:Request,q:str=Query(default='',max_length=120),provider:str='commons',
+                     focus:str=Query(default='',max_length=650)):
         s=ready(request);rate(request,'cover-search',60,subject=s['user_id'])
         if provider not in ('commons','unsplash'):fail(422,localized_message('unknownPhotoCatalog'))
+        try:
+            groups = cover_focus(json.loads(focus)) if focus else ()
+        except ValueError:
+            fail(422, localized_message('notesAiBadProposal'))
         secret=os.getenv('UNSPLASH_ACCESS_KEY','').strip()
         if provider=='unsplash' and not secret:fail(503,localized_message('unsplashIsNotConfiguredTheAdministratorNeedsThe'))
-        query=q.strip() or 'landscape';key=(provider,query)
+        query=q.strip() or 'landscape';key=(provider,query,groups)
         cached=cache.get(key)
         if cached and cached[0]>now():items=cached[1]
         else:
@@ -189,11 +224,15 @@ def create_note_assets_router(db,ready,tokens,rate,now,fail,data_dir):
                     params={'action':'query','generator':'search','gsrsearch':query+' filetype:bitmap','gsrnamespace':6,'gsrlimit':40,'prop':'imageinfo','iiprop':'url|size|mime|thumbmime|extmetadata','iiurlwidth':1600,'iiurlheight':1200,'format':'json'}
                     body,_,_=await fetch_public('https://commons.wikimedia.org/w/api.php?'+urlencode(params),accept='application/json')
                     pages=json.loads(body).get('query',{}).get('pages',{})
-                    for page in pages.values():
+                    for page in sorted(pages.values(), key=commons_search_rank):
                         info=(page.get('imageinfo') or [{}])[0]
                         url=commons_cover_url(info)
                         if not url:continue
                         meta=info.get('extmetadata',{});get=lambda key:clear_markup(meta.get(key,{}).get('value',''))
+                        if groups:
+                            fields = tuple(cover_words(value) for value in (page.get('title',''), get('ImageDescription'), get('ObjectName'), get('Categories')))
+                            if not all(any(term in field for term in group for field in fields) for group in groups):
+                                continue
                         items.append({'id':str(page['pageid']),'url':url,'thumbnail':url,'title':page.get('title',''),'attribution':{'author':get('Artist'),'license':get('LicenseShortName'),'source_url':info.get('descriptionurl','https://commons.wikimedia.org/')}})
                         if len(items)>=18:break
                 else:
@@ -217,11 +256,11 @@ def create_note_assets_router(db,ready,tokens,rate,now,fail,data_dir):
     @r.post('/api/notes/{nid}/select-cover')
     async def select(nid:str,data:CoverSelection,request:Request):
         s=ready(request);rate(request,'note-image',30,subject=s['user_id']);grant=cover_grant(tokens,data.token,s['user_id'],fail)
-        with db() as c:access(c,nid,s,True)
+        with db() as c:cover_access(c,nid,s,data.assistant_version)
         async with lock:
             try:
                 body=await selected_cover(grant)
-                saved=await blocking(persist,nid,s,'cover',body,{'attribution':grant['attribution'],'position':50},request)
+                saved=await blocking(persist,nid,s,'cover',body,{'attribution':grant['attribution'],'position':50},request,data.assistant_version)
                 await track_cover(grant)
                 return saved
             except (httpx.HTTPError,TimeoutError,ValueError,UnidentifiedImageError,OSError,EOFError,Image.DecompressionBombError,Image.DecompressionBombWarning):fail(422,localized_message('thisPhotoIsUnavailableOrExceedsTheMaximum'))
@@ -238,6 +277,9 @@ def purge_unused_assets(c, stamp):
         referenced.update(re.findall(r'[a-f0-9]{32}', ''.join(value or '' for value in row)))
     for row in c.execute('SELECT body,blocks FROM note_revisions'):
         referenced.update(re.findall(r'[a-f0-9]{32}', ''.join(value or '' for value in row)))
+    from app.note_history import APPEARANCE_PREFIX, HISTORY_SECONDS
+    for row in c.execute('SELECT a.value FROM app_settings a JOIN note_revisions r ON a.key=?||r.id WHERE r.created>?', (APPEARANCE_PREFIX, stamp-HISTORY_SECONDS)):
+        referenced.update(re.findall(r'[a-f0-9]{32}', row[0]))
     for row in c.execute('SELECT settings FROM users'):
         referenced.update(re.findall(r'[a-f0-9]{32}', row[0]))
     from app.notion_sync.decorations import retained

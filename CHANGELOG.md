@@ -2,6 +2,19 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.3.0] — 2026-11-25 — AI assistant for personal notes
+
+- Open the AI composer at the bottom of a note and expand or collapse the conversation above it.
+- See when the assistant is thinking and watch new text appear in chat and in the note. Restore the previous version from note history.
+- Use the current note as a read-only source and inspect the excerpts shared with OpenAI.
+- Enable the assistant for one account from Administration.
+- Structure guides with headings, lists and editable code blocks that keep the code language and indentation.
+- Find matching covers in Wikimedia Commons and ask for more options in the same chat.
+- Continue chatting after filling a blank note or after a temporary error loading note context.
+
+- **Installation:** Rebuild Space with the existing Compose files and volumes. Set OPENAI_API_KEY if enabling the assistant.
+- **Compatibility:** No migration or storage-format change is required.
+
 ## [5.2.28] — 2026-11-24 — Quick actions for code blocks
 
 - Copy the entire code block, including indentation and line breaks, from its top-right corner.

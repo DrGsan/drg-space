@@ -15,6 +15,8 @@ from pydantic import BaseModel, Field, field_validator
 
 ALLOWED_BLOCKS={'paragraph','heading','bulletListItem','numberedListItem','checkListItem','toggleListItem','quote','codeBlock','table','image','video','audio','file','divider','pageLink','callout','columnList','column'}
 COVERS={'','blue','sage','sand','rose','night'}
+PHOTO_COVERS={name:'/assets/wallpapers/'+name+'.webp' for name in ('forest','mountains','nature-coast','cozy-library','space-stars')}
+COVERS.update(PHOTO_COVERS)
 
 class PageInput(BaseModel):
     title: str = Field(min_length=1,max_length=200)
@@ -99,7 +101,7 @@ def validate_blocks(blocks,fail):
     if len(encoded.encode())>500000:fail(422,localized_message('pageIsTooLarge'))
 
 
-def create_notes_router(db,ready,now,fail,data_dir=None,publication_update=None,router=None):
+def create_notes_router(db,ready,now,fail,data_dir=None,publication_update=None,router=None,*,assistant_admin=None,rate=None):
     router=router or Router()
     def owned(c,nid,uid,include_deleted=False):
         return note_access(c,nid,uid,fail,include_deleted)
@@ -173,23 +175,27 @@ def create_notes_router(db,ready,now,fail,data_dir=None,publication_update=None,
             if not trash:result.sort(key=lambda n:(n['position'],-n['updated']))
             return conditional(result,s,catalog_revision) if catalog and catalog_revision is not None else result
 
+    def insert_page(c,data,s):
+        validate_blocks(data.blocks,fail);nid=secrets.token_urlsafe(12);scope=data.space_id
+        if data.parent_id:
+            parent=owned(c,data.parent_id,s['user_id']);require_role(c,parent,s['user_id'],fail,session=s,now=now)
+            if scope is not None and parent['space_id']!=scope:fail(422,localized_message('subpagesMustBeInTheSameWorkspace'))
+            scope=parent['space_id']
+        if scope and not data.parent_id:space_access(c,scope,s['user_id'],fail)
+        parent_ok(c,data.parent_id,None,s['user_id'],scope);linked_pages_ok(c,data.blocks,s['user_id'],scope)
+        from app.modules.note_files import validate_file_links
+        validate_file_links(c,nid,data.body,data.blocks,s['user_id'],fail)
+        position=c.execute('SELECT COALESCE(MAX(position),-1)+1 FROM notes WHERE parent_id IS ? AND space_id IS ? AND (space_id IS NOT NULL OR user_id=?) AND deleted IS NULL',(data.parent_id,scope,s['user_id'])).fetchone()[0]
+        c.execute('INSERT INTO notes(id,user_id,title,body,created,updated,blocks,parent_id,space_id,position) VALUES(?,?,?,?,?,?,?,?,?,?)',(nid,s['user_id'],data.title,data.body,now(),now(),json.dumps(data.blocks) if data.blocks is not None else None,data.parent_id,scope,position))
+        if data.parent_id and c.execute('SELECT 1 FROM note_databases WHERE note_id=?',(data.parent_id,)).fetchone():
+            c.execute('INSERT INTO database_records(note_id,database_id,properties) VALUES(?,?,?)',(nid,data.parent_id,'{}'))
+        return nid
+
     @router.post('/api/notes')
     def create_page(data:PageInput,request:Request):
-        s=ready(request);validate_blocks(data.blocks,fail);nid=secrets.token_urlsafe(12)
+        s=ready(request)
         with db() as c:
-            c.execute('BEGIN IMMEDIATE');scope=data.space_id
-            if data.parent_id:
-                parent=owned(c,data.parent_id,s['user_id']);require_role(c,parent,s['user_id'],fail,session=s,now=now)
-                if scope is not None and parent['space_id']!=scope:fail(422,localized_message('subpagesMustBeInTheSameWorkspace'))
-                scope=parent['space_id']
-            if scope and not data.parent_id:space_access(c,scope,s['user_id'],fail)
-            parent_ok(c,data.parent_id,None,s['user_id'],scope);linked_pages_ok(c,data.blocks,s['user_id'],scope)
-            from app.modules.note_files import validate_file_links
-            validate_file_links(c,nid,data.body,data.blocks,s['user_id'],fail)
-            position=c.execute('SELECT COALESCE(MAX(position),-1)+1 FROM notes WHERE parent_id IS ? AND space_id IS ? AND (space_id IS NOT NULL OR user_id=?) AND deleted IS NULL',(data.parent_id,scope,s['user_id'])).fetchone()[0]
-            c.execute('INSERT INTO notes(id,user_id,title,body,created,updated,blocks,parent_id,space_id,position) VALUES(?,?,?,?,?,?,?,?,?,?)',(nid,s['user_id'],data.title,data.body,now(),now(),json.dumps(data.blocks) if data.blocks is not None else None,data.parent_id,scope,position))
-            if data.parent_id and c.execute('SELECT 1 FROM note_databases WHERE note_id=?',(data.parent_id,)).fetchone():
-                c.execute('INSERT INTO database_records(note_id,database_id,properties) VALUES(?,?,?)',(nid,data.parent_id,'{}'))
+            c.execute('BEGIN IMMEDIATE');nid=insert_page(c,data,s)
             return serialize(owned(c,nid,s['user_id']),c,s['user_id'],s)
 
     @router.get('/api/notes/search')
@@ -472,11 +478,15 @@ def create_notes_router(db,ready,now,fail,data_dir=None,publication_update=None,
         with db() as c:
             c.execute('BEGIN IMMEDIATE');n=owned(c,nid,s['user_id'],trash)
             if page_role(c,n,s['user_id'])!='editor':fail(403,localized_message('theHistoryIsAvailableToPageEditors'))
-            from app.note_history import purge_history
+            from app.note_history import purge_history, revision_appearance
             purge_history(c,now(),nid)
             row=c.execute('SELECT * FROM note_revisions WHERE id=? AND note_id=?',(rid,nid)).fetchone()
             if not row:fail(404,localized_message('versionNotFoundOrOlderThan90Days'))
             result=dict(row);result['blocks']=json.loads(row['blocks']) if row['blocks'] is not None else None
+            appearance=revision_appearance(c,rid)
+            if appearance:
+                from app.modules.note_assets import asset_payload
+                result.update(appearance|asset_payload(c,appearance|{'id':nid}))
             return result|{'current_version':n['version']}
 
     @router.post('/api/notes/{nid}/history/{rid}/restore')
@@ -484,7 +494,7 @@ def create_notes_router(db,ready,now,fail,data_dir=None,publication_update=None,
         s=ready(request)
         with db() as c:
             c.execute('BEGIN IMMEDIATE');n=owned(c,nid,s['user_id']);require_role(c,n,s['user_id'],fail,session=s,now=now)
-            from app.note_history import purge_history
+            from app.note_history import purge_history, revision_appearance, snapshot as checkpoint
             purge_history(c,now(),nid)
             version_ok(n,version)
             r=c.execute('SELECT * FROM note_revisions WHERE id=? AND note_id=?',(rid,nid)).fetchone()
@@ -492,11 +502,16 @@ def create_notes_router(db,ready,now,fail,data_dir=None,publication_update=None,
             from app.note_subpages import reconcile_links
             reconcile_links(c,n,json.loads(r['blocks']) if r['blocks'] is not None else None,s,now(),fail)
             c.execute('DELETE FROM collaborative_docs WHERE note_id=?',(nid,))
-            snapshot(c,n)
-            changed=c.execute('UPDATE notes SET title=?,body=?,blocks=?,updated=?,version=version+1 WHERE id=? AND version=?',(r['title'],r['body'],r['blocks'],now(),nid,n['version']))
+            appearance=revision_appearance(c,rid)
+            checkpoint(c,n,now(),with_appearance=bool(appearance))
+            fields={key:r[key] for key in ('title','body','blocks')}|appearance
+            changed=c.execute('UPDATE notes SET '+','.join(key+'=?' for key in fields)+',updated=?,version=version+1 WHERE id=? AND version=?',(*fields.values(),now(),nid,n['version']))
             if changed.rowcount!=1:fail(409,localized_message('thePageHasBeenChangedRefreshTheHistory'))
             return serialize(owned(c,nid,s['user_id']),c,s['user_id'],s)
 
     from app.note_subpages import register_subpages
     register_subpages(router,db,ready,now,fail,owned,serialize,publication_update)
+    if assistant_admin is not None:
+        from app.modules.note_assistant import register
+        register(router,db,ready,assistant_admin,rate,now,fail,insert_page)
     return router,owned
