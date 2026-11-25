@@ -8,7 +8,7 @@ const headlines=title=>({items:[{title,url:'https://example.com/news',source:'Ne
 function environment(t,api) {
   const listeners=new Set(),timers=new Map(),state={me:{id:'first'}};
   let now=1000,timerID=0,deadline;
-  const document={hidden:false,addEventListener:(_name,fn)=>listeners.add(fn),removeEventListener:(_name,fn)=>listeners.delete(fn)};
+  const document={cookie:'',hidden:false,addEventListener:(_name,fn)=>listeners.add(fn),removeEventListener:(_name,fn)=>listeners.delete(fn)};
   const previous=Object.getOwnPropertyDescriptor(globalThis,'document');
   globalThis.document=document;
   t.after(()=>{if(previous)Object.defineProperty(globalThis,'document',previous);else delete globalThis.document;});
@@ -160,4 +160,17 @@ test('denied access drops previously authorized headlines for the mounted widget
   env.dispose();
   const next=env.mount();assert.equal(next.host.status.textContent,'Forbidden');
   assert.doesNotMatch(next.host.innerHTML,/Previously authorized/);next.dispose();
+});
+
+test('a session changed in a different tab cannot repaint or reuse the old headlines',async t=>{
+  let resolve;const env=environment(t,()=>new Promise(done=>{resolve=done;}));
+  env.state.me.csrf='first-session';env.document.cookie='drg_csrf=first-session';
+  resolve(headlines('First session'));await settle();
+  const pending=env.host.button.onclick();
+  env.document.cookie='drg_csrf=other-session';env.visibility();
+  resolve(headlines('Late headline'));await pending;
+  assert.doesNotMatch(env.host.innerHTML,/First session|Late headline/);
+  assert.match(env.host.innerHTML,/href="\/"/);env.dispose();
+  const next=env.mount();assert.match(next.host.innerHTML,/href="\/"/);
+  assert.doesNotMatch(next.host.innerHTML,/Late headline/);next.dispose();
 });

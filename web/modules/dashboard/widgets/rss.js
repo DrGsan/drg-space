@@ -1,4 +1,5 @@
 import {locale,tText,tHtml} from "../../../core/i18n.js";
+import {csrfCookie} from "../../../core/auth.js";
 import {esc,date} from "../../../core/ui.js";
 
 const refreshInterval=600000;
@@ -41,7 +42,16 @@ async function fetchHeadlines(entry,ctx,refresh) {
 export function mountRss(host,ctx) {
   const account=ctx.state.me,widgets=sessionWidgets(account),entry=widgetEntry(widgets,ctx.instance);
   let disposed=false,pending,timer;
-  const active=()=>!disposed && host.isConnected && ctx.state.me===account && widgets.get(ctx.instance.id)===entry;
+  function active(){
+    if(disposed || !host.isConnected || ctx.state.me!==account || widgets.get(ctx.instance.id)!==entry)return false;
+    // Another tab can change accounts while this workspace still shows the previous one.
+    if(account.csrf && csrfCookie()!==account.csrf){
+      clearTimeout(timer);
+      host.innerHTML=`<a href="/">${tHtml("app:signInAgain")}</a>`;
+      return false;
+    }
+    return true;
+  }
 
   function render(){
     if(!entry.data && !entry.error){
@@ -84,9 +94,11 @@ export function mountRss(host,ctx) {
     }
   }
 
-  render();
-  if(entry.pending || Date.now()>=entry.nextCheck)refreshExpired();
-  else schedule();
+  if(active()){
+    render();
+    if(entry.pending || Date.now()>=entry.nextCheck)refreshExpired();
+    else schedule();
+  }
   document.addEventListener('visibilitychange',refreshStale);
   return ()=>{disposed=true;clearTimeout(timer);document.removeEventListener('visibilitychange',refreshStale);};
 }
