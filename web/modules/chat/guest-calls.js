@@ -112,7 +112,9 @@ class GuestCall {
         sfuModule=await abortable(loadLiveKit,{signal:this.abort.signal,timeoutMs:30000,message:tText('chat:callModuleLoadFailed')});
         if(this.closed)return;
       }
-      const joined=await this.join({...this.identity,...(this.room.transport==='livekit'?{transport:'livekit'}:{})},this.abort.signal);
+      // A bounded join can already be committed when the user leaves. Read its
+      // reply so the credential below releases that membership immediately.
+      const joined=await this.join({...this.identity,...(this.room.transport==='livekit'?{transport:'livekit'}:{})});
       if(this.closed){publicApi('rooms/'+joined.room.id+'/leave','POST',{},joined.credential).catch(()=>{});return;}
       this.credential=joined.credential;this.self=joined.self;this.configuration=joined.configuration;
       if(joined.room.transport==='livekit'){
