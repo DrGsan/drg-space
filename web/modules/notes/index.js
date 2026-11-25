@@ -447,7 +447,9 @@ class NotesWorkspace {
       notes=await readStorage(this.ctx.api,'/notes',signal);
     }while(version!==this.fullRefreshVersion);
     if (!this.disposed){
+      const previous=this.state.notes;
       this.applyCatalog(notes,this.state.spaces);
+      if(this.state.notes===previous)this.tree();
       const latest=this.state.notes.find(n=>n.id===this.page?.id);if(latest){this.page.participants=latest.participants;this.page.external=latest.external;const button=$('#page-participants',this.host);if(button){const holder=document.createElement('div');holder.innerHTML=this.participantAvatars(this.page);button.innerHTML=holder.firstElementChild.innerHTML;button.title=holder.firstElementChild.title;}}
     }
   }
@@ -542,7 +544,7 @@ class NotesWorkspace {
     id=this.state.notes.find(n=>n.navigation_aliases?.includes(id))?.id||id;
     this.closePageMenu?.(false);
     const current=this.page?.id;
-    if (flush && !(await this.flush()) || signal.aborted) return;
+    if ((flush && !(await this.flush())) || signal.aborted) return;
     if(current!==id&&!keepAssistant)this.closeAssistant?.();
     if(this.remote?.active)this.remote.close();
     this.vault?.destroy();this.vault=null;
@@ -1380,6 +1382,7 @@ class NotesWorkspace {
     if(this.workspaceScope()!=='private')return false;
     if(this.vault&&!this.vault.disposed){if(this.vault.locked)return !!await this.vault.open();return !!await this.vault.ready;}
     if(!await unlockVaultNotes(this.ctx)||!await this.flush())return false;
+    this.pageRead?.abort();
     this.closeAssistant?.();
     await this.releaseLease(true);this.discardDraft();this.historyView?.destroy();this.closePageMenu?.(false);this.closeContext?.();
     this.live?.destroy();this.live=null;this.handle?.destroy();this.handle=null;this.database?.destroy();this.database=null;this.discussions?.destroy();this.discussions=null;
@@ -1392,6 +1395,7 @@ class NotesWorkspace {
   }
   async history(push=true) {
     if(this.historyView||!this.page||!(await this.flush()))return;
+    this.pageRead?.abort();
     const id=this.page.id;
     await this.releaseLease(true);this.live?.destroy();this.live=null;
     this.handle?.destroy();this.handle=null;this.discussions?.destroy();clearInterval(this.readTimer);
@@ -1419,6 +1423,7 @@ class NotesWorkspace {
   async openTrash(note){
     this.closeAssistant?.();
     if(!(await this.flush()))return;
+    this.pageRead?.abort();
     const previous=this.page?.id;
     await this.releaseLease(true);this.live?.destroy();this.live=null;this.handle?.destroy();this.database?.destroy();this.database=null;this.discussions?.destroy();clearInterval(this.readTimer);clearTimeout(this.lockTimer);this.linkObserver?.disconnect();
     if(this.disposed)return;
@@ -1437,6 +1442,7 @@ class NotesWorkspace {
   }
   async trashHistory(note,{returnTrash=false}={}){
     if(this.historyView)return;
+    this.pageRead?.abort();
     const current=this.page?.id;
     await this.releaseLease(true);this.live?.destroy();this.live=null;this.handle?.destroy();this.handle=null;this.discussions?.destroy();clearInterval(this.readTimer);
     $('.notes-shell',this.host).hidden=true;

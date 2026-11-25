@@ -165,4 +165,10 @@ test('a busy catalog keeps its editor, bounds retries and merges recovered rows 
   await expect(editor).toContainText(note.body);
   expect(await originalEditor.evaluate(node => node.isConnected)).toBe(true);
   expect(reads).toBe(6);
+  const newDocument = page.waitForResponse(response =>
+    new URL(response.url()).pathname === '/api/notes/' + added.id && response.request().method() === 'GET'
+  );
+  await row(page, added).locator('[data-open-page]').click();
+  expect((await newDocument).status()).toBe(200);
+  await expect(editor).toContainText(added.body);
 });
