@@ -2,6 +2,7 @@ import {tHtml, tText} from '../../core/i18n.js';
 import {$, esc, md} from '../../core/ui.js';
 import {pageCover, pageIcon} from '../../core/page-assets.js';
 import {sidebarIcon} from '../../core/sidebar-icons.js';
+import {pageMenuIcon} from './page-menu.js';
 import './assistant.css';
 
 const apiRoot = '/notes-assistant';
@@ -89,13 +90,16 @@ function animateText(node, {runs, length}, paint) {
 
 const canAnimate = () => !matchMedia('(prefers-reduced-motion: reduce)').matches && !document.hidden;
 
-async function revealText(node) {
+async function revealText(node, afterPaint) {
   if (!node || !canAnimate()) return;
   const text = textRuns([node]);
   if (text.length < 2) return;
   for (const {textNode} of text.runs) textNode.data = '';
   node.setAttribute('aria-hidden', 'true');
-  await animateText(node, text, ({textNode, characters}, count) => { textNode.data = characters.slice(0, count).join(''); });
+  await animateText(node, text, ({textNode, characters}, count) => {
+    textNode.data = characters.slice(0, count).join('');
+    afterPaint?.();
+  });
   for (const {textNode, characters} of text.runs) textNode.data = characters.join('');
   node.removeAttribute('aria-hidden');
 }
@@ -124,7 +128,7 @@ export async function revealNoteBlocks(editor, ids) {
   const text = textRuns(roots);
   if (text.length < 2) return;
   if (!globalThis.Highlight || !CSS.highlights) {
-    blocks[0].scrollIntoView({block: 'nearest'});
+    blocks[0].scrollIntoView({block: 'center'});
     await Promise.all(blocks.map(block => block.animate([{opacity: .2}, {opacity: 1}], 650).finished.catch(() => {})));
     return;
   }
@@ -137,7 +141,7 @@ export async function revealNoteBlocks(editor, ids) {
     highlight.add(range);
   }
   CSS.highlights.set(key, highlight);
-  blocks[0].scrollIntoView({block: 'nearest'});
+  blocks[0].scrollIntoView({block: 'center'});
   try {
     await animateText(editor, text, ({textNode, characters, range}, count) => {
       if (count >= characters.length) highlight.delete(range);
@@ -156,12 +160,17 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
   const chat = document.createElement('section');
   chat.className = 'notes-ai';
   chat.setAttribute('aria-label', tText('notes:assistantChat'));
-  chat.innerHTML = `<div class="notes-ai-intro"><div class="notes-ai-emblem">${sidebarIcon('sparkles')}</div><h2>${tHtml('notes:assistantPanelWelcome')}</h2></div>
-    <div class="notes-ai-log" data-ai-log role="log" aria-live="polite" hidden></div>
+  chat.innerHTML = `<div class="notes-ai-log" id="note-ai-log" data-ai-log role="log" aria-live="polite" hidden></div>
+    <p data-ai-status class="notes-ai-status" role="status" hidden><span class="notes-ai-status-dot" aria-hidden="true"></span><span data-ai-phase></span></p>
+    <p data-ai-error role="alert"></p>
     <div class="notes-ai-compose">
-    <form data-ai-input><textarea name="prompt" aria-label="${tHtml('notes:assistantPrompt')}" placeholder="${tHtml('notes:assistantPlaceholder')}" maxlength="4000" rows="2" required></textarea>
-    <div class="notes-ai-toolbar"><details data-ai-details><summary data-ai-context-label></summary><div class="notes-ai-context-popover"><label>${tHtml('notes:assistantFindSource')}<input type="search" placeholder="${tHtml('notes:searchPages')}" maxlength="200" data-ai-search></label><label>${tHtml('notes:assistantSource')}<select data-ai-source></select></label><div data-ai-context></div></div></details><button type="submit" class="primary compact" aria-label="${tHtml('notes:assistantSend')}" title="${tHtml('notes:assistantSend')}"><span data-ai-send-icon>${sidebarIcon('arrow-up')}</span><span data-ai-spinner hidden aria-hidden="true" class="notes-ai-spinner"></span></button></div></form>
-    <p class="muted notes-ai-disclosure">${tHtml('notes:assistantDisclosure')}</p><p data-ai-status class="notes-ai-status" role="status" hidden><span class="notes-ai-status-dot" aria-hidden="true"></span><span data-ai-phase></span></p><p data-ai-error role="alert"></p></div>`;
+    <form data-ai-input><textarea name="prompt" aria-label="${tHtml('notes:assistantPrompt')}" placeholder="${tHtml('notes:assistantPlaceholder')}" maxlength="4000" rows="1" required></textarea>
+    <div class="notes-ai-toolbar">
+      <details data-ai-details><summary data-ai-context-label aria-label="${tHtml('notes:assistantContext')}" title="${tHtml('notes:assistantContext')}">${sidebarIcon('notebook-text')}</summary><div class="notes-ai-context-popover"><label>${tHtml('notes:assistantFindSource')}<input type="search" placeholder="${tHtml('notes:searchPages')}" maxlength="200" data-ai-search></label><label>${tHtml('notes:assistantSource')}<select data-ai-source></select></label><div data-ai-context></div><p class="muted notes-ai-disclosure">${tHtml('notes:assistantDisclosure')}</p></div></details>
+      <button type="button" class="icon-btn" data-ai-toggle-log aria-expanded="false" aria-controls="note-ai-log" hidden>${sidebarIcon('messages-square')}</button>
+      <button type="submit" class="primary compact" aria-label="${tHtml('notes:assistantSend')}" title="${tHtml('notes:assistantSend')}"><span data-ai-send-icon>${sidebarIcon('arrow-up')}</span><span data-ai-spinner hidden aria-hidden="true" class="notes-ai-spinner"></span></button>
+      <button type="button" class="icon-btn" data-ai-close aria-label="${tHtml('common:close')}" title="${tHtml('common:close')}">${pageMenuIcon('close')}</button>
+    </div></form></div>`;
   host.append(chat);
   const form = $('[data-ai-input]', chat);
   const log = $('[data-ai-log]', chat);
@@ -169,7 +178,8 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
   const error = $('[data-ai-error]', chat);
   const status = $('[data-ai-status]', chat);
   const phaseLabel = $('[data-ai-phase]', status);
-  const submit = $('button', form);
+  const submit = $('button[type=submit]', form);
+  const historyToggle = $('[data-ai-toggle-log]', form);
   const source = $('[data-ai-source]', chat);
   const search = $('[data-ai-search]', chat);
   const prompt = form.elements.prompt;
@@ -177,11 +187,12 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
   const shownCovers = new Set();
   let items = [], sourcePage = initialSource, searchGeneration = 0, contextGeneration = 0, timer;
   let destroyed = false;
+  let repliesOpen = false;
   let busy = false, phase = 'assistantGenerating', contextReady = false, loadedSources = false;
   const call = (path, method = 'GET', data) => ctx.api(apiRoot + path, method, data, true, {}, {timeoutMs: 65000});
   const discard = draft => call('/draft/' + draft.id, 'DELETE').catch(() => {});
   const input = () => ({target: reference(target), source: reference(sourcePage), include_target_text: !!target});
-  const scrollLog = () => { log.scrollTop = log.scrollHeight; };
+  const scrollLog = () => { if (!log.hidden) log.scrollTop = log.scrollHeight; };
   function controls() {
     submit.disabled = busy;
     $('[data-ai-send-icon]', submit).hidden = busy;
@@ -190,8 +201,12 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
     const caption = busy ? tText('notes:' + phase) : '';
     if (phaseLabel.textContent !== caption) phaseLabel.textContent = caption;
     chat.querySelectorAll('[data-ai-cover-choice]').forEach(button => { button.disabled = busy; });
-    log.hidden = !log.firstElementChild;
-    chat.classList.toggle('notes-ai-has-messages', !log.hidden);
+    historyToggle.hidden = !log.firstElementChild;
+    log.hidden = historyToggle.hidden || !repliesOpen;
+    historyToggle.setAttribute('aria-expanded', String(!log.hidden));
+    const logLabel = tText(log.hidden ? 'notes:assistantShowConversation' : 'notes:assistantHideConversation');
+    historyToggle.setAttribute('aria-label', logLabel);
+    historyToggle.title = logLabel;
     prompt.readOnly = busy;
     source.disabled = busy;
     search.disabled = busy;
@@ -224,7 +239,7 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
     controls();
     const refs = input();
     const page = target ?? sourcePage;
-    $('[data-ai-context-label]', chat).innerHTML = `${sidebarIcon(page ? 'notebook-text' : 'plus')}<span>${page ? esc(page.title) : tHtml('notes:assistantContext')}</span>`;
+    $('[data-ai-context-label]', chat).title = page?.title || tText('notes:assistantContext');
     try {
       const context = refs.target || refs.source ? await call('/context', 'POST', refs) : {};
       if (!chat.isConnected || sequence !== contextGeneration) return;
@@ -246,6 +261,11 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
     loadedSources = true;
     loadSources('');
   };
+  historyToggle.onclick = () => {
+    repliesOpen = !repliesOpen;
+    controls();
+    scrollLog();
+  };
   search.oninput = () => { clearTimeout(timer); timer = setTimeout(() => loadSources(search.value.trim()), 200); };
   source.onchange = () => {
     sourcePage = items.find(page => page.id === source.value);
@@ -264,7 +284,7 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
   });
   setSources([]);
   refreshContext();
-  if (!matchMedia('(max-width: 900px)').matches) prompt.focus();
+  if (!matchMedia('(max-width: 900px)').matches) prompt.focus({preventScroll: true});
   prompt.onkeydown = event => {
     if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
     event.preventDefault();
@@ -275,6 +295,7 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
     const instruction = prompt.value.trim();
     if (!instruction || busy) return;
     const messages = history.slice();
+    repliesOpen = true;
     const node = addMessage('user', instruction);
     prompt.value = '';
     error.textContent = '';
@@ -300,7 +321,7 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
       else if (result.cover_query) await showCovers(result.cover_query, result.cover_focus);
       else if (result.message.trim()) {
         setPhase('assistantTyping');
-        await revealText(addMessage('assistant', result.message));
+        await revealText(addMessage('assistant', result.message), scrollLog);
       }
     } catch (failure) {
       if (!chat.isConnected) return;
@@ -308,7 +329,11 @@ export function mountNoteAssistant(host, ctx, {target, initialSource, refreshTar
       node.remove();
       history.splice(0, history.length, ...messages);
       prompt.value = instruction;
-    } finally { busy = false; controls(); if (chat.isConnected) prompt.focus(); }
+    } finally {
+      busy = false;
+      controls();
+      if (chat.isConnected && form.contains(document.activeElement) && !detail.open) prompt.focus({preventScroll: true});
+    }
   };
   function showChange({draft, fields, before, cover_url: coverUrl, formatted}) {
     const card = document.createElement('section');

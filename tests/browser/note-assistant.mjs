@@ -20,6 +20,72 @@ function totp(secret) {
   return String((hash.readUInt32BE(hash[19] & 15) & 0x7fffffff) % 1000000).padStart(6, '0');
 }
 
+async function verifyMobileComposer(page, noteId, standalone) {
+  await page.setViewportSize({width: 390, height: 844});
+  if (standalone) await page.context().addInitScript(() => {
+    if (new URLSearchParams(location.search).has('standalone')) {
+      Object.defineProperty(navigator, 'standalone', {configurable: true, value: true});
+      document.addEventListener('DOMContentLoaded', () => {
+        document.documentElement.style.setProperty('--app-safe-top', '59px');
+        document.documentElement.style.setProperty('--app-safe-bottom', '34px');
+      }, {once: true});
+    }
+    const viewport = new EventTarget();
+    Object.assign(viewport, {height: 844, offsetTop: 0, scale: 1});
+    Object.defineProperty(window, 'visualViewport', {configurable: true, value: viewport});
+  });
+  await page.goto('/page/' + noteId + (standalone ? '?standalone' : ''));
+  const tabs = page.locator('.mobile-app-tabs');
+  const note = page.locator('#notion-page');
+  const chat = page.locator('#note-ai-panel');
+  const input = chat.locator('textarea');
+  if (standalone) await expect(tabs).toBeVisible();
+  await page.locator('#note-ai').click();
+  await expect(note).toBeVisible();
+  await expect(note.locator('#page-title')).toBeVisible();
+  await expect(input).toBeVisible();
+  await expect(input).toHaveAttribute('rows', '1');
+  const geometry = () => page.evaluate(() => {
+    const bounds = selector => document.querySelector(selector)?.getBoundingClientRect();
+    const viewport = window.visualViewport;
+    const textarea = bounds('#note-ai-panel textarea');
+    const tabs = bounds('.mobile-app-tabs');
+    const note = bounds('#notion-page');
+    const composerIsInteractive = document.querySelector('#note-ai-panel').contains(
+      document.elementFromPoint(textarea.left + textarea.width / 2, textarea.top + textarea.height / 2),
+    );
+    return {
+      aboveTabs: !tabs?.height || textarea.bottom <= tabs.top + 1,
+      aboveKeyboard: textarea.bottom <= viewport.offsetTop + viewport.height + 1,
+      insideViewport: textarea.top >= viewport.offsetTop && textarea.left >= 0 && textarea.right <= innerWidth,
+      noteVisible: Math.min(note.bottom, textarea.top) > note.top + 48,
+      composerIsInteractive,
+    };
+  });
+  const expected = {aboveTabs: true, aboveKeyboard: true, insideViewport: true, noteVisible: true, composerIsInteractive: true};
+  await expect.poll(geometry).toEqual(expected);
+  await input.fill('Черновик запроса');
+  const changeViewport = async (height, offsetTop) => {
+    await page.evaluate(({height, offsetTop}) => {
+      Object.assign(window.visualViewport, {height, offsetTop});
+      window.visualViewport.dispatchEvent(new Event('resize'));
+    }, {height, offsetTop});
+  };
+  // Model iOS keyboard pan and dismissal with the same visual viewport events as the app.
+  await changeViewport(390, 120);
+  if (standalone) await expect(page.locator('html')).toHaveClass(/mobile-keyboard/);
+  await expect(tabs).toBeHidden();
+  await expect.poll(geometry).toEqual(expected);
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue('Черновик запроса');
+  await changeViewport(844, 0);
+  await expect(page.locator('html')).not.toHaveClass(/mobile-keyboard/);
+  await expect.poll(geometry).toEqual(expected);
+  await chat.locator('[data-ai-close]').click();
+  if (standalone) await expect(tabs).toBeVisible();
+  await expect(note).toBeVisible();
+}
+
 async function scenario(page) {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -125,10 +191,16 @@ async function scenario(page) {
   });
 
   await page.goto('/page/' + note.id);
+  await expect(page.locator('#note-ai')).toBeVisible();
+  const pageWidth = await page.locator('#notion-page').evaluate(el => el.getBoundingClientRect().width);
   await page.locator('#note-ai').click();
   const chat = page.locator('#note-ai-panel');
   const prompt = chat.locator('textarea[name=prompt]');
   const submit = chat.locator('[data-ai-input] button[type=submit]');
+  await expect(page.locator('#notion-page')).toBeVisible();
+  const expandedWidth = await page.locator('#notion-page').evaluate(el => el.getBoundingClientRect().width);
+  expect(Math.abs(expandedWidth - pageWidth)).toBeLessThanOrEqual(1);
+  await expect(prompt).toHaveAttribute('rows', '1');
   async function send(text) {
     await expect(submit).toBeEnabled();
     await prompt.fill(text);
@@ -137,6 +209,15 @@ async function scenario(page) {
 
   await send(firstPrompt);
   await expect(chat.locator('[data-ai-cover-choice]')).toContainText(firstCover);
+  const history = chat.locator('[data-ai-log]');
+  const historyButton = chat.locator('[data-ai-toggle-log]');
+  await expect(history).toBeVisible();
+  await historyButton.click();
+  await expect(history).toBeHidden();
+  await expect(prompt).toBeVisible();
+  await historyButton.click();
+  await expect(history).toBeVisible();
+  await expect(history.locator('[data-ai-cover-choice]')).toContainText(firstCover);
   await send(secondPrompt);
   await expect(chat.getByRole('button', {name: new RegExp(secondCover)})).toBeVisible();
   await expect(chat.getByRole('button', {name: new RegExp(firstCover)})).toHaveCount(1);
@@ -164,6 +245,8 @@ async function scenario(page) {
   await send(createFollowUp);
   await expect(chat.locator('.notes-ai-message.assistant').last()).toContainText(newTitle);
   expect(proposals.at(-1).target).toEqual({id: createdNote.id, version: createdNote.version});
+  await verifyMobileComposer(page, createdNote.id, true);
+  await verifyMobileComposer(page, createdNote.id, false);
   expect(errors).toEqual([]);
 }
 
@@ -189,7 +272,7 @@ try {
   browser = await (process.env.DRG_BROWSER_ENGINE === 'webkit' ? webkit : chromium).launch({headless: true});
   const context = await browser.newContext({locale: 'ru-RU', baseURL: origin, viewport: {width: 1280, height: 900}, reducedMotion: 'reduce'});
   await scenario(await context.newPage());
-  console.log('Note assistant continued cover, edit and new-note conversations in ' + browser.browserType().name());
+  console.log('Note assistant cover, edit, new note, bottom composer and mobile keyboard passed in ' + browser.browserType().name());
 } catch (error) {
   if (!browser && output) console.error(output);
   throw error;

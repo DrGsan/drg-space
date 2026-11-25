@@ -82,7 +82,7 @@ class NotesWorkspace {
   }
   async mount() {
     this.mounted=false;
-    this.host.innerHTML = `<div class="notes-shell"><div class="notes-navigation"><h1 class="mobile-notes-title">${tHtml("notes:notes")}</h1><button type="button" class="notes-main-menu" id="notes-main-menu" title="${mobileApp()?tText("notes:toNotesList"):tText("notes:mainMenu")}" aria-label="${mobileApp()?tText("notes:toNotesList"):tText("notes:mainMenu")}">${pageMenuIcon('back')}<span class="notes-main-menu-label">${mobileApp()?tText("notes:notes"):tText("notes:mainMenu")}</span></button><button class="icon-btn" id="toggle-pages-sidebar" aria-label="${tHtml("notes:collapseNoteMenu")}" aria-expanded="true" aria-controls="pages-sidebar" title="${tHtml("notes:collapseNoteMenu")}">☰</button>${this.ctx.notesInboxButton||''}</div><div class="notes-workspace"><aside class="pages-sidebar" id="pages-sidebar" aria-label="${tHtml("notes:notePages")}" tabindex="-1"><div class="pages-sidebar-head"><select id="notes-space" aria-label="${tHtml("notes:noteWorkspace")}"><option value="private">${tHtml("notes:personalWorkspace")}</option>${(this.state.spaces||[]).filter(s=>s.kind==='family').map(s=>`<option value="${esc(s.id)}">${esc(spaceTemplate(s).label)} · ${esc(s.name)}</option>`).join('')}</select><button class="icon-btn" id="add-root-page" aria-label="${tHtml("notes:createPage")}" title="${tHtml("notes:createPage")}">＋</button></div><input id="search-pages" type="search" maxlength="200" placeholder="${tHtml("notes:searchPages")}" aria-label="${tHtml("notes:searchNotes")}" title="${tHtml("notes:searchByNameAndContent")}"><div id="page-tree" aria-live="polite"></div><div class="pages-sidebar-footer"><button class="text-link" id="customize-sidebar">${pageMenuIcon("settings")}<span>${tHtml("notes:customizeThePanel")}</span></button><details class="pages-tools" id="pages-tools"><summary aria-label="${tHtml("notes:pageTools")}">${pageMenuIcon("dots")}<span>${tHtml("notes:tools")}</span></summary><div class="pages-tool-menu"><button type="button" id="show-templates">${tHtml("notes:templates")}</button><button type="button" id="create-database">${tHtml("notes:newDatabase")}</button><button type="button" id="show-mentions">${tHtml("notes:mentions")}</button></div></details><button class="text-link" id="show-trash">${pageMenuIcon("trash")}<span>${tHtml("notes:trash")}</span></button></div></aside><main class="notion-page" id="notion-page"></main></div></div>`;
+    this.host.innerHTML = `<div class="notes-shell"><div class="notes-navigation"><h1 class="mobile-notes-title">${tHtml("notes:notes")}</h1><button type="button" class="notes-main-menu" id="notes-main-menu" title="${mobileApp()?tText("notes:toNotesList"):tText("notes:mainMenu")}" aria-label="${mobileApp()?tText("notes:toNotesList"):tText("notes:mainMenu")}">${pageMenuIcon('back')}<span class="notes-main-menu-label">${mobileApp()?tText("notes:notes"):tText("notes:mainMenu")}</span></button><button class="icon-btn" id="toggle-pages-sidebar" aria-label="${tHtml("notes:collapseNoteMenu")}" aria-expanded="true" aria-controls="pages-sidebar" title="${tHtml("notes:collapseNoteMenu")}">☰</button>${this.ctx.notesInboxButton||''}</div><div class="notes-workspace"><aside class="pages-sidebar" id="pages-sidebar" aria-label="${tHtml("notes:notePages")}" tabindex="-1"><div class="pages-sidebar-head"><select id="notes-space" aria-label="${tHtml("notes:noteWorkspace")}"><option value="private">${tHtml("notes:personalWorkspace")}</option>${(this.state.spaces||[]).filter(s=>s.kind==='family').map(s=>`<option value="${esc(s.id)}">${esc(spaceTemplate(s).label)} · ${esc(s.name)}</option>`).join('')}</select><button class="icon-btn" id="add-root-page" aria-label="${tHtml("notes:createPage")}" title="${tHtml("notes:createPage")}">＋</button></div><input id="search-pages" type="search" maxlength="200" placeholder="${tHtml("notes:searchPages")}" aria-label="${tHtml("notes:searchNotes")}" title="${tHtml("notes:searchByNameAndContent")}"><div id="page-tree" aria-live="polite"></div><div class="pages-sidebar-footer"><button class="text-link" id="customize-sidebar">${pageMenuIcon("settings")}<span>${tHtml("notes:customizeThePanel")}</span></button><details class="pages-tools" id="pages-tools"><summary aria-label="${tHtml("notes:pageTools")}">${pageMenuIcon("dots")}<span>${tHtml("notes:tools")}</span></summary><div class="pages-tool-menu"><button type="button" id="show-templates">${tHtml("notes:templates")}</button><button type="button" id="create-database">${tHtml("notes:newDatabase")}</button><button type="button" id="show-mentions">${tHtml("notes:mentions")}</button></div></details><button class="text-link" id="show-trash">${pageMenuIcon("trash")}<span>${tHtml("notes:trash")}</span></button></div></aside><div class="notes-document"><main class="notion-page" id="notion-page"></main></div></div></div>`;
     const pendingControls=[...this.host.querySelectorAll('button,input,select')].filter(node=>node.id!=='notes-main-menu');
     for(const node of pendingControls)node.disabled=true;
     $('#notes-main-menu',this.host).onclick=()=>this.ctx.navigate('home');
@@ -1071,11 +1071,20 @@ class NotesWorkspace {
       if(!current||current.version!==this.page.version)return this.ctx.api('/notes-assistant/pages/'+encodeURIComponent(activeId));
     };
     const shell=$('.notes-shell',this.host);
-    const panel=document.createElement('aside');panel.className='notes-ai-panel';panel.id='note-ai-panel';
+    const panel=document.createElement('aside');panel.className='notes-ai-dock';panel.id='note-ai-panel';
     panel.setAttribute('aria-label',tText('notes:assistantChat'));
-    panel.innerHTML=`<header><strong>${pageMenuIcon('sparkles')}${tHtml('notes:assistantSection')}</strong><button type="button" class="icon-btn" data-ai-close aria-label="${tHtml('common:close')}">${pageMenuIcon('close')}</button></header>`;
-    $('.notes-workspace',shell).append(panel);
-    shell.classList.add('assistant-panel-open');
+    $('.notes-document',shell).append(panel);
+    shell.classList.add('assistant-dock-open');
+    const viewport=window.visualViewport;
+    const position=()=>{
+      if(!viewport||Math.abs(viewport.scale-1)>.01)return;
+      const covered=Math.max(0,window.innerHeight-viewport.height-viewport.offsetTop);
+      panel.style.setProperty('--notes-ai-keyboard',covered+'px');
+      panel.style.setProperty('--notes-ai-view-height',viewport.height+'px');
+    };
+    viewport?.addEventListener('resize',position);
+    viewport?.addEventListener('scroll',position);
+    position();
     const setTrigger=open=>{
       const trigger=$('#note-ai',this.host);
       if(trigger){trigger.setAttribute('aria-expanded',String(open));if(open)trigger.setAttribute('aria-controls',panel.id);else trigger.removeAttribute('aria-controls');}
@@ -1106,14 +1115,16 @@ class NotesWorkspace {
     });
     this.closeAssistant=focus=>{
       this.closeAssistant=null;
-      dispose();panel.remove();shell.classList.remove('assistant-panel-open');
+      viewport?.removeEventListener('resize',position);
+      viewport?.removeEventListener('scroll',position);
+      dispose();panel.remove();shell.classList.remove('assistant-dock-open');
       const trigger=setTrigger(false);
       if(focus)trigger?.focus();
     };
     const close=$('[data-ai-close]',panel);
     close.onclick=()=>this.closeAssistant?.(true);
     panel.addEventListener('keydown',event=>{if(event.key==='Escape'){event.stopPropagation();this.closeAssistant?.(true);}});
-    if(matchMedia('(max-width: 900px)').matches)close.focus();
+    if(matchMedia('(max-width: 900px)').matches)close.focus({preventScroll:true});
   }
   async duplicatePage(page){
     const linked=Boolean(page.notion_sync);
