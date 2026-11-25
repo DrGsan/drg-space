@@ -13,16 +13,34 @@ def document_navigation(request):
                      or 'text/html' in request.headers.get('Accept','').lower()))
 
 
-def unavailable(request,error):
+def unavailable(request,error,gate):
     headers={'Retry-After':'5','Cache-Control':'no-store'}
     if not document_navigation(request):
         # This response is generated before routing, authentication and effects.
         return JSONResponse({'detail':error.detail,'code':'storage_busy'},error.status_code,headers=headers)
     nonce=secrets.token_urlsafe(24)
+    path=request.url.path
+    recover=(path=='/' or path.startswith('/page/')) and gate.scheduled_maintenance_active()
     headers['Content-Security-Policy']="default-src 'none'; script-src 'nonce-"+nonce+"'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
-    # Nothing here reads private data or fetches an asset/API while the gate is
-    # closed. A fixed nonce-authorized handler reloads the exact URL, including
-    # its fragment. No polling, redirect, cache clearing or session change.
+    probe=''
+    if recover:
+        headers['Content-Security-Policy']+="; connect-src 'self'"
+        headers['X-DrG-Scheduled-Maintenance']='1'
+        # Probe only this document. Manual operations keep their existing recovery screen.
+        probe='''
+async function checkPage(attemptsLeft) {
+  if (retry.disabled) return;
+  try {
+    const result = await fetch(location.href, {
+      method: 'HEAD', headers: {Accept: 'text/html'}, cache: 'no-store',
+      redirect: 'error', signal: AbortSignal.timeout(9000)
+    });
+    if (result.ok) { if (!retry.disabled) retry.click(); return; }
+    if (result.headers.get('X-DrG-Scheduled-Maintenance') !== '1') return;
+    if (attemptsLeft > 1) setTimeout(() => checkPage(attemptsLeft - 1), 5000);
+  } catch { /* The manual retry remains available after a network error. */ }
+}
+setTimeout(() => checkPage(4), 5000);'''
     return Response(f'''<!doctype html>
 <html lang="{escape(current_language.get())}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -40,10 +58,12 @@ h1{{font-size:clamp(25px,4vw,30px);line-height:1.24;letter-spacing:-.035em;margi
 @media(prefers-color-scheme:dark){{:root:not([data-scheme=light]) button{{color:#172239}}}}@media(max-width:480px){{main{{padding:28px 24px}}.brand{{margin-bottom:28px}}}}
 </style></head><body><main aria-labelledby="busy-title"><div class="brand"><span aria-hidden="true">DrG</span>DrG Space</div>
 <div class="symbol" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 7h10M11 25h10M12 7c0 5 8 5 8 10s0 8 0 8M20 7c0 5-8 5-8 10v8" stroke-linecap="round"/></svg></div>
-<h1 id="busy-title">{escape(text('storageBusyTitle'))}</h1><p>{escape(text('storageBusyHint'))}</p>
+<h1 id="busy-title">{escape(text('storageBusyTitle'))}</h1><p>{escape(text('storageScheduledRetryHint' if recover else 'storageBusyHint'))}</p>
 <button type="button" id="busy-retry">{escape(text('storageBusyRetry'))}</button>
 <p class="hint">{escape(text('storageBusyAddressHint'))}</p></main>
 <script nonce="{nonce}">
 try{{const mode=JSON.parse(localStorage.getItem('drg-appearance')||'{{}}').mode;if(mode==='dark'||mode==='light')document.documentElement.dataset.scheme=mode;}}catch{{}}
-document.getElementById('busy-retry').addEventListener('click',()=>{{document.getElementById('busy-retry').disabled=true;location.reload();}});
+const retry=document.getElementById('busy-retry');
+retry.addEventListener('click',()=>{{retry.disabled=true;location.reload();}});
+{probe}
 </script></body></html>''',status_code=error.status_code,headers=headers,media_type='text/html')

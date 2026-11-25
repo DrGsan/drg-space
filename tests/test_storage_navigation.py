@@ -63,7 +63,7 @@ def test_locked_api_and_subresources_keep_machine_errors(path,headers):
     with m.storage_gate.exclusive_sync():
         r=c.get(path,headers=headers)
         assert r.status_code==503 and r.headers['content-type'].startswith('application/json')
-        assert r.json()['code']=='operationWithDataIsInProgressRetryLater'
+        assert r.json()['code']=='storage_busy'
         assert r.headers['cache-control']=='no-store' and r.headers['retry-after']=='5'
 
 
@@ -73,6 +73,20 @@ def test_locked_head_document_has_same_headers_without_a_body():
         r=c.request('HEAD','/',headers={'Accept':'text/html'})
         assert r.status_code==503 and r.headers['content-type'].startswith('text/html')
         assert not r.content and r.headers['cache-control']=='no-store'
+
+
+@pytest.mark.parametrize('path,retries',[('/',True),('/page/first',True),('/share/link',False)])
+def test_document_recovery_during_scheduled_maintenance(path,retries):
+    c,_,_=owner()
+    from app.process_locks import try_file_lock
+    with try_file_lock(m.storage_gate.root,'storage-maintenance.lock'), m.storage_gate.exclusive_sync():
+        headers={'Accept':'text/html'}
+        page=c.get(path,headers=headers)
+        probe=c.request('HEAD',path,headers=headers)
+        assert page.status_code==probe.status_code==503 and not probe.content
+        assert ('X-DrG-Scheduled-Maintenance' in probe.headers)==retries
+        assert ("connect-src 'self'" in page.headers['content-security-policy'])==retries
+        assert ('checkPage(4)' in page.text)==retries
 
 
 def test_unreadable_security_state_during_exclusive_operation_still_has_public_recovery(monkeypatch):

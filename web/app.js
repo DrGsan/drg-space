@@ -23,6 +23,7 @@ import {mobileApp,mobileStart,mobileTabs,bindMobileViewport} from './core/mobile
 import {captureMobileTabs,restoreMobileTabs} from './core/mobile-tabs.js';
 import './mobile-app.css';
 import {abortable} from './core/request.js';
+import {readStorage} from './core/storage-read.js';
 import {workspaceView,rememberWorkspace,writeSession} from './core/navigation.js';
 import {sidebarIcon} from './core/sidebar-icons.js';
 import './workspace-chrome.css';
@@ -82,6 +83,7 @@ let expiryTimer;
 let acceptAccountLanguage=true;
 let sharedHandle;
 let workspaceUpdate;
+let workspaceLoad;
 let navigationRequest=0;
 let disposeAppearance;
 const canUseAssistant=()=>Boolean(state.me?.notes_assistant_enabled&&moduleEnabled(state,"notes"));
@@ -169,6 +171,7 @@ function authScreen(mode = "login", message = "", existingInvite = false) {
   return renderAuthScreen(mode,message,existingInvite);
 }
 function renderAuthScreen(mode = "login", message = "", existingInvite = false) {
+  workspaceLoad?.controller.abort();
   setSeasonalAccount(null);
   acceptAccountLanguage=true;
   vaultController.clear();
@@ -223,7 +226,7 @@ function renderAuthScreen(mode = "login", message = "", existingInvite = false) 
   const passkeyAbort=new AbortController();
   $('#auth-form').addEventListener('drg-auth-close',()=>passkeyAbort.abort(),{once:true});
   const completeLogin=async()=>{
-    state.me=await api('/me');
+    state.me=await readWorkspaceAccount(passkeyAbort.signal);
     if(state.me.needs_enrollment)return enrollment();
     if(location.pathname.startsWith('/f/'))return fileSharedScreen();
     if(location.pathname.startsWith('/share/'))return sharedScreen();
@@ -303,6 +306,7 @@ async function logout() {
   }
   // The server removed this session's subscriptions by cascade. Unsubscribe the
   // device only after logout succeeds (emergency policy can reject the action).
+  workspaceLoad?.controller.abort();
   await pushClient.logout();
   vaultController.clear();
   chatController.destroy();
@@ -322,9 +326,25 @@ async function logout() {
   csrf = "";
   authScreen();
 }
-async function loadWorkspace() {
+function readWorkspaceAccount(signal) {
+  const workspace=location.pathname==='/'||location.pathname.startsWith('/page/');
+  return workspace?readStorage(api,'/me',signal):api('/me','GET',undefined,true,{}, {signal,timeoutMs:15000});
+}
+function loadWorkspace() {
+  const account=state.me.id;
+  if(workspaceLoad?.account===account&&!workspaceLoad.controller.signal.aborted)return workspaceLoad.promise;
+  workspaceLoad?.controller.abort();
+  const controller=new AbortController();
+  const promise=readWorkspace(controller).finally(()=>{
+    if(workspaceLoad?.controller===controller)workspaceLoad=null;
+  });
+  workspaceLoad={account,controller,promise};
+  return promise;
+}
+async function readWorkspace(controller) {
+  const signal=controller.signal;
   setSeasonalAccount(state.me?.id);
-  const load=path=>api(path,'GET',undefined,true,{}, {timeoutMs:15000});
+  const load=path=>readStorage(api,path,signal);
   try {
     if(state.me.account_deletion)return accountWaiting();
     void pushClient.syncLanguage().catch(()=>{});
@@ -335,11 +355,15 @@ async function loadWorkspace() {
     const modules = await load("/modules");
     state.moduleCatalog = modules.catalog;
     state.me.settings.modules = modules.enabled;
-    [state.notes, state.tasks] = await Promise.all([
-      moduleEnabled(state, "notes") ? load("/notes") : [],
-      moduleEnabled(state, "tasks") ? load("/tasks") : [],
+    const [notes,tasks]=await Promise.all([
+      moduleEnabled(state,"notes")?load("/notes"):[],
+      moduleEnabled(state,"tasks")?load("/tasks"):[],
     ]);
-    state.spaces=(await load("/social")).spaces;
+    const social=await load("/social");
+    signal.throwIfAborted();
+    state.notes=notes;
+    state.tasks=tasks;
+    state.spaces=social.spaces;
     rememberPeople(state.spaces.flatMap(space=>space.members||[]));
     if(restoredWorkspaceFor!==state.me.id){
       if(location.pathname==='/'&&!pendingPushSpace)state.view=workspaceView(state.me.id,mobileApp());
@@ -357,12 +381,15 @@ async function loadWorkspace() {
     }
     if(state.view==='home'){
       try{
-        state.me.dashboardReady=await load('/dashboard/layout');
+        state.me.dashboardReady=await api('/dashboard/layout','GET',undefined,true,{}, {signal,timeoutMs:15000});
         state.me.settings.dashboard=state.me.dashboardReady;
       }catch(error){if([401,403,423].includes(error.status))throw error;}
     }
+    signal.throwIfAborted();
     await renderWorkspace({chatList:!openRequestedChat});
   } catch (e) {
+    if(signal.aborted)return;
+    controller.abort();
     if(root.querySelector('.workspace')){toast(e.message);return;}
     root.querySelector('#auth-form')?.dispatchEvent(new Event('drg-auth-close'));
     root.innerHTML=`<main class="enroll workspace-error"><section class="auth-card" aria-labelledby="workspace-error-title"><h2 id="workspace-error-title" tabindex="-1">${tHtml("app:couldNotLoadWorkspace")}</h2><p class="workspace-error-message" role="status">${esc(e.message)}</p><div class="workspace-error-actions"><button class="primary" data-workspace-retry>${tHtml("app:tryLoadingAgain")}</button>${moduleEnabled(state,'chat')?`<button class="secondary" data-workspace-chat>${tHtml("app:openMessages")}</button>`:''}<a class="text-link" href="/">${tHtml("app:goToHome")}</a></div></section></main>`;
@@ -458,6 +485,7 @@ async function navigateWorkspace(view,{chatList=true}={}) {
   const request=++navigationRequest;
   if(workspaceUpdate){try{await workspaceUpdate;}catch{return;}}
   if(!(await flushWorkspace())||request!==navigationRequest||state.me?.id!==account.id)return;
+  workspaceLoad?.controller.abort();
 
   const current=root.querySelector('.workspace')?.dataset.currentView;
   const update=()=>{
@@ -749,7 +777,7 @@ async function start() {
   if(location.pathname.startsWith('/call/'))return mountGuestCall(root,location.pathname.split('/')[2],{brand:brand(),toast});
   try {
     try {
-      state.me = await api('/me','GET',undefined,true,{}, {timeoutMs:15000});
+      state.me = await readWorkspaceAccount();
       csrf = state.me.csrf;
     } catch (e) {
       if (e.status !== 401) throw e;
@@ -774,7 +802,7 @@ async function start() {
   } catch (e) {
     root.innerHTML =
       `<main class="enroll"><div class="auth-card"><h2>${tHtml("app:failedToConnect")}</h2><p>${esc(e.message)}</p><button id="retry" class="primary">${tHtml("app:retry")}</button></div></main>`;
-    $("#retry").onclick = start;
+    $("#retry").onclick = event=>{event.currentTarget.disabled=true;return start();};
   }
 }
 async function expenseSharedScreen(){

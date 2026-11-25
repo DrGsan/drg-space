@@ -2,6 +2,14 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.3.1] — 2026-11-26 — Notes during scheduled maintenance
+
+- Notes open automatically after brief scheduled storage maintenance.
+- The sidebar keeps the existing list while refreshing.
+
+- **Installation:** Rebuild Space with the existing Compose files and volumes.
+- **Compatibility:** No migration or configuration change is required.
+
 ## [5.3.0] — 2026-11-25 — AI assistant for personal notes
 
 - Open the AI composer at the bottom of a note and expand or collapse the conversation above it.

@@ -124,11 +124,12 @@ def test_busy_background_sweep_does_not_close_http_admission_in_another_process(
         active.close();stop_child(process,pipe)
 
 
-def test_polls_wait_for_scheduled_sweep_but_not_for_restore(tmp_path):
+@pytest.mark.parametrize('path',['/api/calls/current','/api/notes'])
+def test_polls_wait_for_scheduled_sweep_but_not_for_restore(tmp_path,path):
     middleware=StorageMiddleware(StorageGate(tmp_path))
     writer=StorageGate(tmp_path)
-    request=SimpleNamespace(method='GET',url=SimpleNamespace(path='/api/calls/current'))
-    unrelated=SimpleNamespace(method='GET',url=SimpleNamespace(path='/api/notes'))
+    request=SimpleNamespace(method='GET',url=SimpleNamespace(path=path))
+    unrelated=SimpleNamespace(method='POST',url=SimpleNamespace(path='/api/notes'))
     async def call(_request):
         return JSONResponse({'call':None})
     async def run():

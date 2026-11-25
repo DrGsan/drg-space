@@ -208,7 +208,7 @@ class StorageGate:
             async with self.try_exclusive() as available:
                 yield available
 
-    def _scheduled_maintenance_active(self):
+    def scheduled_maintenance_active(self):
         if self.root is None:
             return False
         marker = try_file_lock(self.root, 'storage-maintenance.lock', shared=True)
@@ -226,7 +226,7 @@ class StorageGate:
                 return self.acquire_shared()
             except StorageBusy:
                 remaining = deadline - loop.time()
-                if remaining <= 0 or not self._scheduled_maintenance_active():
+                if remaining <= 0 or not self.scheduled_maintenance_active():
                     raise
             await asyncio.sleep(min(remaining, .05))
 
@@ -235,6 +235,7 @@ class StorageMiddleware:
     POLLS_WAITING_FOR_MAINTENANCE = {
         ('GET', '/api/presence'), ('POST', '/api/presence'),
         ('GET', '/api/calls/current'), ('GET', '/api/calls/config'),
+        ('GET', '/api/notes'),
     }
     MAINTENANCE_WAIT = 6.0
 
@@ -267,7 +268,7 @@ class StorageMiddleware:
             lease = await self._acquire(request)
         except StorageBusy as error:
             from app.storage_unavailable import unavailable
-            return unavailable(request,error)
+            return unavailable(request,error,self.gate)
         try:
             response = await call_next(request)
             if response.is_streamed:
