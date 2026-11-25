@@ -2,7 +2,7 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.3.0-rc.9] — 2026-11-25 — AI assistant for personal notes
+## [5.3.0] — 2026-11-25 — AI assistant for personal notes
 
 - Open the AI composer at the bottom of a note and expand or collapse the conversation above it.
 - See when the assistant is thinking and watch new text appear in chat and in the note. Restore the previous version from note history.
