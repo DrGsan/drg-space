@@ -46,6 +46,8 @@ class Signal(Device):
     sdp: str | None = Field(default=None,min_length=1,max_length=32000)
     candidates: list[Candidate] = Field(default_factory=list,max_length=100)
     connected: bool = False
+    ice_generation: Annotated[int, Field(strict=True, ge=0, le=2**31-1)] = 0
+    restart_requested: StrictBool = False
 class Finish(Model):
     reason: Literal['hangup','decline','failed'] = 'hangup'
 
@@ -113,7 +115,9 @@ def create_calls_router(db,ready,rate,now,fail,*,federation_busy=None):
         item={k:row[k] for k in ('id','space_id','status','created','answered','connected','ended')}
         side='caller' if row['caller_id']==uid else 'recipient';data=json.loads(row['payload']);remote='recipient' if side=='caller' else 'caller'
         item.update(outgoing=side=='caller',person=actor(c,other,now()),owned=data.get(side+'_device')==device)
-        if item['owned'] and row['status'] in LIVE:item.update(sdp=data.get(remote+'_sdp'),candidates=data.get(remote+'_ice',[]),media=data.get(remote+'_media',{}))
+        if item['owned'] and row['status'] in LIVE:
+            item.update(sdp=data.get(remote+'_sdp'),candidates=data.get(remote+'_ice',[]),media=data.get(remote+'_media',{}),
+                        ice_generation=data.get('ice_generation',0),restart_requested=data.get('restart_requested',False))
         return item
     @r.get('/api/calls/config')
     def config(request:Request):
@@ -192,6 +196,20 @@ def create_calls_router(db,ready,rate,now,fail,*,federation_busy=None):
             c.execute('BEGIN IMMEDIATE');purge_calls(c,now(),users=(uid,));row=access(c,cid,uid);payload=json.loads(row['payload']);side='caller' if row['caller_id']==uid else 'recipient'
             if row['status'] not in LIVE:fail(409,localized_message('callEnded'))
             if payload.get(side+'_device')!=data.device:fail(409,localized_message('theCallIsBeingUsedOnAnotherDevice'))
+            generation=payload.get('ice_generation',0)
+            if data.ice_generation<generation:
+                # A delayed old heartbeat or answer may acknowledge current state
+                # but cannot reintroduce candidates from a retired transport.
+                return serial(c,row,uid,data.device)
+            if data.ice_generation>generation:
+                if side!='caller' or row['status']!='active' or data.ice_generation!=generation+1 or not data.sdp:
+                    fail(409,localized_message('connectionParametersHaveAlreadyBeenSet'))
+                payload.update(ice_generation=data.ice_generation,caller_ice=[],recipient_ice=[])
+                for key in ('caller_sdp','recipient_sdp','restart_requested'):payload.pop(key,None)
+                c.realtime_dirty=True
+            if side=='recipient' and row['status']=='active':
+                if data.restart_requested:payload['restart_requested']=True
+                elif data.connected:payload.pop('restart_requested',None)
             if data.sdp:
                 old=payload.get(side+'_sdp')
                 if old and old!=data.sdp:fail(409,localized_message('connectionParametersHaveAlreadyBeenSet'))
@@ -235,7 +253,10 @@ def validate_call_archive(c,fail):
                 if payload or not row['ended']:fail()
                 continue
             allowed={side+suffix for side in ('caller','recipient') for suffix in ('_device','_sdp','_seen','_ice','_media')}
-            if set(payload)-allowed:fail()
+            if set(payload)-allowed-{'ice_generation','restart_requested'}:fail()
+            generation=payload.get('ice_generation',0)
+            if type(generation) is not int or not 0<=generation<2**31 or type(payload.get('restart_requested',False)) is not bool:fail()
+            if (generation or payload.get('restart_requested')) and row['status']!='active':fail()
             for side in ('caller','recipient'):
                 if side+'_device' in payload and not re.fullmatch(DEVICE,payload[side+'_device']):fail()
                 if side+'_sdp' in payload and (not isinstance(payload[side+'_sdp'],str) or not 1<=len(payload[side+'_sdp'])<=32000):fail()

@@ -62,11 +62,19 @@ class ChatWorkspace {
       const callChanged=()=>{if(this.tab==='calls')this.refreshCalls();};for(const type of ['drg-call-change','drg-guest-call-change']){document.addEventListener(type,callChanged);this.cleanups.push(()=>document.removeEventListener(type,callChanged));}
       const namesChanged=()=>{if(this.disposed)return;this.syncRoomIdentity();this.drawRooms();if($('#chat-messages',this.host))this.drawMessages({preserve:true});this.drawReply();};document.addEventListener('drg-people-names-change',namesChanged);this.cleanups.push(()=>document.removeEventListener('drg-people-names-change',namesChanged));
       const presenceChanged=e=>{if(this.disposed)return;const users=new Map(e.detail.map(p=>[p.id,p]));for(const space of this.spaces)for(const person of space.members)if(users.has(person.id))Object.assign(person,users.get(person.id));if(this.tab==='contacts')this.drawContacts();this.syncRoomIdentity();this.drawTyping();};document.addEventListener('drg-presence-change',presenceChanged);this.cleanups.push(()=>document.removeEventListener('drg-presence-change',presenceChanged));
-      const refresh=()=>{if(!this.disposed&&!document.hidden){this.scheduleRooms();this.catchup?.().catch(()=>{});this.markVisibleRead();}};
+      const refresh=event=>{
+        if(this.disposed||document.hidden)return;
+        this.scheduleRooms();
+        const inboxChanged=event.type==='drg-inbox-change';
+        // The inbox also changes on read receipts and unrelated notifications.
+        // The open room already receives its own message and edit events.
+        if(!inboxChanged||!this.room?.online)this.catchup?.(inboxChanged).catch(()=>{});
+        this.markVisibleRead();
+      };
       for(const [target,type] of [[document,'drg-inbox-change'],[document,'visibilitychange'],[window,'focus'],[window,'online']]){target.addEventListener(type,refresh);this.cleanups.push(()=>target.removeEventListener(type,refresh));}
       this.typingClock=setInterval(()=>{this.drawTyping();this.expireMessages();if(this.roomDateDay!==new Date().toDateString()){this.drawRooms();this.drawMessages({preserve:true});}},1000);this.typingPoll=setInterval(()=>this.refreshTyping(),3000);
       const stopTyping=()=>{if(document.hidden||!document.hasFocus())this.stopTyping();};document.addEventListener('visibilitychange',stopTyping);window.addEventListener('blur',stopTyping);this.cleanups.push(()=>document.removeEventListener('visibilitychange',stopTyping),()=>window.removeEventListener('blur',stopTyping));
-      this.poll=setInterval(()=>{if(!document.hidden){this.refreshRooms().catch(()=>{});this.catchup?.().catch(()=>{});}},20000);
+      this.poll=setInterval(()=>{if(!document.hidden){this.refreshRooms().catch(()=>{});this.catchup?.(false).catch(()=>{});}},20000);
       this.cleanups.push(bindChatViewport(this.shell));
       const keydown=e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();if(matchMedia('(max-width:760px)').matches)this.shell.classList.remove('room-open');if(mobileApp())this.listSearch(true);$('[data-chat-room-search]',this.host).focus();}if(e.key==='Escape'){if(mobileApp()&&!this.shell.classList.contains('room-open')&&this.shell.classList.contains('is-list-searching')){this.listSearch(false,true);return;}if(this.messageMenu){this.closeMessageMenu(true);return;}if(this.editing){this.cancelEdit();return;}this.closeSearch();this.closeMenus();}};this.host.addEventListener('keydown',keydown);this.cleanups.push(()=>this.host.removeEventListener('keydown',keydown));
       const outside=e=>{if(!e.target.closest('[data-chat-menu],[data-chat-menu-panel],[data-chat-emoji],[data-chat-emoji-panel],[data-attach-chat],[data-attach-menu],.chat-message-menu,[data-message-menu]'))this.closeMenus();};document.addEventListener('pointerdown',outside);this.cleanups.push(()=>document.removeEventListener('pointerdown',outside));
@@ -183,7 +191,13 @@ class ChatWorkspace {
     this.stopAudio();
     if(sid.startsWith('telegram:'))return this.openTelegram(sid.slice(9));
     this.telegramChat?.destroy();this.telegramChat=null;
-    if(this.disposed)return;if(!this.spaces.find(s=>s.id===sid)?.deletion&&this.sid===sid&&$('#message-body',this.host)&&!$('#message-body',this.host).disabled){this.shell.classList.add('room-open');this.markVisibleRead();return;}
+    if(this.disposed)return;
+    if(!this.spaces.find(s=>s.id===sid)?.deletion&&this.sid===sid&&$('#message-body',this.host)&&!$('#message-body',this.host).disabled){
+      const reopening=!this.shell.classList.contains('room-open');
+      this.shell.classList.add('room-open');
+      if(reopening)this.catchup?.(false).catch(()=>{});
+      this.markVisibleRead();return;
+    }
     if(!(await this.flush())||this.disposed)return;this.mediaViewer?.destroy();this.stopTyping();this.saveDraft();this.uploadBatch?.abort();this.closeMessageMenu();this.messagePress?.();this.cancelDrafts();this.room?.destroy();this.typingPeers.clear();this.reads={};clearTimeout(this.searchTimer);clearTimeout(this.catchupTimer);this.catchup=null;const seq=++this.sequence,space=this.spaces.find(s=>s.id===sid);if(!space)return;
     this.pagination?.destroy();this.pagination=null;this.olderRequest=null;
     this.clearedThrough=0;this.retentionCutoff=0;this.sid=sid;this.ctx.state.chatSpace=sid;this.messages=[];this.last=0;this.oldest=null;this.searchQuery='';this.searchItems=[];this.reply=null;this.editing=null;this.retry=null;this.pending=[];this.uploading=false;this.catchingUp=false;this.syncCursor=0;this.wantedCatchup=false;this.shell.classList.add('room-open');this.drawRooms();
@@ -207,23 +221,62 @@ class ChatWorkspace {
     this.bindComposer(seq);const initial=await this.ctx.api(`/chat/${sid}/messages`);if(this.disposed||seq!==this.sequence)return;this.reads=initial.reads||{};this.historyVersion=initial.history_version||0;this.clock={server:initial.server_time,local:performance.now()};this.applyChatState(initial);this.more=initial.more;this.editCursor=initial.edit_cursor;this.syncCursor=initial.items.at(-1)?.id||0;this.merge(initial.items,initial.retention_cutoff,{follow:true});
     // Only complete HTTP history batches advance this cursor. A newer live
     // event or POST acknowledgement must never jump over a missing message.
-    this.catchup=async()=>{if(this.disposed||seq!==this.sequence)return;if(this.catchingUp){this.wantedCatchup=true;return this.catchupPromise;}this.catchingUp=true;this.catchupPromise=(async()=>{do{this.wantedCatchup=false;let more=true;while(more&&!this.disposed&&seq===this.sequence){const d=await this.ctx.api(`/chat/${sid}/messages?after=${this.syncCursor}&edited_after=${this.editCursor}`);if(this.disposed||seq!==this.sequence)return;if((d.history_version||0)!==(this.historyVersion||0)){await this.reloadHistory(seq);break;}this.applyChatState(d);this.updateReads(d.reads);this.syncCursor=Math.max(this.syncCursor,d.items.at(-1)?.id||0);this.merge(d.items,d.retention_cutoff);this.merge(d.edits||[],null,{editsOnly:true});this.editCursor=Math.max(this.editCursor,d.edit_cursor||0);more=d.more||d.edit_more;}}while(this.wantedCatchup&&!this.disposed&&seq===this.sequence);})();try{await this.catchupPromise;}finally{if(seq===this.sequence){this.catchingUp=false;this.catchupPromise=null;}}};
-    this.room=connectRoom(`chat/${sid}`,this.ctx,{validate:()=>this.catchup(),onStatus:status=>{if(!this.disposed&&seq===this.sequence){$('#chat-status',this.host).textContent=status==='online'?'':tText("chat:reconnecting");if(status==='online'&&document.activeElement===$('#message-body',this.host))this.sendTyping();}},onMessage:d=>{if(this.disposed||seq!==this.sequence)return;if(d.type==='chat_state'){this.applyChatState(d);if((d.history_version||0)!==(this.historyVersion||0))this.catchup().catch(e=>this.ctx.toast(e.message));}if(d.type==='reads')this.updateReads(d.reads);if(d.type==='presence'){if(d.state?.user?.id!==this.ctx.state.me.id&&d.state?.until>this.messageNow())this.typingPeers.set(d.client_id,d.state);else this.typingPeers.delete(d.client_id);this.drawTyping();}if(d.type==='ready')this.catchup().catch(()=>{});if(d.type==='message'||d.type==='message_edited'){this.merge([d.message],null,{editsOnly:d.type==='message_edited'});this.scheduleRooms();this.catchup().catch(()=>{});}},onError:e=>{if(this.disposed||seq!==this.sequence)return;if([401,403,404].includes(e.status)){this.closeMessageMenu();this.mediaViewer?.destroy();this.previews?.destroy();this.room?.destroy();$('#chat-status',this.host).textContent=tText("chat:accessIsRestricted");$('#message-body',this.host).disabled=true;}this.ctx.toast(e.message);}});
-    this.pagination=edgePagination($('#chat-messages',this.host),{root:$('#chat-messages',this.host),canLoad:()=>!this.disposed&&seq===this.sequence&&!this.olderRequest&&!this.messageMenu&&(this.searchQuery?this.searchMore:this.more),load:()=>this.older(),onError:e=>this.ctx.toast(e.message)});this.pagination.update();
+    this.catchup=async(recheck=true)=>{
+      if(!this.historyVisible(seq))return;
+      if(this.catchingUp){
+        // A notification during the request can describe a later commit.
+        // Visibility and focus can share the batch already in flight.
+        if(recheck)this.wantedCatchup=true;
+        return this.catchupPromise;
+      }
+      this.catchingUp=true;
+      this.catchupPromise=(async()=>{
+        do{
+          this.wantedCatchup=false;
+          const d=await this.ctx.api(`/chat/${sid}/messages?after=${this.syncCursor}&edited_after=${this.editCursor}`);
+          if(!this.historyVisible(seq))return;
+          if((d.history_version||0)!==(this.historyVersion||0)){
+            await this.reloadHistory(seq);
+          }else{
+            this.applyChatState(d);this.updateReads(d.reads);
+            this.syncCursor=Math.max(this.syncCursor,d.items.at(-1)?.id||0);
+            this.merge(d.items,d.retention_cutoff);this.merge(d.edits||[],null,{editsOnly:true});
+            this.editCursor=Math.max(this.editCursor,d.edit_cursor||0);
+            if(d.more||d.edit_more)this.wantedCatchup=true;
+          }
+        }while(this.wantedCatchup&&this.historyVisible(seq));
+      })();
+      try{await this.catchupPromise;}
+      finally{if(seq===this.sequence){this.catchingUp=false;this.catchupPromise=null;}}
+    };
+    const validate=({handshakeFailed})=>{
+      // Browsers hide the HTTP status of a refused WebSocket upgrade. If the
+      // session is valid but the upgrade failed, recheck room membership.
+      if(handshakeFailed&&!this.historyVisible(seq))return this.refreshRooms();
+      return this.catchup();
+    };
+    this.room=connectRoom(`chat/${sid}`,this.ctx,{validate,onStatus:status=>{if(!this.disposed&&seq===this.sequence){$('#chat-status',this.host).textContent=status==='online'?'':tText("chat:reconnecting");if(status==='online'&&document.activeElement===$('#message-body',this.host))this.sendTyping();}},onMessage:d=>{if(this.disposed||seq!==this.sequence)return;if(d.type==='chat_state'){this.applyChatState(d);if((d.history_version||0)!==(this.historyVersion||0))this.catchup().catch(e=>this.ctx.toast(e.message));}if(d.type==='reads')this.updateReads(d.reads);if(d.type==='presence'){if(d.state?.user?.id!==this.ctx.state.me.id&&d.state?.until>this.messageNow())this.typingPeers.set(d.client_id,d.state);else this.typingPeers.delete(d.client_id);this.drawTyping();}if(d.type==='ready')this.catchup().catch(()=>{});if(d.type==='message'||d.type==='message_edited'){this.merge([d.message],null,{editsOnly:d.type==='message_edited'});this.scheduleRooms();this.catchup().catch(()=>{});}},onError:e=>{if(this.disposed||seq!==this.sequence)return;if([401,403,404].includes(e.status)){this.closeMessageMenu();this.mediaViewer?.destroy();this.previews?.destroy();this.room?.destroy();$('#chat-status',this.host).textContent=tText("chat:accessIsRestricted");$('#message-body',this.host).disabled=true;}this.ctx.toast(e.message);}});
+    this.pagination=edgePagination($('#chat-messages',this.host),{root:$('#chat-messages',this.host),canLoad:()=>this.historyVisible(seq)&&!this.olderRequest&&!this.messageMenu&&(this.searchQuery?this.searchMore:this.more),load:()=>this.older(),onError:e=>this.ctx.toast(e.message)});this.pagination.update();
     this.bindMessageMenu();$('#chat-messages',this.host).onscroll=()=>{clearTimeout(this.readTimer);this.readTimer=setTimeout(()=>this.markVisibleRead(),180);};this.markVisibleRead();
+  }
+  historyVisible(seq){
+    if(document.hidden||this.disposed||seq!==this.sequence)return false;
+    const input=$('#message-body',this.host);
+    return input&&!input.disabled&&(this.shell.classList.contains('room-open')||!matchMedia('(max-width:760px)').matches);
   }
   async reloadHistory(seq=this.sequence){
     const sid=this.sid,first=this.messages[0]?.id;
     let page=await this.ctx.api(`/chat/${sid}/messages`),items=[...page.items],more=page.more;
     const version=page.history_version||0;
     while(first&&more&&items[0]?.id>first){
+      if(!this.historyVisible(seq))return;
       const older=await this.ctx.api(`/chat/${sid}/messages?before=${items[0].id}`);
-      if(this.disposed||seq!==this.sequence)return;
+      if(!this.historyVisible(seq))return;
       if((older.history_version||0)!==version){this.wantedCatchup=true;return;}
       if(!older.items.length)break;
       items=[...older.items,...items];more=older.more;
     }
-    if(this.disposed||seq!==this.sequence)return;
+    if(!this.historyVisible(seq))return;
     this.closeMessageMenu();this.historyVersion=version;this.messages=[];this.searchItems=[];
     this.more=more;this.editCursor=page.edit_cursor||0;this.syncCursor=page.items.at(-1)?.id||0;
     this.reads=page.reads||{};this.applyChatState(page);

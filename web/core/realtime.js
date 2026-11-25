@@ -1,13 +1,13 @@
 import { csrfCookie } from './auth.js';
 // Same-origin cookie authentication; secrets never appear in socket URLs.
 export function connectRoom(path, ctx, options = {}) {
-  let socket, disposed=false, timer, ping, attempt=0, connected=false, lastMessageAt=0;
+  let socket, disposed=false, timer, ping, attempt=0, connected=false, handshakeFailed=false, lastMessageAt=0;
   const clientId=options.clientId ?? Math.floor(Math.random()*2**32);
   const start=async()=>{
     if(disposed)return;
     try {
-      await ctx.api('/me');
-      if(options.validate)await options.validate(); // Rotates an expired JWT before each reconnect.
+      await ctx.api('/me'); // Rotates an expired JWT before each reconnect.
+      if(options.validate)await options.validate({handshakeFailed});
       if(disposed)return;
       socket=new WebSocket(`${location.protocol==='https:'?'wss':'ws'}://${location.host}/api/live/${path}`);
       socket.onopen=()=>socket.send(JSON.stringify({...options.state?.(),type:'auth',csrf:csrfCookie(),client_id:clientId}));
@@ -23,7 +23,7 @@ export function connectRoom(path, ctx, options = {}) {
         } catch(e){options.onError?.({message:e.message,status:422});}
       };
       socket.onclose=event=>{
-        connected=false;clearInterval(ping);
+        handshakeFailed=!connected;connected=false;clearInterval(ping);
         if(disposed)return;
         if(event.code===4409){options.onReset?.();return;}
         options.onStatus?.('offline');

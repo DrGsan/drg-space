@@ -186,3 +186,52 @@ def test_incomplete_or_unsafe_settings_disable_feature(sfu,monkeypatch):
         monkeypatch.setenv('CALL_LIVEKIT_URL',url);assert livekit.settings() is None
     monkeypatch.setenv('CALL_LIVEKIT_URL','wss://media.example')
     monkeypatch.setenv('CALL_LIVEKIT_API_SECRET','short');assert livekit.settings() is None
+
+
+def test_reconnect_after_sfu_restart_keeps_membership_and_respects_revocation(sfu):
+    events, remote, failures = sfu
+    a, _, _ = owner()
+    room = create(a)
+    c, joined, identity = enter(room)
+    path = '/api/guest-calls/rooms/' + room['id'] + '/reconnect'
+    assert client().post(path).status_code == 401
+    failures.add('CreateRoom')
+    assert c.post(path).status_code == 503
+    failures.clear()
+    remote.clear()
+    renewed = c.post(path)
+    assert renewed.status_code == 200
+    assert renewed.json()['identity'] == identity['id'] == joined.json()['self']
+    assert renewed.json()['room'] == livekit.room_name(room['id'])
+    assert len(c.post(path.replace('/reconnect', '/sync'), json={'muted': False}).json()['participants']) == 1
+    assert c.post(path.replace('/reconnect', '/leave')).status_code == 200
+    assert c.post(path).status_code == 401
+    assert a.post('/api/calls/guest-rooms/' + room['id'] + '/end').status_code == 200
+    assert c.post(path).status_code == 410
+
+
+def test_failed_room_creation_never_reserves_a_participant(sfu):
+    _, _, failing = sfu
+    a, _, _ = owner()
+    room = create(a)
+    _, existing, _ = enter(room)
+    assert existing.status_code == 200
+    failing.add('CreateRoom')  # ListRooms can still have a cached healthy result.
+    assert enter(room)[1].status_code == 503
+    assert a.get('/api/calls/guest-rooms').json()['items'][0]['count'] == 1
+    failing.clear()
+    assert enter(room)[1].status_code == 200
+    assert a.get('/api/calls/guest-rooms').json()['items'][0]['count'] == 2
+
+
+def test_delete_rebinds_only_a_room_whose_worker_is_missing(sfu, monkeypatch):
+    methods = []
+    def handle(request):
+        method = request.url.path.rsplit('/', 1)[-1]
+        methods.append(method)
+        if len(methods) == 1:
+            return httpx.Response(500, json={'code': 'unknown', 'msg': 'could not find object'})
+        return httpx.Response(200, json={})
+    monkeypatch.setattr(livekit, '_http', httpx.Client(transport=httpx.MockTransport(handle)))
+    livekit.delete_room(uuid.uuid4().hex)
+    assert methods == ['DeleteRoom', 'CreateRoom', 'DeleteRoom']

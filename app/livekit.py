@@ -20,6 +20,10 @@ class Unavailable(Exception):
     pass
 
 
+class MissingRoomWorker(Unavailable):
+    """LiveKit retained the room in Redis after its serving process stopped."""
+
+
 def settings(*, enabled=True):
     if enabled and os.getenv('CALL_LIVEKIT_ENABLED', 'false').lower() != 'true':
         return None
@@ -81,6 +85,14 @@ def rpc(method, body, grant, *, config=None):
                           headers={'Authorization': 'Bearer ' + token}, json=body) as response:
             if response.status_code == 404 and method in ('DeleteRoom', 'RemoveParticipant'):
                 return {}
+            if method == 'DeleteRoom' and response.status_code == 500:
+                chunk = next(response.iter_bytes(chunk_size=1024), b'')
+                try:
+                    error = json.loads(chunk)
+                except (ValueError, UnicodeError):
+                    error = {}
+                if isinstance(error, dict) and error.get('code') == 'unknown' and error.get('msg') == 'could not find object':
+                    raise MissingRoomWorker()
             if response.status_code != 200:
                 raise Unavailable()
             result = bytearray()
@@ -120,10 +132,7 @@ def connect(rid, identity, expires, stamp):
     if not config or expires <= stamp:
         raise Unavailable()
     name = room_name(rid)
-    rpc('CreateRoom', {'name': name, 'max_participants': 8, 'empty_timeout': 60,
-                       'departure_timeout': 30,
-                       'metadata': json.dumps({'drg_site': namespace(), 'room_id': rid})},
-        {'roomCreate': True}, config=config)
+    ensure_room(rid, config)
     return {'url': config['url'], 'token': access_token(config, identity,
         {'roomJoin': True, 'room': name, 'canPublish': True, 'canSubscribe': True,
          'canPublishData': False, 'canPublishSources': ['microphone']},
@@ -131,8 +140,23 @@ def connect(rid, identity, expires, stamp):
         'room': name, 'identity': identity, 'expires': min(expires, stamp + 90)}
 
 
+def ensure_room(rid, config):
+    rpc('CreateRoom', {'name': room_name(rid), 'max_participants': 8, 'empty_timeout': 60,
+                       'departure_timeout': 30,
+                       'metadata': json.dumps({'drg_site': namespace(), 'room_id': rid})},
+        {'roomCreate': True}, config=config)
+
+
 def delete_room(rid):
-    rpc('DeleteRoom', {'room': room_name(rid)}, {'roomCreate': True})
+    body = {'room': room_name(rid)}
+    grant = {'roomCreate': True}
+    try:
+        rpc('DeleteRoom', body, grant)
+    except MissingRoomWorker:
+        # Rebind the stale entry to a live SFU, then finish the pending closure.
+        # Neither call issues a join token. Other failures stay queued.
+        ensure_room(rid, settings(enabled=False))
+        rpc('DeleteRoom', body, grant)
 
 
 def remove_participant(rid, identity):

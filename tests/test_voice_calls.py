@@ -151,3 +151,44 @@ def test_call_history_expires_at_three_calendar_months_in_api_and_maintenance(mo
     with m.db() as db:assert db.execute('SELECT COUNT(*) FROM calls').fetchone()[0]==1
     monkeypatch.setattr(m,'now',lambda:stamp+2);cleanup(m.db,stamp+2)
     with m.db() as db:assert db.execute('SELECT COUNT(*) FROM calls').fetchone()[0]==0
+
+
+def test_turn_recovery_replaces_only_the_owned_calls_current_ice_generation():
+    from app.modules.calls import validate_call_archive
+    a,b,sid=peers()
+    call,offer=begin(a,sid)
+    cid=call['id'];recipient='recipient-device-123456'
+    path='/api/calls/'+cid
+    def signal(client,device,**data):
+        return client.post(path+'/signal',json={'device':device,**data})
+    candidate={'candidate':'candidate:1 1 udp 1 192.0.2.1 9000 typ relay','sdpMid':'0','sdpMLineIndex':0}
+    b.post(path+'/accept',json={'device':recipient})
+    assert signal(b,recipient,sdp='first answer',candidates=[candidate]).status_code==200
+    assert signal(a,offer['device'],ice_generation=1,sdp='too soon').status_code==409
+    active=signal(a,offer['device'],connected=True,candidates=[candidate]).json()
+    assert active['status']=='active' and active['ice_generation']==0
+    assert signal(b,recipient,restart_requested=True).json()['restart_requested']
+    assert signal(b,recipient,ice_generation=1,sdp='not the caller').status_code==409
+    assert signal(a,'different-device-123456',ice_generation=1,sdp='second offer').status_code==409
+    assert signal(a,offer['device'],ice_generation=2,sdp='skipped').status_code==409
+    assert signal(a,offer['device'],ice_generation=1).status_code==409
+
+    restart={'ice_generation':1,'sdp':'second offer'}
+    for _ in range(2):
+        fresh=signal(a,offer['device'],**restart).json()
+        assert fresh['ice_generation']==1 and not fresh['restart_requested']
+        assert fresh['sdp'] is None and fresh['candidates']==[] and fresh['connected']==active['connected']
+    # An in-flight signal from the old generation cannot re-add its SDP/ICE.
+    stale=signal(b,recipient,sdp='stale answer',candidates=[candidate],restart_requested=True).json()
+    assert stale['ice_generation']==1 and stale['sdp']=='second offer' and stale['candidates']==[]
+    assert not stale['restart_requested']
+    current=a.get('/api/calls/current',params={'device':offer['device'],'call_id':cid}).json()['call']
+    assert current['sdp'] is None and current['candidates']==[]
+    assert signal(b,recipient,ice_generation=1,sdp='second answer',candidates=[candidate]).status_code==200
+    assert signal(b,recipient,ice_generation=1,sdp='conflicting answer').status_code==409
+    restored=a.get('/api/calls/current',params={'device':offer['device'],'call_id':cid}).json()['call']
+    assert restored['sdp']=='second answer' and len(restored['candidates'])==1 and restored['status']=='active'
+    with m.db() as db:validate_call_archive(db,lambda:pytest.fail('Invalid transport generation'))
+    assert a.post(path+'/end',json={}).json()['status']=='ended'
+    assert signal(b,recipient,ice_generation=1,sdp='second answer').status_code==409
+    assert a.get('/api/calls/history').json()['items'][0]['id']==cid

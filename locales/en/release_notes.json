@@ -1,4 +1,9 @@
 {
+  "release5_3_2Title": "Chat recovery, RSS and calls",
+  "release5_3_2Change1": "Catch up on messages and edits when you return to a chat after a background disconnect.",
+  "release5_3_2Change2": "Keep recent RSS headlines when switching sections. Refresh the widget to fetch immediately.",
+  "release5_3_2Change3": "Use verified Telegram names for family messages, including people without a username.",
+  "release5_3_2Change4": "Recover an ongoing call after a brief media-service interruption, preserve the microphone mute setting and keep failed joins out of the participant list.",
   "release5_3_1Title": "Notes during scheduled maintenance",
   "release5_3_1Change1": "Notes open automatically after brief scheduled storage maintenance.",
   "release5_3_1Change2": "The sidebar keeps the existing list while refreshing.",

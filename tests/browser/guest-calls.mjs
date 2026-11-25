@@ -121,6 +121,25 @@ try{
  await owner.screenshot({path:reviewOut+'/guest-call-join-recovery.png'});
  await owner.locator('[data-guest-enter]').click();await owner.locator('.guest-call-person').waitFor();
  if(isLiveKit){
+  const [,cancelled]=await context();
+  await cancelled.goto(url);
+  await cancelled.getByLabel('Ваше имя',{exact:true}).fill('Отмена подключения');
+  let deliverJoin;
+  const held=new Promise(resolve=>{deliverJoin=resolve;});
+  let committed;
+  const readyToLeave=new Promise(resolve=>{committed=resolve;});
+  await cancelled.route('**/api/guest-calls/*/join',async route=>{
+    const response=await route.fetch();
+    committed();
+    await held;
+    await route.fulfill({response});
+  });
+  await cancelled.getByRole('button',{name:'Присоединиться',exact:true}).click();
+  await readyToLeave;
+  await cancelled.locator('[data-guest-leave]').click();
+  const released=cancelled.waitForResponse(r=>r.url().endsWith('/leave')&&r.ok());
+  deliverJoin();await released;
+  await expect(cancelled.locator('[data-guest-active]')).toHaveCount(0);
   const [brokenContext,broken]=await context();
   await broken.route('**/chunk-livekit-room-*.js',r=>r.abort());await broken.goto(url);
   await broken.getByLabel('Ваше имя',{exact:true}).fill('Проверка загрузки');await broken.getByRole('button',{name:'Присоединиться',exact:true}).click();

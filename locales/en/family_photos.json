@@ -64,6 +64,8 @@
   "lastSuccessfulVerification": "Last successful verification: {{value0}}",
   "openNewConversation": "Open new conversation",
   "openNewGroup": "Open new group",
+  "unspecifiedAuthor": "Author unspecified",
+  "unknownSender": "Unknown sender",
   "telegramParticipant": "Telegram participant",
   "avatar": "Avatar {{value0}}",
   "audioMessage": "Audio message",

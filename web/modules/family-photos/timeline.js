@@ -1,3 +1,4 @@
+import {telegramAuthor} from './details.js';
 import {locale,tText} from '../../core/i18n.js';
 
 export function familyMediaCount(items){
@@ -18,7 +19,7 @@ export function familyTimeline(files,query=''){
   files.forEach((file,index)=>{
     const date=new Date(file.created==null?NaN:Number(file.created)*1000);
     const label=Number.isFinite(date.getTime())?date.toLocaleDateString(locale(),{day:'numeric',month:'long',year:'numeric'}):tText('family_photos:unknownDate');
-    if(needle&&![file.sender,file.name,label].join(' ').toLocaleLowerCase(locale()).includes(needle))return;
+    if(needle&&![telegramAuthor(file.sender),file.name,label].join(' ').toLocaleLowerCase(locale()).includes(needle))return;
     const key=familyDayKey(file.created);
     if(!days.has(key))days.set(key,{key,label,month:key.slice(0,7),created:file.created,items:[]});
     days.get(key).items.push({file,index});

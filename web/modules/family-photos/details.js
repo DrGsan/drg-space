@@ -1,7 +1,17 @@
 import {tText,tHtml,locale} from "../../core/i18n.js";
 import {esc} from '../../core/ui.js';
+// Media also serves older archive releases which use these placeholder labels.
+const mediaLocale = {lng:'ru'};
+const unknownTelegramNames = new Set([
+ tText("family_photos:telegramParticipant", mediaLocale),
+ tText("family_photos:unspecifiedAuthor", mediaLocale),
+ tText("family_photos:unknownSender", mediaLocale),
+]);
+export function telegramAuthor(name){
+ return name && !unknownTelegramNames.has(name) ? name : tText("family_photos:telegramParticipant");
+}
 export function telegramPerson(person){
- const name=person.name||person.sender||tText("family_photos:telegramParticipant"),initials=name.replace(/^@/,'').split(/\s+/).slice(0,2).map(word=>Array.from(word)[0]||'').join('').toLocaleUpperCase(locale());
+ const name=telegramAuthor(person.name||person.sender),initials=name.replace(/^@/,'').split(/\s+/).slice(0,2).map(word=>Array.from(word)[0]||'').join('').toLocaleUpperCase(locale());
  return `<span class="person-avatar fp-sender-avatar" aria-label="${tHtml("family_photos:avatar", {value0:(esc(name))})}"><span>${esc(initials||'?')}</span>${person.avatar_url?`<img data-telegram-avatar="${esc(person.avatar_url)}" alt="" hidden>`:''}</span>`;
 }
 export function customEmoji(entry,fallback='✨'){
