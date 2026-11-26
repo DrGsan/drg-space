@@ -18,7 +18,9 @@ Automatic disposal is off by default and requires an explicit confirmation. The 
 
 For a folder, only the confirmed current contents are included. New files are not silently added to that disposal set. An explicitly selected folder can also enter trash once the relevant links have ended and it contains no remaining active content. File trash lasts seven days before permanent cleanup.
 
-The owner can inspect, change or cancel applicable disposal settings. Revoking a link does not itself cancel an already confirmed storage policy. Deadlines survive server downtime and are enforced from server state. See [retention](data-retention.md).
+Owners can open **Share → Temporary storage** and expand the folder tree to see scheduled dates or the reason a file is waiting. Select a file or a branch to turn off its schedules, or use the whole-folder button. Review the paths and count before confirming. If the list changes, the dialog asks you to review the updated list. Files and active sharing links stay accessible under their existing conditions.
+
+Revoking a link does not itself cancel an already confirmed storage policy. Deadlines survive server downtime and are enforced from server state. See [retention](data-retention.md).
 
 ## Quotas and archives
 

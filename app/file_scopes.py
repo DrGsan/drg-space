@@ -105,11 +105,17 @@ def is_note_attachment(c, row):
     return False
 
 
-def file_module_rows(c, rows, uid=None):
+def file_module_rows(c, rows, uid=None, *, subtree_root=None):
     rows = list(rows)
     if not rows:
         return []
-    scoped = ancestors(c, rows, reuse=True)
+    if subtree_root is None:
+        scoped = ancestors(c, rows, reuse=True)
+    else:
+        # The caller read the complete live subtree in one recursive query.
+        # Only the root's external ancestors are missing from its scope.
+        scoped = {row['id']: row for row in rows}
+        scoped.update(ancestors(c, [scoped[subtree_root]]))
     links = tracker_links(c, scoped)
     lock_projects(c, scoped, links)
     hidden = protected_ids(scoped, (NOTE_PREFIX, TRACKER_PREFIX), links)

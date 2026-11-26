@@ -1,5 +1,6 @@
 import {tText,tHtml} from '../../core/i18n.js';
 import {$,esc,date,formBind} from '../../core/ui.js';
+import {mountRetentionTree} from './retention-tree.js';
 import './sharing.css';
 
 let dialogSequence=0;
@@ -45,12 +46,93 @@ export function fileShare(file,ctx){
   approved=null;if(!auto.checked)return;button.disabled=true;$('[data-retention-error]',el).textContent='';
   try{if(!await approve())auto.checked=false;}catch(error){auto.checked=false;$('[data-retention-error]',el).textContent=error.message;}finally{button.disabled=false;}
  };
- const listing=async(changed=false,changes=[])=>{
+ const editDate=schedule=>{
+  const local=new Date(schedule.delete_at?schedule.delete_at*1000:Date.now()+86400000);
+  local.setMinutes(local.getMinutes()-local.getTimezoneOffset());
+  const dialog=ctx.modal(`<h2>${tHtml('files:shareChangeDate')}</h2><form><label>${esc(schedule.name)}<input type=datetime-local name=date required value="${local.toISOString().slice(0,16)}"></label><button type=submit class=primary>${tHtml('files:shareSave')}</button></form>`);
+  formBind($('form',dialog),async values=>{
+   const data={version:schedule.version,delete_at:Math.floor(new Date(values.get('date')).getTime()/1000)};
+   const plan=await ctx.api('/files/'+schedule.id+'/retention-preview','POST',data);
+   if(!await confirmRetention(plan,ctx))return;
+   const result=await ctx.api('/files/'+schedule.id+'/retention','PATCH',{...data,confirmation:plan.confirmation});
+   $('.modal-close',dialog).click();await refreshListing(true,result.retention_changes);
+  });
+ };
+ let previewPending=false,scope=new Set();
+ const cancelSchedules=async (node,opener)=>{
+  if(previewPending)return;
+  previewPending=true;
+  const path='/files/'+node.id+'/retention-cancel';
+  try{
+   const first=await ctx.api(path+'-preview','POST',{});
+   if(!el.isConnected)return;
+   if(!first.files.length){await refreshListing(true);ctx.toast(tText('files:retentionNoSchedules'));return;}
+   const dialog=ctx.modal(`<h2>${tHtml('files:retentionCancelTitle')}</h2><p>${tHtml('files:retentionCancelHelp')}</p><div role=status data-retention-notice></div><div data-retention-plan></div>
+    <div class="share-actions"><button type="button" class="primary" data-retention-cancel-apply>${tHtml('files:shareCancelDeletion')}</button>
+    <button type="button" class="text-link" data-retention-cancel-back>${tHtml('common:cancel')}</button></div>`);
+   dialog.classList.add('file-retention-dialog');
+   dialog.addEventListener('close',()=>{
+    if(!el.isConnected||opener.isConnected&&!opener.disabled)return;
+    const fallback=el.querySelector('[data-retention-select="'+CSS.escape(node.id)+'"]')
+     ||el.querySelector('[data-retention-select]')||el.querySelector('[data-share-tab=links]');
+    fallback?.focus({preventScroll:true});
+   },{once:true});
+   const apply=$('[data-retention-cancel-apply]',dialog),notice=$('[data-retention-notice]',dialog);
+   const draw=plan=>{
+    $('[data-retention-plan]',dialog).innerHTML=`<p>${tHtml('files:retentionSchedules',{count:plan.files.length})}</p><ul class="file-retention-confirm">${plan.files.map(f=>`<li><strong>${esc(f.path)}</strong><span>${f.delete_at?esc(date(f.delete_at)):tHtml('files:retentionWaiting')}</span></li>`).join('')}</ul>`;
+    apply.disabled=!plan.files.length;
+   };
+   const unavailable=message=>{
+    $('[data-retention-plan]',dialog).replaceChildren();
+    apply.disabled=true;notice.textContent=message;
+    $('[data-retention-cancel-back]',dialog).focus();
+   };
+   let plan=first;
+   draw(plan);
+   const close=()=>$('.modal-close',dialog).click();
+   $('[data-retention-cancel-back]',dialog).onclick=close;
+   apply.onclick=async()=>{
+    if(apply.disabled)return;
+    apply.disabled=true;notice.textContent='';
+    try{
+     const result=await ctx.api(path,'POST',{confirmation:plan.confirmation});
+     if(dialog.isConnected)close();
+     if(el.isConnected){
+      $('[data-file-share-result]',el).textContent=tText('files:retentionCancelled',{count:result.cancelled.length});
+      await refreshListing(true,[],result.cancelled);
+     }
+    }catch(error){
+     if(!dialog.isConnected)return;
+     if(error.status===403||error.status===404){
+      unavailable(tText('files:retentionTargetGone'));await refreshListing(true);return;
+     }
+     if(error.status!==409){notice.textContent=error.message;apply.disabled=false;return;}
+     notice.textContent=tText('files:retentionChanged');
+     try{
+      const [next,listReady]=await Promise.all([ctx.api(path+'-preview','POST',{}),refreshListing(true)]);
+      if(!dialog.isConnected)return;
+      if(!listReady||!scope.has(node.id)){
+       unavailable(tText('files:retentionTargetGone'));return;
+      }
+      plan=next;draw(next);
+      (apply.disabled?$('[data-retention-cancel-back]',dialog):apply).focus();
+     }catch(refreshError){
+      if(!dialog.isConnected)return;
+      unavailable(refreshError.status===404?tText('files:retentionTargetGone'):refreshError.message);
+     }
+    }
+   };
+  }catch(error){if(el.isConnected)ctx.toast(error.message);}
+  finally{previewPending=false;}
+ };
+ const renderRetention=mountRetentionTree($('[data-file-retention-list]',el),file.id,cancelSchedules,editDate);
+ const listing=async(changed=false,changes=[],cancelled=[])=>{
   const request=++listingSequence;
   const [shares,retention]=await Promise.all([ctx.api('/files/'+file.id+'/shares'),ctx.api('/files/'+file.id+'/retention')]);if(!el.isConnected||request!==listingSequence)return;
+  scope=new Set(retention.nodes.map(n=>n.id));
   $('[data-share-count]',el).textContent=' · '+shares.length;
   if(!changed&&!tabChosen&&!shares.length&&!retention.files.length)selectTab('create');
-  if(changed){const states=new Map(changes.map(f=>[f.id,f]));for(const f of retention.files)states.set(f.id,f);ctx.onFilesChanged?.({id:file.id,shares,retention:[...states.values()]});}
+  if(changed){const states=new Map(changes.map(f=>[f.id,f]));for(const f of retention.files)states.set(f.id,f);ctx.onFilesChanged?.({id:file.id,shares,retention:[...states.values()],scope:cancelled.length?new Set([...scope,...cancelled]):scope});}
   const list=$('[data-file-share-list]',el);
   list.innerHTML=shares.length?shares.map(s=>`<article class="share-row file-share-link" data-share-id="${esc(s.token)}"><strong>${esc(modeLabel(s.mode))}</strong><small>${s.permission==='edit'?tHtml('files:editing'):tHtml('files:read')} · ${s.expires?tHtml('files:until',{value0:date(s.expires)}):tHtml('files:noExpirationDate')}</small><input type=url readonly value="${esc(s.url)}" aria-label="${tHtml('files:shareLinkAddress')}" data-share-url><div class=file-share-link-actions><button type=button class="primary compact" data-copy-file-share="${esc(s.token)}">${tHtml('app:copy')}</button><a class="secondary compact" href="${esc(s.url)}" target=_blank rel=noopener>${tHtml('files:open')}</a><button type=button class="text-link danger" data-revoke-file-share="${esc(s.token)}">${tHtml('files:revoke')}</button></div><div class=file-share-budget>${s.download_limit!==null?`<small>${tHtml('files:shareBudget',{used:s.used,remaining:Math.max(0,s.download_limit-s.used),limit:s.download_limit})}</small>`:''}<button type=button class=text-link data-limit="${esc(s.token)}">${tHtml('files:shareChangeLimit')}</button></div></article>`).join(''):`<p class=hint>${tHtml('files:shareNoActiveLinks')}</p><button type=button class="secondary compact" data-share-start>${tHtml('files:createLink')}</button>`;
   $('[data-share-start]',el)?.addEventListener('click',()=>selectTab('create',true,true));
@@ -62,16 +144,10 @@ export function fileShare(file,ctx){
   };
   for(const b of el.querySelectorAll('[data-revoke-file-share]'))b.onclick=async()=>{b.disabled=true;try{await ctx.api('/file-shares/'+b.dataset.revokeFileShare,'DELETE');await refreshListing(true);}catch(e){ctx.toast(e.message);}finally{if(b.isConnected)b.disabled=false;}};
   for(const b of el.querySelectorAll('[data-limit]'))b.onclick=()=>{
-   const s=shares.find(x=>x.token===b.dataset.limit),dialog=ctx.modal(`<h2>${tHtml('files:shareChangeLimit')}</h2><form data-limit-form><label>${tHtml('files:shareDownloadLimit')}<input name=limit type=number min=1 max=1000000 value="${s.download_limit??''}" placeholder="${tHtml('files:shareUnlimited')}"></label><p>${tHtml('files:shareLimitKeepCount')}</p><button class=primary>${tHtml('files:shareSave')}</button></form>`);
+   const s=shares.find(x=>x.token===b.dataset.limit),dialog=ctx.modal(`<h2>${tHtml('files:shareChangeLimit')}</h2><form data-limit-form><label>${tHtml('files:shareDownloadLimit')}<input name=limit type=number min=1 max=1000000 value="${s.download_limit??''}" placeholder="${tHtml('files:shareUnlimited')}"></label><p>${tHtml('files:shareLimitKeepCount')}</p><button type=submit class=primary>${tHtml('files:shareSave')}</button></form>`);
    formBind($('form',dialog),async f=>{await ctx.api('/file-shares/'+s.token+'/limit','PATCH',{version:s.version,download_limit:f.get('limit')?Number(f.get('limit')):null});$('.modal-close',dialog).click();await refreshListing(true);});
   };
-  $('[data-file-retention-list]',el).innerHTML=retention.files.length?`<h3>${tHtml('files:shareRetentionTitle')}</h3>${retention.files.map(f=>`<div class=share-row><div><strong>${esc(f.name)}</strong><small>${f.delete_at?tHtml('files:shareDeleteAt',{date:esc(date(f.delete_at))}):tHtml(f.kind==='folder'?'files:shareFolderWaiting':'files:shareRetentionBlocked')}</small><button class=text-link data-retention-date="${esc(f.id)}">${tHtml('files:shareChangeDate')}</button></div><button class=text-link data-retention-off="${esc(f.id)}">${tHtml('files:shareCancelDeletion')}</button></div>`).join('')}`:'';
-  for(const b of el.querySelectorAll('[data-retention-off]'))b.onclick=async()=>{const f=retention.files.find(x=>x.id===b.dataset.retentionOff);if(!confirm(tText('files:shareCancelDeletionConfirm')))return;try{await ctx.api('/files/'+f.id+'/retention','DELETE',{version:f.version});await refreshListing(true);}catch(error){ctx.toast(error.message);}};
-  for(const b of el.querySelectorAll('[data-retention-date]'))b.onclick=()=>{
-   const f=retention.files.find(x=>x.id===b.dataset.retentionDate),local=new Date(f.delete_at?f.delete_at*1000:Date.now()+86400000);local.setMinutes(local.getMinutes()-local.getTimezoneOffset());
-   const dialog=ctx.modal(`<h2>${tHtml('files:shareChangeDate')}</h2><form><label>${esc(f.name)}<input type=datetime-local name=date required value="${local.toISOString().slice(0,16)}"></label><button class=primary>${tHtml('files:shareSave')}</button></form>`);
-   formBind($('form',dialog),async values=>{const data={version:f.version,delete_at:Math.floor(new Date(values.get('date')).getTime()/1000)},plan=await ctx.api('/files/'+f.id+'/retention-preview','POST',data);if(!await confirmRetention(plan,ctx))return;const result=await ctx.api('/files/'+f.id+'/retention','PATCH',{...data,confirmation:plan.confirmation});$('.modal-close',dialog).click();await refreshListing(true,result.retention_changes);});
-  };
+  renderRetention(retention);return true;
  };
  formBind(form,async()=>{
   const data=body();let state=approved;
@@ -80,9 +156,9 @@ export function fileShare(file,ctx){
   approved=null;const result=await ctx.api('/files/'+file.id+'/shares','POST',{...data,confirmation:state.plan.confirmation});
   if(!el.isConnected)return;selectTab('links',false,true);$('[data-file-share-result]',el).textContent=tText('files:shareLinkCreated');await refreshListing(true,result.retention_changes);
  });
- const refreshListing=async(changed=false,changes=[])=>{
-  const pending=listing(changed,changes),request=listingSequence;
-  try{await pending;}catch(error){if(!el.isConnected||request!==listingSequence)return;const list=$('[data-file-share-list]',el);list.innerHTML='<p role=alert>'+esc(error.message)+'</p><button type=button class="secondary compact" data-share-retry>'+tHtml('files:shareRetryLinks')+'</button>';$('[data-share-retry]',el).onclick=()=>refreshListing(changed,changes);}
+ const refreshListing=async(changed=false,changes=[],cancelled=[])=>{
+  const pending=listing(changed,changes,cancelled),request=listingSequence;
+  try{return await pending;}catch(error){if(!el.isConnected||request!==listingSequence)return;const list=$('[data-file-share-list]',el);if([403,404].includes(error.status))$('[data-file-retention-list]',el).replaceChildren();list.innerHTML='<p role=alert>'+esc(error.message)+'</p><button type=button class="secondary compact" data-share-retry>'+tHtml('files:shareRetryLinks')+'</button>';$('[data-share-retry]',el).onclick=()=>refreshListing(changed,changes,cancelled);}
  };
  refreshListing();return el;
 }

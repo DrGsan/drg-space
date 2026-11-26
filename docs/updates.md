@@ -1,8 +1,8 @@
 # Updating DrG Space
 
-## 5.3.3-rc.1
+## 5.3.3-rc.2
 
-Rebuild Space with `docker compose up -d --build --no-deps app`. The project overview uses the existing issue counts from local and federated projects. The database schema and configuration are unchanged.
+Rebuild Space with `docker compose up -d --build --no-deps app`. Open a shared folder in Drive to review its existing deletion schedules. The project overview uses the existing issue counts from local and federated projects.
 
 ## 5.3.2
 

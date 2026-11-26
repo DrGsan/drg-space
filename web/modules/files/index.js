@@ -215,14 +215,14 @@ export async function mountFiles(host,ctx){
         row.querySelectorAll('.drive-shared,.drive-temporary').forEach(badge=>badge.remove());
         row.querySelector('.file-open')?.insertAdjacentHTML('beforeend',driveSharingBadges(f));row.dataset.sharingKey=sharingKey(f);
       };
-      const updateSharing=({id,shares,retention})=>{
+      const updateSharing=({id,shares,retention,scope})=>{
         if(seq!==renderedSequence||!list.isConnected)return;
         // Reuse the dialog responses; keep the workspace, thumbnails and selection mounted.
         const schedules=new Map(retention.map(f=>[f.id,f]));
         const added=retention.map(f=>f.delete_at).filter(Number.isFinite);if(added.length)data.refresh_at=Math.min(data.refresh_at??Infinity,...added);
         for(const f of data.items){
           const schedule=schedules.get(f.id);
-          if(f.id!==id&&!schedule)continue;
+          if(f.id!==id&&!schedule&&!scope.has(f.id))continue;
           if(f.id===id){
             const active=shares;f.shared=active.length>0;
             f.shared_until=active.reduce((end,s)=>end===null||s.expires===null?null:Math.max(end,s.expires),0);

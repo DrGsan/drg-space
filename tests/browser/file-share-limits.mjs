@@ -9,8 +9,9 @@ import {tmpdir} from 'node:os';
 const engine=process.env.DRG_BROWSER_ENGINE==='webkit'?'webkit':'chromium';
 const phase=process.env.DRG_SHARING_EXPIRY_BASELINE==='1'?'before':'after';
 const out='artifacts/file-share-limits/'+engine;await mkdir(out,{recursive:true});
-const origin='http://127.0.0.1:8089',directory=await mkdtemp(tmpdir()+'/drg-file-share-limits-');
-const server=spawn(process.env.DRG_PYTHON||'.venv/bin/python',['-m','gunicorn','--config','gunicorn.conf.py','--bind','127.0.0.1:8089','tests.browser_app:app'],{env:{...process.env,DATA_DIR:directory,DATABASE_URL:'',DATA_ENCRYPTION_ENABLED:'true',DATA_ENCRYPTION_KEY:'dGVzdC1vbmx5LWVuY3J5cHRpb24ta2V5LTMyLWJ5dGU=',APP_SECRET:'isolated-file-share-limits-secret-'.repeat(3),SETUP_TOKEN:'file-share-limits-setup',PUBLIC_URL:origin,CALL_STUN_URLS:'',CALL_TURN_URLS:'',FEDERATION_PUBLIC_URL:''},stdio:['ignore','ignore','pipe']});
+const address='127.0.0.1:'+(process.env.DRG_SHARE_TEST_PORT||8089);
+const origin='http://'+address,directory=await mkdtemp(tmpdir()+'/drg-file-share-limits-');
+const server=spawn(process.env.DRG_PYTHON||'.venv/bin/python',['-m','gunicorn','--config','gunicorn.conf.py','--bind',address,'tests.browser_app:app'],{env:{...process.env,DATA_DIR:directory,DATABASE_URL:'',DATA_ENCRYPTION_ENABLED:'true',DATA_ENCRYPTION_KEY:'dGVzdC1vbmx5LWVuY3J5cHRpb24ta2V5LTMyLWJ5dGU=',APP_SECRET:'isolated-file-share-limits-secret-'.repeat(3),SETUP_TOKEN:'file-share-limits-setup',PUBLIC_URL:origin,CALL_STUN_URLS:'',CALL_TURN_URLS:'',FEDERATION_PUBLIC_URL:''},stdio:['ignore','ignore','pipe']});
 let output='',browser;server.stderr.on('data',data=>output=(output+data).slice(-5000));
 const exited=new Promise(resolve=>server.once('exit',resolve));
 try{
@@ -84,7 +85,10 @@ try{
  };
  await form.locator('[type=submit]').click();await expect(page.locator('[data-file-share-list] .share-row')).toHaveCount(1);
  await expectStableWorkspace();await expect(page.locator('[data-file-row="'+root.id+'"] .drive-shared')).toHaveCount(1);
- await expect(page.locator('[data-file-retention-list] .share-row')).toHaveCount(3);
+ if(phase==='after'){
+  await expect(page.locator('.retention-heading')).toContainText('3 расписания');
+  await expect(page.locator('[data-retention-rows] li')).toHaveCount(3);
+ }else await expect(page.locator('[data-file-retention-list] .share-row')).toHaveCount(3);
  const shared=await page.locator(phase==='after'?'[data-file-share-list] [data-share-url]':'[data-file-share-result] input').first().inputValue(),token=new URL(shared).pathname.split('/').at(-1);
  await page.screenshot({path:out+'/owner.png'});
  const englishContext=await browser.newContext({locale:'en-GB',baseURL:origin,viewport:{width:320,height:900},colorScheme:'dark'}),english=await englishContext.newPage();
@@ -117,18 +121,54 @@ try{
  await guest.reload();const zipPromise=guest.waitForEvent('download');await guest.locator('.shared-drive-download').click();expect(await (await zipPromise).failure()).toBeNull();
  await expect.poll(async()=>(await send('/files/'+root.id+'/shares',undefined,'GET'))[0].used).toBe(2);
  await guestContext.close();
- page.once('dialog',dialog=>dialog.accept());await page.locator('[data-retention-off="'+image.id+'"]').click();await expect(page.locator('[data-file-retention-list] .share-row')).toHaveCount(2);
- page.once('dialog',dialog=>dialog.accept());await page.locator('[data-retention-off="'+root.id+'"]').click();await expect(page.locator('[data-file-retention-list] .share-row')).toHaveCount(1);
- await expect(page.locator('[data-file-row="'+root.id+'"] .drive-temporary')).toHaveCount(0);
+ // Show the precise paths before writing. A concurrent removal invalidates
+ // the approval; the refreshed plan needs its own explicit confirmation.
+ const timerFor=id=>page.locator('[data-retention-select="'+id+'"]');
+ const cancelTimers=id=>page.locator('[data-retention-off="'+id+'"]');
+ const confirmation=page.locator('.file-retention-dialog');
+ const folderPlan=()=>send('/files/'+root.id+'/retention',undefined,'GET');
+ const initial=(await folderPlan()).files;
+ const scheduled=initial.find(f=>f.kind==='file'&&f.id!==image.id);
+ if(phase==='after'){
+  await expect(timerFor(root.id).locator('small span')).toBeVisible();
+  await timerFor(image.id).click();await page.locator('[data-retention-date="'+image.id+'"]').click();
+  const picker=page.locator('.modal-overlay input[name=date]');const previous=await picker.inputValue();
+  const later=await picker.evaluate((input,value)=>{const date=new Date(value);date.setDate(date.getDate()+4);date.setMinutes(date.getMinutes()-date.getTimezoneOffset());return date.toISOString().slice(0,16);},previous);
+  await picker.fill(later);await page.locator('form:has(input[name=date]) [type=submit]').click();
+  await page.locator('[data-retention-confirm]').click();
+  await expect(picker).toHaveCount(0);
+  await expect.poll(async()=>(await folderPlan()).files.find(f=>f.id===image.id).version).toBeGreaterThan(initial.find(f=>f.id===image.id).version);
+  await timerFor(image.id).click();await cancelTimers(image.id).click();
+  await expect(confirmation.locator('li')).toHaveCount(1);
+  await confirmation.locator('[data-retention-cancel-back]').click();expect((await folderPlan()).files).toHaveLength(3);
+  await cancelTimers(root.id).click();await expect(confirmation.locator('li')).toHaveCount(3);
+  await expect(confirmation).toContainText(root.name+'/'+image.name);
+  const remote=(await folderPlan()).files.find(f=>f.id===image.id);
+  await send('/files/'+image.id+'/retention',{version:remote.version},'DELETE');
+  await confirmation.locator('[data-retention-cancel-apply]').click();
+  await expect(confirmation.locator('[data-retention-notice]')).toContainText('изменился');
+  await expect(confirmation.locator('li')).toHaveCount(2);
+  expect((await folderPlan()).files).toHaveLength(2);
+  await confirmation.locator('[data-retention-cancel-back]').click();
+  await expect(timerFor(root.id)).toBeFocused();
+ }else{
+  page.once('dialog',dialog=>dialog.accept());await page.locator('[data-retention-off="'+image.id+'"]').click();
+  await expect(page.locator('[data-file-retention-list] .share-row')).toHaveCount(2);
+  page.once('dialog',dialog=>dialog.accept());await page.locator('[data-retention-off="'+root.id+'"]').click();
+  await expect(page.locator('[data-file-retention-list] .share-row')).toHaveCount(1);
+ }
  expect((await send('/files/'+root.id+'/shares',undefined,'GET'))[0].token).toBe(token);
  await expectStableWorkspace();await page.evaluate(()=>window.sharingObserver.disconnect());
  // Removing a file's timer updates its badge without replacing its row or thumbnail.
- const scheduled=(await send('/files/'+root.id+'/retention',undefined,'GET')).files[0];
  await page.locator('.modal-overlay .modal-close').click();await page.locator('[data-open-file="'+root.id+'"]').click();
  const scheduledRow=page.locator('[data-file-row="'+scheduled.id+'"]');await expect(scheduledRow.locator('.drive-temporary')).toHaveCount(1);
  await scheduledRow.locator('[data-file-menu]').click();await page.locator('[data-file-share]').click();
  await page.evaluate(id=>{window.sharingRow=document.querySelector('[data-file-row="'+id+'"]');window.sharingThumbnail=window.sharingRow.querySelector('img');window.sharingWorkspace=document.querySelector('.drive-panel');},scheduled.id);
- catalogueRequests.length=0;page.once('dialog',dialog=>dialog.accept());await page.locator('[data-retention-off]').click();
+ catalogueRequests.length=0;
+ if(phase==='after'){
+  await cancelTimers(scheduled.id).click();await expect(confirmation.locator('li')).toHaveCount(1);
+  await confirmation.locator('[data-retention-cancel-apply]').click();
+ }else{page.once('dialog',dialog=>dialog.accept());await page.locator('[data-retention-off]').click();}
  await expect(scheduledRow.locator('.drive-temporary')).toHaveCount(0);
  expect(await page.evaluate(()=>window.sharingRow.isConnected&&document.querySelector('.drive-panel')===window.sharingWorkspace&&window.sharingRow.querySelector('img')===window.sharingThumbnail)).toBe(true);expect(catalogueRequests).toEqual([]);
  await page.locator('.modal-overlay .modal-close').click();await page.locator('[data-files-view="shared"]').click();
@@ -151,6 +191,49 @@ try{
  await page.locator('[data-file-menu="'+root.id+'"]').click();await page.locator('[data-file-share]').click();
  await expect(page.locator('[data-revoke-file-share]')).toHaveCount(1);
  await page.evaluate(()=>window.sharingWorkspace=document.querySelector('.drive-panel'));catalogueRequests.length=0;
+ if(phase==='after'){
+  const nested=await send('/files/folders',{name:'Папка без таймера',parent_id:root.id});
+  const empty=await send('/files/folders',{name:'Закрытая вложенная',parent_id:nested.id});
+  await page.locator('.modal-overlay .modal-close').click();
+  await sharedRow.locator('[data-file-menu]').click();await page.locator('[data-file-share]').click();
+  await expect(timerFor(nested.id)).toBeVisible();await expect(timerFor(empty.id)).toHaveCount(0);
+  await page.locator('[data-retention-toggle="'+nested.id+'"]').click();await timerFor(empty.id).click();
+  await expect(page.locator('[data-retention-selection]')).toContainText(root.name+' / '+nested.name+' / '+empty.name);
+  await expect(cancelTimers(empty.id)).toBeDisabled();await page.setViewportSize({width:320,height:800});
+  await expect(cancelTimers(root.id)).toBeVisible();
+  expect(await page.locator('.file-share-dialog .modal').evaluate(el=>el.scrollWidth<=el.clientWidth+1)).toBe(true);
+  // Schedule a nested branch independently; bulk cancellation keeps its sharing link active.
+  const branchLink={mode:'public',permission:'view',duration:4,unit:'days',auto_delete:true};
+  const newFile=await page.request.post('/api/files/upload?parent_id='+empty.id+'&name=Notes.txt',{headers:{Origin:origin,'X-CSRF-Token':csrf},data:Buffer.from('Nested temporary file')});
+  expect(newFile.ok()).toBe(true);
+  const branchApproval=await send('/files/'+nested.id+'/share-preview',branchLink);
+  const nestedShare=await send('/files/'+nested.id+'/shares',{...branchLink,confirmation:branchApproval.confirmation});
+  await page.setViewportSize({width:1440,height:1100});
+  await page.locator('.file-share-dialog .modal-close').click();
+  await sharedRow.locator('[data-file-menu]').click();await page.locator('[data-file-share]').click();
+  await timerFor(nested.id).click();await cancelTimers(nested.id).click();
+  await expect(confirmation).toContainText(nested.name+'/'+empty.name+'/Notes.txt');
+  const moveNested=async(from,to)=>{
+   const listing=await send('/files?view=active'+(from?'&parent_id='+from:''),undefined,'GET');
+   const item=listing.items.find(f=>f.id===nested.id);
+   await send('/files/move',{items:[{id:item.id,version:item.version}],parent_id:to});
+  };
+  await moveNested(root.id,null);await confirmation.locator('[data-retention-cancel-apply]').click();
+  await expect(confirmation.locator('[data-retention-notice]')).toHaveText('Объект больше недоступен.');
+  await expect(confirmation.locator('[data-retention-cancel-apply]')).toBeDisabled();
+  await expect(confirmation.locator('li')).toHaveCount(0);
+  await confirmation.locator('[data-retention-cancel-back]').click();await expect(timerFor(root.id)).toBeFocused();
+  expect((await send('/files/'+nested.id+'/retention',undefined,'GET')).files.length).toBeGreaterThan(1);
+  await moveNested(null,root.id);await cancelTimers(root.id).click();
+  const rootPlan=await folderPlan();expect(rootPlan.files.length).toBeGreaterThan(1);
+  await expect(confirmation.locator('li')).toHaveCount(rootPlan.files.length);
+  await expect(confirmation).toContainText(root.name+'/'+nested.name+'/'+empty.name+'/Notes.txt');await confirmation.locator('[data-retention-cancel-apply]').click();
+  await expect(page.locator('.retention-heading')).toContainText('0 расписаний');
+  await expect(cancelTimers(root.id)).toBeDisabled();
+  await expect(sharedRow.locator('.drive-temporary')).toHaveCount(0);expect((await folderPlan()).files).toHaveLength(0);
+  expect((await send('/files/'+nested.id+'/shares',undefined,'GET')).map(s=>s.token)).toContain(nestedShare.token);
+  await send('/file-shares/'+nestedShare.token,undefined,'DELETE');
+ }
  // A new unlimited link changes the aggregate date; revoking it restores the finite date.
  if(phase==='after')await page.locator('[data-share-tab=create]').click();
  await page.locator('[data-file-share-form] [type=submit]').click();await expect(page.locator('[data-file-share-list] .share-row')).toHaveCount(2);

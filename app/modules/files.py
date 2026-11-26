@@ -20,7 +20,7 @@ from app.file_store import file_store
 from app.chat_storage import attachment_room
 from app.file_scopes import is_note_attachment,file_module_rows,is_tracker_file,tracker_file_ids,lock_tracker_file_projects
 from app.file_trash import FILE_TRASH_SECONDS,purge_file_trash,purge_file_rows
-from app import file_sharing as sharing
+from app import file_retention_tree, file_sharing as sharing
 import hashlib
 from itertools import chain
 
@@ -68,6 +68,8 @@ class RetentionUpdate(Strict):
     delete_at:int=Field(ge=1,le=32503680000)
     version:int=Field(ge=1)
     confirmation:str|None=Field(default=None,max_length=4096)
+class RetentionCancel(Strict):
+    confirmation:str=Field(min_length=1,max_length=4096)
 class Unlock(Strict):password:str=Field(max_length=256)
 
 def filename(value):
@@ -463,7 +465,7 @@ def create_files_router(db,ready,guard,tokens,protection,now,fail,data_dir,publi
     def rename(fid:str,data:Rename,request:Request):
         s=guard(request)
         with db() as c:
-            c.execute('BEGIN IMMEDIATE');old=own(c,fid,s['user_id'])
+            c.execute('BEGIN IMMEDIATE');sharing.lock(c,s['user_id']);old=own(c,fid,s['user_id'])
             if old['version']!=data.version:fail(409,localized_message('objectHasBeenModifiedRefreshTheFolder'))
             c.execute('UPDATE files SET name=?,updated=?,version=version+1 WHERE id=?',(filename(data.name),now(),fid));result=serial(own(c,fid,s['user_id']))
         return with_quota(result,s['user_id'])
@@ -527,8 +529,6 @@ def create_files_router(db,ready,guard,tokens,protection,now,fail,data_dir,publi
         if not raw:return None
         try:return tokens.decode(raw,kind)
         except HTTPError:fail(409,localized_message('fileRetentionChanged'))
-    def applied_changes(plan):
-        return [{k:item[k] for k in ('id','name','kind','delete_at')}|{'version':item['retention_version']+1} for item in plan['files']]
     def confirmation_key(data,plan):
         public=data.model_dump(exclude={'confirmation'})
         return hashlib.sha256(json.dumps([public,plan['snapshot']],sort_keys=True).encode()).hexdigest()
@@ -563,8 +563,8 @@ def create_files_router(db,ready,guard,tokens,protection,now,fail,data_dir,publi
                     if row[0] not in allowed:allowed.append(row[0])
             c.execute('INSERT INTO file_shares VALUES(?,?,?,?,?,?,0,?,?)',(token,fid,data.mode,ph.hash(data.password) if data.mode=='password' else None,json.dumps(allowed),end,now(),data.permission))
             if data.download_limit is not None:c.execute('INSERT INTO file_share_limits VALUES(?,?,0,1)',(token,data.download_limit))
-            sharing.apply_plan(c,plan,now())
-        return {'token':token,'url':public_url+'/f/'+token,'expires':end,'retention_changes':applied_changes(plan)}
+            changes=sharing.apply_plan(c,plan,now())
+        return {'token':token,'url':public_url+'/f/'+token,'expires':end,'retention_changes':changes}
     @r.patch('/api/file-shares/{token}/limit')
     def update_limit(token:str,data:LimitUpdate,request:Request):
         s=guard(request)
@@ -581,8 +581,39 @@ def create_files_router(db,ready,guard,tokens,protection,now,fail,data_dir,publi
     def retention(fid:str,request:Request):
         s=guard(request)
         with db() as c:
-            own(c,fid,s['user_id']);files,shares,schedules=sharing.context(c,s['user_id'],now());chosen=sharing.subtree(files,fid)
-            return {'files':[{'id':x,'kind':files[x]['kind'],'name':files[x]['name'],'delete_at':schedules[x]['due_at'],'version':schedules[x]['version']} for x in sorted(chosen & schedules.keys())]}
+            tree = file_retention_tree.read_tree(c, s['user_id'], fid)
+            if tree is None:
+                fail(404, localized_message('fileOrFolderNotFound'))
+            return tree
+
+    @r.post('/api/files/{fid}/retention-cancel-preview')
+    def cancel_preview(fid:str,request:Request):
+        uid = guard(request)['user_id']
+        with db() as c:
+            c.execute('BEGIN IMMEDIATE')
+            sharing.lock(c, uid)
+            plan = file_retention_tree.read_tree(c, uid, fid, preview=True)
+            if plan is None:
+                fail(404, localized_message('fileOrFolderNotFound'))
+            confirmation = tokens.encode('file-retention-cancel', uid, now()+300, target=fid, key=plan['snapshot'])
+            return {'files': plan['files'], 'confirmation': confirmation}
+
+    @r.post('/api/files/{fid}/retention-cancel')
+    def cancel_confirmed(fid:str,data:RetentionCancel,request:Request):
+        uid = guard(request)['user_id']
+        with db() as c:
+            c.execute('BEGIN IMMEDIATE')
+            sharing.lock(c, uid)
+            grant = retention_confirmation(data.confirmation, 'file-retention-cancel')
+            plan = file_retention_tree.read_tree(c, uid, fid, preview=True)
+            bound = grant and grant['sub'] == uid and grant.get('target') == fid
+            if plan is None and not bound:
+                fail(404, localized_message('fileOrFolderNotFound'))
+            if not bound or plan is None or grant.get('key') != plan['snapshot']:
+                fail(409, localized_message('fileRetentionChanged'))
+            file_retention_tree.cancel_schedules(c, plan['files'])
+            return {'ok': True, 'cancelled': [row['id'] for row in plan['files']]}
+
     def retention_plan(c,uid,fid,data):
         files,shares,schedules=sharing.context(c,uid,now());old=schedules.get(fid)
         if not old or old['version']!=data.version:fail(409,localized_message('fileRetentionChanged'))
@@ -618,7 +649,7 @@ def create_files_router(db,ready,guard,tokens,protection,now,fail,data_dir,publi
             if data.delete_at<=now():fail(422,localized_message('fileRetentionFutureDate'))
             plan=retention_plan(c,s['user_id'],fid,data);grant=retention_confirmation(data.confirmation,'file-retention-change')
             if not grant or grant['sub']!=s['user_id'] or grant.get('key')!=plan['snapshot']:fail(409,localized_message('fileRetentionChanged'))
-            sharing.apply_plan(c,plan,now());return {'ok':True,'retention_changes':applied_changes(plan)}
+            return {'ok':True,'retention_changes':sharing.apply_plan(c,plan,now())}
     @r.delete('/api/files/{fid}/retention')
     def retention_cancel(fid:str,data:LimitUpdate,request:Request):
         s=guard(request)

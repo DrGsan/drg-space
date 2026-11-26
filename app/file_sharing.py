@@ -123,11 +123,19 @@ def plan(c,uid,fid,end,auto_delete,stamp):
     return {'files':changes,'snapshot':snapshot,'expires':end,'auto_delete':auto_delete,'requires_confirmation':bool(changes)}
 
 def apply_plan(c,plan,stamp):
+    applied=[]
     for item in plan['files']:
         table=schedule_table(item.get('kind','file'))
         if item['retention_version']:
+            version=item['retention_version']+1
             c.execute('UPDATE '+table+' SET not_before=?,due_at=?,version=version+1,updated=? WHERE file_id=?',(item['delete_at'],item['delete_at'],stamp,item['id']))
-        else:c.execute('INSERT INTO '+table+' VALUES(?,?,?,1,?)',(item['id'],item['delete_at'],item['delete_at'],stamp))
+        else:
+            # A cancelled and recreated schedule may have the same deadline
+            # and timestamp. Its optimistic version must identify a new timer.
+            version=1+secrets.randbits(52)
+            c.execute('INSERT INTO '+table+' VALUES(?,?,?,?,?)',(item['id'],item['delete_at'],item['delete_at'],version,stamp))
+        applied.append({k:item[k] for k in ('id','name','kind','delete_at')}|{'version':version})
+    return applied
 
 def list_schedules(c,uid):
     return {r['file_id']:dict(r) for r in c.execute('SELECT r.* FROM (SELECT * FROM file_retention UNION ALL SELECT * FROM file_folder_retention) r JOIN files f ON f.id=r.file_id WHERE f.user_id=?',(uid,))}
