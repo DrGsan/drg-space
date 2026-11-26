@@ -14,3 +14,35 @@
 .file-share-dialog [data-file-share-result]:empty{display:none}
 .file-share-dialog [data-file-share-result]{color:var(--muted);margin:0 0 12px}
 @media(max-width:600px){.file-share-dialog .modal{padding:26px 20px}.file-share-tabs{flex-wrap:nowrap}.file-share-tabs>button{flex:1 1 auto;white-space:nowrap;font-size:13px;padding:10px 8px}.file-share-dialog .file-share-link input[data-share-url]{font-size:16px}.file-share-link-actions>button,.file-share-link-actions>a,.file-share-budget>button{min-height:44px}.file-share-budget{align-items:flex-start;flex-direction:column}}
+
+.file-share-dialog [data-file-retention-list]{margin-block:24px 4px}
+.file-share-dialog [data-file-retention-list] h3{margin:0 0 8px}
+.retention-heading,.retention-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.retention-heading{font-size:12px;color:var(--muted);margin-bottom:10px}
+.retention-heading .secondary,.retention-actions .secondary{color:var(--blue)}
+.retention-tree{list-style:none;padding:6px 0;margin:0;border-block:1px solid var(--line);max-height:min(45vh,440px);overflow:auto;overscroll-behavior:contain}
+.retention-row{position:relative;--indent:14px;--gutter:min(calc(var(--retention-depth)*var(--indent)),70px);display:grid;grid-template-columns:24px minmax(0,1fr);align-items:center;padding-inline-start:var(--gutter)}
+.retention-row::before{content:"";position:absolute;inset-block:0;inset-inline-start:0;width:var(--gutter);pointer-events:none;background:repeating-linear-gradient(to right,transparent 0 calc(var(--indent) - 1px),var(--line) calc(var(--indent) - 1px) var(--indent))}
+.retention-row:has([aria-pressed=true]){background:var(--blue-light);border-radius:6px}
+.retention-row button{background:transparent;border:0;color:var(--text);margin:0}
+.retention-toggle{width:24px;height:32px;padding:4px}
+.retention-toggle svg{width:12px;height:12px}
+.retention-toggle[aria-expanded=true] svg{transform:rotate(90deg)}
+.retention-item{width:100%;min-width:0;display:grid;grid-template-columns:16px minmax(0,1fr) auto;align-items:center;gap:6px;padding:6px 5px;text-align:start;min-height:33px;font:inherit;font-size:13px}
+.retention-item .drive-icon{width:16px;height:16px;color:var(--muted)}
+.retention-item [data-drive-icon=folder]{color:light-dark(#926724,#e0ae57)}
+.retention-item small{font-size:11px;color:var(--muted);white-space:normal;text-align:end}
+.retention-item small>span{display:block}
+.retention-name,.retention-selected-title,.file-retention-dialog strong{overflow-wrap:anywhere}
+.retention-selection{padding-top:10px}
+.retention-selection small,.retention-selected-title{font-size:12px;color:var(--muted)}
+.retention-actions{margin-top:6px;justify-content:flex-end}
+.file-retention-dialog [data-retention-notice]:not(:empty){padding:10px;border-radius:6px;background:var(--blue-light);color:var(--text)}
+.file-retention-dialog .file-retention-confirm{max-height:40vh;overflow:auto}
+@media(max-width:600px){
+ .retention-row{--indent:10px;--gutter:min(calc(var(--retention-depth)*var(--indent)),30px);grid-template-columns:28px minmax(0,1fr)}
+ .retention-toggle{min-height:44px;width:28px}
+ .retention-item{min-height:44px;grid-template-columns:16px minmax(0,1fr);gap:2px 6px}
+ .retention-item small{grid-column:2;text-align:start}
+ .retention-heading button,.retention-selection button{min-height:44px}
+}

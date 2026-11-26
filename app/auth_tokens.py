@@ -45,7 +45,7 @@ class AuthTokens:
         self._activity_lock = threading.Lock()
         # Separate keys for account sessions and publication access/edit grants.
         self.keys = {kind: hmac.digest(app_secret.encode(), f'drg-site:jwt:{kind}:v1'.encode(), 'sha256')
-                     for kind in ('access', 'refresh', 'share', 'share-edit', 'password-hint','file-share','file-edit','note-cover','folder-upload','file-download','file-retention','file-retention-change')}
+                     for kind in ('access', 'refresh', 'share', 'share-edit', 'password-hint','file-share','file-edit','note-cover','folder-upload','file-download','file-retention','file-retention-change','file-retention-cancel')}
 
     @staticmethod
     def digest(value):
@@ -77,7 +77,7 @@ class AuthTokens:
             if (data['exp'] <= stamp and not (allow_expired and kind == 'access')
                     or data['nbf'] > stamp or data['iat'] > stamp or data['exp'] <= data['iat']):
                 raise ValueError('Expired or future token')
-            max_lifetime = {'access': ACCESS_SECONDS, 'refresh': SESSION_SECONDS, 'share': 3600, 'share-edit': 900, 'password-hint':300,'file-share':3600,'file-edit':900,'note-cover':1800,'folder-upload':3600,'file-download':86400,'file-retention':300,'file-retention-change':300}[kind]
+            max_lifetime = {'access': ACCESS_SECONDS, 'refresh': SESSION_SECONDS, 'share': 3600, 'share-edit': 900, 'password-hint':300,'file-share':3600,'file-edit':900,'note-cover':1800,'folder-upload':3600,'file-download':86400,'file-retention':300,'file-retention-change':300,'file-retention-cancel':300}[kind]
             if data['exp'] - data['iat'] > max_lifetime:
                 raise ValueError('Lifetime exceeds policy')
             return data
