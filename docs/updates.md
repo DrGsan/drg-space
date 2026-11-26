@@ -1,5 +1,9 @@
 # Updating DrG Space
 
+## 5.3.3-rc.1
+
+Rebuild Space with `docker compose up -d --build --no-deps app`. The project overview uses the existing issue counts from local and federated projects. The database schema and configuration are unchanged.
+
 ## 5.3.2
 
 Rebuild Space with the existing Compose files. Update Media to 1.14.8 for verified Telegram sender names on archived messages. The release uses the existing call settings and storage schema. No environment change or migration is required.

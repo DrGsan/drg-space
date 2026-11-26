@@ -5,13 +5,12 @@ import {cropProjectAvatar} from './avatar-crop.js';
 import {personName} from '../../core/people.js';
 import {trackerIcon} from './icons.js';
 import {TrackerTransport,projectAddress} from './transport.js';
-import {matchesIssue,normalizeFilters} from './filters.js';
+import {matchesIssue,normalizeFilters,trackerStatuses,unfinishedIssueCount} from './filters.js';
 import {boardOrder} from './view-model.js';
 import {hierarchy as hierarchyView,lanes as lanesView,table as tableView,viewIcons} from './views.js';
 import './tracker.css';
 
 const t=(key,values)=>tText('tracker:'+key,values);
-const statuses=['todo','work','review','done','cancelled'];
 const kinds=['task','bug','improvement','epic'];
 const editable=['title','description','status','kind','parent_id','group_id','merge_request_url','assignee_id','assignee_peer','priority','due','tags','url','time','flagged','cancellation_reason'];
 const icon=trackerIcon;
@@ -21,7 +20,7 @@ export const trackerController={destroy(){active?.destroy();active=null;},flush(
 export function mountTracker(host,ctx){active?.destroy();active=new Tracker(host,ctx);active.mount();}
 
 class Tracker{
- get statuses(){return statuses.filter(s=>s!=='cancelled'||this.project?.cancellation_supported);}
+ get statuses(){return trackerStatuses.filter(s=>s!=='cancelled'||this.project?.cancellation_supported);}
  constructor(host,ctx){
   this.host=host;this.ctx=ctx;this.transport=new TrackerTransport(ctx);this.catalog={contexts:[],projects:[],deleted_projects:[],remoteContacts:[]};this.projects=[];this.deletedProjects=[];this.context='personal';this.project=null;this.items=[];this.selected=null;this.draft=null;this.query='';this.mine=false;this.statusFilter=[];this.priorityFilter=[];this.unfinished=false;this.filtersOpen=false;this.view='board';this.column='todo';this.activity='comments';this.more=false;this.cursor=0;this.busy=false;this.disposed=false;this.sequence=0;this.blobs=new Set();this.avatars=new Map();this.group=null;this.lanes='none';this.collapsed=new Set();this.sortField='number';this.sortDirection='asc';this.inlineDraft=null;
   try{const saved=JSON.parse(sessionStorage.getItem('drg-tracker:'+ctx.state.me.id)||'{}');this.context=saved.context||'personal';this.savedProject=saved.project;}catch{}
@@ -87,7 +86,7 @@ class Tracker{
  }
  async openProject(project,flush=true){
   if(flush&&!(await this.flush()))return;if(!this.project||projectAddress(this.project)!==projectAddress(project)){this.group=null;this.restoreView(project);}const sequence=++this.sequence;this.project=project;this.context=this.contextFor(project);this.selected=null;this.draft=null;this.items=[];this.error='';this.loading=true;this.render();
-  try{const page=await this.transport.allIssues(project,null,()=>this.current(sequence));if(!this.current(sequence))return;this.project={...page.project,...project.remote?{remote:project.remote}:{}};this.items=page.items;if(this.group&&!(this.project.groups||[]).some(g=>g.id===this.group))this.group=null;this.viewCounts=page.view_counts;this.cursor=page.cursor;this.more=page.more;this.loading=false;this.remember();this.render();}
+  try{const page=await this.transport.allIssues(project,null,()=>this.current(sequence));if(!this.current(sequence))return;this.syncProject({...page.project,...project.remote?{remote:project.remote}:{}});this.items=page.items;if(this.group&&!(this.project.groups||[]).some(g=>g.id===this.group))this.group=null;this.viewCounts=page.view_counts;this.cursor=page.cursor;this.more=page.more;this.loading=false;this.render();}
   catch(error){if(this.current(sequence)){this.loading=false;if(![401,403,404,410,423].includes(error.status))this.project=null;this.fail(error);}}
  }
  async loadMore(){if(this.busy||!this.project||!this.more)return;this.busy=true;const sequence=this.sequence;try{const page=await this.transport.issues(this.project,this.cursor,this.group);if(!this.current(sequence))return;const known=new Set(this.items.map(i=>i.id));this.items.push(...page.items.filter(i=>!known.has(i.id)));this.cursor=page.cursor;this.more=page.more;this.render();}catch(error){this.fail(error);}finally{this.busy=false;}}
@@ -107,7 +106,7 @@ class Tracker{
   this.saving=(async()=>{try{const item=await this.transport.update(project,base.id,patch);if(!this.current())return true;if(base.status!==item.status){this.project.counts[base.status]--;this.project.counts[item.status]++;if(this.viewCounts){this.viewCounts[base.status]--;this.viewCounts[item.status]++;}}this.selected=item;editable.forEach(key=>{if(JSON.stringify(this.draft?.[key])===JSON.stringify(submitted[key]))this.draft[key]=item[key];});this.draft.version=item.version;this.updateItem(item);this.ctx.state.dirty=this.dirty();this.error='';this.setStatus(t(this.dirty()?'unsaved':'saved'));return !this.dirty();}catch(error){if(this.current())this.fail(error,false);return false;}finally{this.saving=null;}})();
   return this.saving;
  }
- async checkChanges(){const project=this.project,sequence=this.sequence;try{const current=await this.transport.project(project);if(!this.current(sequence))return;if(current.version===project.version)return;if(this.dirty()||this.selected||this.dialog){this.setStatus(t('updatedRemotely'));return;}const page=await this.transport.allIssues(project,null,()=>this.current(sequence));if(!this.current(sequence))return;this.project={...page.project,...project.remote?{remote:project.remote}:{}};this.items=page.items;if(this.group&&!(this.project.groups||[]).some(g=>g.id===this.group))this.group=null;this.viewCounts=page.view_counts;this.more=page.more;this.cursor=page.cursor;this.render();}catch(error){if(this.current(sequence))this.fail(error);}}
+ async checkChanges(){const project=this.project,sequence=this.sequence;try{const current=await this.transport.project(project);if(!this.current(sequence))return;if(current.version===project.version)return;if(this.dirty()||this.selected||this.dialog){this.setStatus(t('updatedRemotely'));return;}const page=await this.transport.allIssues(project,null,()=>this.current(sequence));if(!this.current(sequence))return;this.syncProject({...page.project,...project.remote?{remote:project.remote}:{}});this.items=page.items;if(this.group&&!(this.project.groups||[]).some(g=>g.id===this.group))this.group=null;this.viewCounts=page.view_counts;this.more=page.more;this.cursor=page.cursor;this.render();}catch(error){if(this.current(sequence))this.fail(error);}}
  setStatus(message){const status=this.shell.querySelector('[data-tracker-status]');if(status)status.textContent=message;}
  fail(error,remove=true){if(!this.current())return;this.error=error.message||t('networkError');if(remove&&[401,403,404,410,423].includes(error.status)){const previous=this.project;this.project=null;this.selected=null;this.draft=null;this.items=[];this.ctx.state.dirty=!!this.inlineDraft;if(previous)this.projects=this.projects.filter(item=>projectAddress(item)!==projectAddress(previous));this.render();if(previous)this.refreshCatalog().then(()=>{if(!this.project)this.render();}).catch(()=>{});return;}this.renderError();}
  renderError(){let area=this.shell.querySelector('[data-tracker-error]');if(!area){this.render();return;}area.hidden=!this.error;area.innerHTML=this.error?`<span>${esc(this.error)}</span>${this.inlineDraft?`<button type="button" data-tracker-inline-open>${t('reviewInline')}</button><button type="button" data-tracker-inline-discard>${t('discardInline')}</button>`:`<button type="button" data-tracker-retry>${t('retry')}</button>`}`:'';}
@@ -120,7 +119,20 @@ class Tracker{
  avatar(p){const id=projectAddress(p)+':'+p.avatar_version;const src=p.remote?this.avatars.get(id):p.avatar_url;return `<span class="tracker-project-symbol" data-project-avatar="${attr(id)}">${p.has_avatar&&src?`<img src="${attr(src)}" alt="">`:esc(p.name?.trim().slice(0,2).toLocaleUpperCase()||p.key?.slice(0,2)||'')}</span>`;}
  loadAvatars(){for(const p of this.projects.concat(this.project?[this.project]:[])){const id=projectAddress(p)+':'+p.avatar_version;if(!p.remote||!p.has_avatar||p.pending||this.avatars.has(id))continue;this.avatars.set(id,null);this.transport.avatar(p).then(url=>{if(!this.current()){URL.revokeObjectURL(url);return;}this.blobs.add(url);this.avatars.set(id,url);this.shell.querySelectorAll('[data-project-avatar]').forEach(el=>{if(el.dataset.projectAvatar===id){const img=new Image();img.src=url;img.alt='';el.replaceChildren(img);}});}).catch(()=>{});}}
  card(item){const assignee=this.project.members?.find(m=>m.actor_id===item.assignee_id&&m.peer_id===item.assignee_peer);return `<button type="button" class="tracker-card" data-tracker-issue="${item.id}" draggable="${this.project.editable}"><span class="tracker-key">${this.kind(item)} ${esc(item.key)}<span class="tracker-type-label">${t(item.kind)}</span></span><span class="tracker-card-title">${esc(item.title)}</span>${item.progress?.total?`<span class="tracker-epic-progress">${t('progress',{done:item.progress.done,total:item.progress.total})}<progress max="${item.progress.total}" value="${item.progress.done}"></progress></span>`:''}${item.progress?.cancelled?`<span class="tracker-cancelled-count">${t('cancelledCount',{count:item.progress.cancelled})}</span>`:''}${item.tags?.length?`<span class="tracker-tag">${esc(item.tags[0])}</span>`:''}<span class="tracker-card-foot">${this.priority(item)}<span>${esc(assignee?this.name(assignee.person):t(item.assignee_id?'formerAssignee':'unassigned'))}</span></span></button>`;}
- projectTiles(projects){return `<div class="tracker-projects">${projects.map(p=>`<div class="tracker-project"><button type="button" data-tracker-project="${attr(projectAddress(p))}" ${p.pending?'disabled':''}>${this.avatar(p)}<span><strong>${esc(p.name)}</strong><small>${esc(p.description||p.key)}</small><span class="tracker-project-detail">${p.remote?t('remote'):p.shared||p.space_id?t('restricted'):t('private')}</span></span></button>${p.pending?`<button class="primary" type="button" data-tracker-accept="${attr(projectAddress(p))}">${t('accept')}</button>`:`<span class="tracker-project-count">${Object.values(p.counts||{}).reduce((a,b)=>a+b,0)}</span>`}</div>`).join('')}</div>`;}
+ projectTiles(projects){
+  const cards=projects.map(project=>{
+   const address=attr(projectAddress(project));
+   const scope=project.remote?'remote':project.shared||project.space_id?'restricted':'private';
+   const count=unfinishedIssueCount(project.counts);
+   const indicator=project.pending
+    ? `<button class="primary" type="button" data-tracker-accept="${address}">${t('accept')}</button>`
+    : `<span class="tracker-project-count">${count?t('remainingIssues',{count}):t('noOpenIssues')}</span>`;
+   return `<div class="tracker-project"><button type="button" data-tracker-project="${address}" ${project.pending?'disabled':''}>
+    ${this.avatar(project)}<span><strong>${esc(project.name)}</strong><small>${esc(project.description||project.key)}</small><span class="tracker-project-detail">${t(scope)}</span></span>
+   </button>${indicator}</div>`;
+  });
+  return `<div class="tracker-projects">${cards.join('')}</div>`;
+ }
  overview(){
   const projects=this.contextProjects(),personal=projects.filter(project=>!project.shared&&!project.space_id&&!project.remote),shared=projects.filter(project=>!personal.includes(project)),recovery=this.deletedProjectCards();
   let content=this.loading?`<p class="tracker-loading">${t('loading')}</p>`:!projects.length&&recovery?recovery:this.context==='personal'?`${personal.length?`<h2 class="tracker-section-title">${t('personal')}</h2>${this.projectTiles(personal)}`:''}<div class="tracker-heading tracker-section-title"><h2>${t('sharedProjects')}</h2>${this.catalog.remoteContacts.length?`<button class="tracker-text-button" data-tracker-remote>${t('remotePeople')}</button>`:''}</div>${shared.length?this.projectTiles(shared):`<p class="tracker-muted">${t('emptyShared')}</p>`}${!projects.length?`<div class="tracker-empty"><h2>${t('noProjects')}</h2><p>${t('emptyProjects')}</p></div>`:''}`:projects.length?this.projectTiles(projects):`<div class="tracker-empty"><h2>${t('noProjects')}</h2><p>${t('emptyProjects')}</p></div>`;

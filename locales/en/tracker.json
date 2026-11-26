@@ -206,6 +206,8 @@
   "history_project_deletion_scheduled": "Project deletion scheduled",
   "history_project_restored": "Project restored after deletion",
   "filters": "Filters",
+  "remainingIssues": "{{count}} remaining",
+  "noOpenIssues": "No open issues",
   "unfinished": "Unfinished",
   "clearFilters": "Clear all",
   "removeFilter": "Remove filter “{{name}}”",

@@ -59,7 +59,9 @@ test('tracker opt-in, complete import, edits, conflict, files and responsive nav
  await api(page,'/modules','PUT',{enabled:{tracker:true}});
  const project=await api(page,'/tracker/import-reminders','POST',{list_id:list.id,name:'DrG Space',key:'DRG'});
  await page.reload();await appSection(page,'Задачи');
- await page.locator('[data-tracker-project="'+project.id+'"]').click();
+ const projectTile=page.locator('.tracker-project').filter({has:page.locator('[data-tracker-project="'+project.id+'"]')});
+ await expect(projectTile.locator('.tracker-project-count')).toHaveText('1 осталось');
+ await projectTile.locator('[data-tracker-project]').click();
  await expect(page.locator('.tracker-card')).toHaveCount(2);
  expect(await page.locator('.tracker-board').evaluate(el=>el.getBoundingClientRect().top)).toBeLessThan(175);
  await expect(page.locator('.tracker-priority')).toHaveCount(2);
@@ -97,6 +99,11 @@ test('tracker opt-in, complete import, edits, conflict, files and responsive nav
  await expect(page.locator('[data-tracker-edit] [name=title]')).toHaveValue('Новый раздел проектов');
  const issues=(await api(page,'/tracker/projects/'+project.id+'/issues')).items;
  const item=issues.find(i=>i.title==='Новый раздел проектов');
+ await page.locator('[data-tracker-back]').click();
+ await page.locator('[data-tracker-projects]').click();
+ await expect(projectTile.locator('.tracker-project-count')).toHaveText('2 осталось');
+ await projectTile.locator('[data-tracker-project]').click();
+ await page.locator('[data-tracker-issue="'+item.id+'"]').click();
  await page.locator('[name=status]').selectOption('work');
  await page.locator('[name=priority]').selectOption('3');
  await page.locator('[name=due]').fill('2026-11-15');
