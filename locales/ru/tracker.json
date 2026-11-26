@@ -206,7 +206,7 @@
   "history_project_deletion_scheduled": "Запланировано удаление проекта",
   "history_project_restored": "Проект восстановлен после удаления",
   "filters": "Фильтры",
-  "remainingIssues": "{{count}} осталось",
+  "remainingIssues": "{{remaining}} осталось",
   "noOpenIssues": "Нет открытых задач",
   "unfinished": "Невыполненные",
   "clearFilters": "Сбросить всё",

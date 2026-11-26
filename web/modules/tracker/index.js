@@ -1,4 +1,4 @@
-import {tText,locale} from '../../core/i18n.js';
+import {formatNumber,locale,tText} from '../../core/i18n.js';
 import {$,esc} from '../../core/ui.js';
 import {prepareAvatar,avatarDataUrl} from '../../core/avatar.js';
 import {cropProjectAvatar} from './avatar-crop.js';
@@ -126,7 +126,7 @@ class Tracker{
    const count=unfinishedIssueCount(project.counts);
    const indicator=project.pending
     ? `<button class="primary" type="button" data-tracker-accept="${address}">${t('accept')}</button>`
-    : `<span class="tracker-project-count">${count?t('remainingIssues',{count}):t('noOpenIssues')}</span>`;
+    : `<span class="tracker-project-count">${count?t('remainingIssues',{remaining:formatNumber(count)}):t('noOpenIssues')}</span>`;
    return `<div class="tracker-project"><button type="button" data-tracker-project="${address}" ${project.pending?'disabled':''}>
     ${this.avatar(project)}<span><strong>${esc(project.name)}</strong><small>${esc(project.description||project.key)}</small><span class="tracker-project-detail">${t(scope)}</span></span>
    </button>${indicator}</div>`;
