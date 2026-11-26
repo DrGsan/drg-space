@@ -19,6 +19,11 @@ try{
     const state=window.securityFixture={calls:[],mode:{mode:'normal',until:0,reason:''},bans:[],reviewed:false,revoke:[],holdEvents:false,failEvents:false};
     const events=[{id:'event-a',event:'auth_failure',action:'2fa',outcome:'failure',severity:'high',ip:'2001:db8:1234:ffff:1234:ffff:1234:abcd',subject:attack,agent:attack,route:'/api/2fa/verify',details:{reason:attack},first_seen:stamp-300,last_seen:stamp-30,count:8},{id:'event-b',event:'auth_success',action:'login',outcome:'success',severity:'info',ip:'203.0.113.9',subject:'owner',details:{},first_seen:stamp-60,last_seen:stamp-50,count:1},{id:'event-c',event:'login_success',action:'login',outcome:'success',severity:'info',ip:'203.0.113.9',subject:'owner',details:{},first_seen:stamp-40,last_seen:stamp-40,count:1}];
     const incident={id:'incident-a',title:'Пароль принят, повторные ошибки второго фактора',severity:'high',status:'open',ip:'203.0.113.9',subject:'owner',first_seen:stamp-300,last_seen:stamp-30,event_count:8,ip_count:1};
+    const incidents=[
+      incident,
+      {...incident,id:'distributed',status:'reviewed',ip:'2001:db8:1234:ffff:1234:ffff:1234:abcd',ip_count:3},
+      {...incident,id:'missing',status:'reviewed',ip:'unknown',ip_count:0},
+    ];
     const ctx=window.securityCtx={state:{me:{role:'owner',id:'owner',two_factor:true}},toast(text){document.querySelector('#toast').textContent=text;},navigate(target){state.navigation=target;},modal(html){
       const el=document.createElement('div');el.className='modal-overlay';el.innerHTML='<section class="modal" role="dialog" aria-modal="true"><button class="modal-close icon-btn" aria-label="Закрыть">×</button>'+html+'</section>';document.body.append(el);el.querySelector('.modal-close').onclick=()=>el.remove();return el;
     },async api(path,method='GET',data){
@@ -31,9 +36,13 @@ try{
         if(state.holdEvents)return new Promise(resolve=>state.releaseEvents=()=>resolve(result));return result;
       }
       if(url.pathname==='/admin/security/events/export')return {events,total:3,truncated:false};
-      if(url.pathname==='/admin/security/incidents')return {incidents:state.reviewed?[]:[incident],total:state.reviewed?0:1,limit:50};
+      if(url.pathname==='/admin/security/incidents'){
+        const status=url.searchParams.get('status');
+        const visible=incidents.filter(item=>!status||item.status===status);
+        return {incidents:visible,total:visible.length,limit:50};
+      }
       if(url.pathname==='/admin/security/incidents/incident-a')return {incident,events};
-      if(url.pathname==='/admin/security/incidents/incident-a/review'){state.reviewed=data.status==='reviewed';return {ok:true};}
+      if(url.pathname==='/admin/security/incidents/incident-a/review'){incident.status=data.status;state.reviewed=data.status==='reviewed';return {ok:true};}
       if(url.pathname==='/admin/security/bans'){
         if(method==='POST'){state.bans.push({id:'ban-a',ip:data.ip,until:stamp+data.duration,kind:'ip',action:'manual'});return {ok:true};}
         return {bans:state.bans,total:state.bans.length};
@@ -63,7 +72,17 @@ try{
   const downloaded=page.waitForEvent('download');await page.locator('[data-as-export]').click();const download=await downloaded;
   assert.match(download.suggestedFilename(),/^drg-security-.*\.json$/);assert(await download.path());
   assert(await page.evaluate(()=>securityFixture.calls.some(c=>c.path.includes('/events/export?')&&c.path.includes('severity=high')&&!c.path.includes('offset=50'))));
-  await page.locator('[data-as-tab=incidents]').click();await page.locator('[data-as-incident]').click();
+  await page.locator('[data-as-tab=incidents]').click();
+  const single=page.locator('[data-as-incident=incident-a]');
+  assert.match(await single.innerText(),/Событий: 8 · IP: 203\.0\.113\.9/);
+  await page.locator('[data-as-incident-status]').selectOption('reviewed');
+  assert.match(await page.locator('[data-as-incident=distributed]').innerText(),/IP: 2001:db8:1234:ffff:1234:ffff:1234:abcd · Всего IP-адресов: 3/);
+  assert.match(await page.locator('[data-as-incident=missing]').innerText(),/IP не записан/);
+  await page.setViewportSize({width:320,height:760});
+  assert(await page.locator('[data-as-incident=distributed]').evaluate(row=>row.scrollWidth<=row.clientWidth),'full IPv6 address fits on mobile');
+  await page.setViewportSize({width:1280,height:1100});
+  await page.locator('[data-as-incident-status]').selectOption('open');
+  await single.click();
   assert.match(await page.locator('[data-as-incident-content]').innerText(),/Связанные события/);
   await page.locator('[data-as-review]').click();await page.locator('[data-as-incident-content]').waitFor({state:'detached'});await page.waitForFunction(()=>securityFixture.reviewed);
   assert.match(await page.locator('[data-as-view]').innerText(),/Открытых инцидентов нет/);

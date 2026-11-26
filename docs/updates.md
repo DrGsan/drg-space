@@ -1,5 +1,9 @@
 # Updating DrG Space
 
+## 5.3.4
+
+Rebuild Space with the existing Compose files. Check the HTTP redirect for your public domain and the HTTPS readiness endpoint after deployment. See [Public reverse proxy](nginx-public.md) for the proxy settings.
+
 ## 5.3.3
 
 Rebuild Space with `docker compose up -d --build --no-deps app`. Open a shared folder in Drive to review its existing deletion schedules. The project overview uses the existing issue counts from local and federated projects.

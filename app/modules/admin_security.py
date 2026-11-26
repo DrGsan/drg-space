@@ -141,8 +141,7 @@ def router(monitor, admin_access, tokens, protection, strong_confirm):
         with db() as c:
             row = c.execute('SELECT * FROM security_incidents WHERE id=?', (incident_id,)).fetchone()
             if not row: raise HTTPError(404, localized_message('noIncidentFound'))
-            field, value = ('subject_key', row['subject_key']) if row['subject_key'] and row['kind'] in ('distributed_attack', 'target_attack', 'factor_failures', 'success_after_failures') else ('ip', row['ip'])
-            items = [event_dict(item) for item in c.execute('SELECT * FROM security_events WHERE '+field+'=? AND last_seen>=? AND first_seen<=? ORDER BY last_seen DESC,id DESC LIMIT 100', (value, row['first_seen'], row['last_seen']))]
+            items = [event_dict(item) for item in monitor.incident_events(c, row)]
         return dict(incident=incident_dict(row), events=items)
 
     @routes.post('/api/admin/security/incidents/{incident_id}/review')

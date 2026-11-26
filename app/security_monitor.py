@@ -69,6 +69,28 @@ def event_dict(row):
     return result
 
 
+def incident_event_filter(kind, ip, subject_key, event=None, action=None):
+    if kind in ('target_attack', 'distributed_attack', 'factor_failures', 'success_after_failures'):
+        where, values = 'subject_key=?', [subject_key]
+    else:
+        where, values = 'ip=?', [ip]
+    if kind in ('brute_force', 'target_attack', 'distributed_attack', 'factor_failures'):
+        where += " AND event='auth_failure'"
+        if kind == 'factor_failures': where += " AND action='2fa'"
+    elif kind == 'success_after_failures':
+        where += " AND event IN ('auth_failure','login_success')"
+    elif kind == 'access_probe':
+        where += " AND event IN ('access_denied','csrf_rejected','scan_detected','origin_rejected')"
+    elif kind == 'refresh_replay':
+        where += " AND subject_key=? AND event='refresh_replay'"
+        values.append(subject_key)
+    else:
+        where += ' AND subject_key=? AND event=? AND action=?'
+        values += [subject_key, event, action]
+        if kind == 'high_risk': where += " AND severity IN ('high','critical')"
+    return where, values
+
+
 def incident_dict(row):
     result = dict(row)
     for key in ('correlation_key', 'subject_key', 'notified_at', 'notified_count'):
@@ -140,6 +162,25 @@ class SecurityMonitor:
 
     def subject_key(self, subject):
         return self.key('subject', clean_text(subject, 100).strip().casefold()) if subject else ''
+
+    def incident_events(self, c, row):
+        kind, ip, subject_key = row['kind'], row['ip'], row['subject_key']
+        window = ' AND last_seen>=? AND first_seen<=?'
+        interval = [row['first_seen'], row['last_seen']]
+        event, action = None, None
+        if kind == 'high_risk':
+            # Older incidents store the triggering event and action only in their
+            # correlation key. A journal row may contribute to several incidents.
+            candidates = c.execute("SELECT DISTINCT event,action FROM security_events WHERE ip=? AND subject_key=? AND severity IN ('high','critical')" + window, [ip, subject_key] + interval)
+            for event, action in candidates:
+                key = self.key('risk', event, action, ip, subject_key)
+                if self.key(key, row['last_seen'] // 86400) == row['correlation_key']:
+                    break
+            else:
+                # A restored archive can predate the current correlation secret.
+                return list(c.execute('SELECT * FROM security_events WHERE incident_id=? ORDER BY last_seen DESC,id DESC LIMIT 100', (row['id'],)))
+        where, values = incident_event_filter(kind, ip, subject_key, event, action)
+        return list(c.execute('SELECT * FROM security_events WHERE ' + where + window + ' ORDER BY last_seen DESC,id DESC LIMIT 100', values + interval))
 
     def get_mode(self, connection=None):
         with nullcontext(connection) if connection is not None else self.db() as c:
@@ -316,21 +357,7 @@ class SecurityMonitor:
         # its full lifetime. SUM(count) counts each aggregated event once, including
         # separate bursts that fall outside the detection window.
         start = previous['first_seen'] if previous else first
-        if kind in ('target_attack', 'distributed_attack', 'factor_failures', 'success_after_failures'):
-            where, values = 'subject_key=?', [subject_key]
-        else:
-            where, values = 'ip=?', [ip]
-        if kind in ('brute_force', 'target_attack', 'distributed_attack', 'factor_failures'):
-            where += " AND event='auth_failure'"
-            if kind == 'factor_failures': where += " AND action='2fa'"
-        elif kind == 'success_after_failures':
-            where += " AND event IN ('auth_failure','login_success')"
-        elif kind == 'access_probe':
-            where += " AND event IN ('access_denied','csrf_rejected','scan_detected','origin_rejected')"
-        else:
-            where += ' AND subject_key=? AND event=? AND action=?'
-            values += [subject_key, event, action]
-            if kind == 'high_risk': where += " AND severity IN ('high','critical')"
+        where, values = incident_event_filter(kind, ip, subject_key, event, action)
         totals = c.execute('SELECT COALESCE(SUM(count),0),COUNT(DISTINCT ip) FROM security_events WHERE '+where+' AND last_seen>=? AND first_seen<=?', values+[start, stamp]).fetchone()
         count, addresses = totals[0], totals[1]
         if previous:

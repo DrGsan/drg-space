@@ -2,8 +2,10 @@
 from app.i18n import message as localized_message
 import re
 from html import escape
+from urllib.parse import quote, urlsplit
 from app.i18n import current_language, text
 from app.http import HTTPError, Response, WebSocket
+from app.protection import trusted_proxy
 
 
 LOGIN_PATHS = {
@@ -17,9 +19,39 @@ PUBLIC_ASSETS = {'/favicon.ico', '/manifest.webmanifest', '/push-sw.js'}
 HEALTH_PROBES = {'/api/health', '/api/ready'}
 
 
+class PublicHTTPError(HTTPError):
+    """Plain HTTP at the configured HTTPS site's proxy."""
+
+
 class SecurityPolicy:
-    def __init__(self, monitor, tokens):
+    def __init__(self, monitor, tokens, public_url):
         self.monitor, self.tokens = monitor, tokens
+        origin = urlsplit(public_url)
+        self.https_origin = origin if origin.scheme == 'https' else None
+
+    def check_transport(self, request, websocket):
+        origin = self.https_origin
+        if not origin or request.headers.get('X-Forwarded-Proto', '').strip().lower() != 'http':
+            return
+        authority = origin.netloc.lower()
+        hostname = authority.removesuffix(f':{origin.port}')
+        if request.headers.get('Host', '').lower() not in {authority, hostname, hostname + ':80'}:
+            return
+        if not request.client or not trusted_proxy(request.client.host, self.monitor.protection.networks):
+            return
+        if websocket or request.method not in ('GET', 'HEAD'):
+            raise PublicHTTPError(403, 'HTTPS required')
+        source = request.source
+        # Prefer the original path so an escaped slash or question mark keeps its meaning.
+        raw_path = source.environ.get('asgi.scope', {}).get('raw_path')
+        raw_uri = source.environ.get('RAW_URI', '').partition('?')[0]
+        if raw_path or raw_uri.startswith('/'):
+            path = quote(raw_path or raw_uri, safe="/%:@!$&'()*+,;=-._~")
+        else:
+            path = quote(source.path, safe="/:@!$&'()*+,;=-._~")
+        query = quote(source.query_string, safe="/%?:@!$&'()*+,;=-._~")
+        location = origin._replace(path=path, query=query, fragment='').geturl()
+        raise PublicHTTPError(308, '', {'Location': location})
 
     def identity(self, request, *, allow_expired=False):
         """Check server-side identity even when an access JWT needs refresh."""
@@ -57,7 +89,9 @@ class SecurityPolicy:
     def check(self, request):
         path = getattr(getattr(request, 'url', None), 'path', '')
         route = getattr(getattr(request, 'source', None), 'url_rule', None)
-        if isinstance(request, WebSocket) or getattr(route, 'websocket', False):
+        websocket = isinstance(request, WebSocket) or getattr(route, 'websocket', False)
+        self.check_transport(request, websocket)
+        if websocket:
             self.monitor.protection.check(request)
         if path in HEALTH_PROBES:
             return

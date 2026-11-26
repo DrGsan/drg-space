@@ -2,6 +2,14 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.3.4] — 2026-11-26 — Security incidents and session recovery
+
+- The incident list shows the recorded IP address. Incident details show the events that contributed to that incident, including when several accounts share an address.
+- The web client keeps the sign-in state when session checks are temporarily unavailable and passes on the server's retry delay.
+- Canonical HTTP requests forwarded by a trusted proxy are redirected to HTTPS for navigation. The deployment guide covers HTTPS enforcement at the public proxy.
+
+- **Installation:** Rebuild Space with the existing Compose settings. Verify HTTP redirects at the public domain after the update.
+
 ## [5.3.3] — 2026-11-26 — Drive retention and project cards
 
 - In Drive, open a shared folder's retention tree to see which files have a deletion scheduled. Review the exact list before turning off scheduled deletion for a file, a branch or the whole folder.
