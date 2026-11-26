@@ -2,7 +2,7 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
-## [5.3.3-rc.2] — 2026-11-26 — Drive retention and project cards
+## [5.3.3] — 2026-11-26 — Drive retention and project cards
 
 - In Drive, open a shared folder's retention tree to see which files have a deletion scheduled. Review the exact list before turning off scheduled deletion for a file, a branch or the whole folder.
 - Project cards show how many issues are still to do, in progress or in review. Projects with no open issues display an explicit label.
