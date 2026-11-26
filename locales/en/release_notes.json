@@ -1,4 +1,6 @@
 {
+  "release5_3_3_rc_1Title": "Remaining issues on project cards",
+  "release5_3_3_rc_1Change1": "Project cards show how many issues are still to do, in progress or in review. Projects with no open issues display an explicit label.",
   "release5_3_2Title": "Chat recovery, RSS and calls",
   "release5_3_2Change1": "Catch up on messages and edits when you return to a chat after a background disconnect.",
   "release5_3_2Change2": "Keep recent RSS headlines when switching sections. Refresh the widget to fetch immediately.",

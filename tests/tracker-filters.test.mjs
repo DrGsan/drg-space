@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeFilters,matchesIssue} from '../web/modules/tracker/filters.js';
+import {normalizeFilters,matchesIssue,unfinishedIssueCount} from '../web/modules/tracker/filters.js';
 import {boardOrder} from '../web/modules/tracker/view-model.js';
 import {TrackerTransport} from '../web/modules/tracker/transport.js';
 
@@ -31,4 +31,15 @@ test('cancelled is independently filterable and excluded from unfinished work',(
  assert.equal(matchesIssue(cancelled,normalizeFilters({unfinished:true}),'owner'),false);
  assert.equal(matchesIssue(cancelled,normalizeFilters({statuses:['cancelled']}),'owner'),true);
  assert.equal(matchesIssue({...cancelled,status:'done'},normalizeFilters({statuses:['cancelled']}),'owner'),false);
+});
+
+test('catalogue counts agree with the Unfinished filter, including four-status peers',()=>{
+ const filters=normalizeFilters({unfinished:true});
+ const counts={todo:2,work:3,review:4,done:8,cancelled:5};
+ const issues=Object.entries(counts).flatMap(([status,count])=>Array.from({length:count},()=>({status})));
+ assert.equal(unfinishedIssueCount(counts),issues.filter(item=>matchesIssue(item,filters,'owner')).length);
+ assert.equal(unfinishedIssueCount({todo:25,work:1,review:0,done:99}),26);
+ assert.equal(unfinishedIssueCount({done:3,cancelled:2}),0);
+ assert.equal(unfinishedIssueCount(),0);
+ assert.equal(unfinishedIssueCount({review:10000}),10000);
 });

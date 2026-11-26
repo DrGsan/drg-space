@@ -2,6 +2,12 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.3.3-rc.1] — 2026-11-26 — Remaining issues on project cards
+
+- Project cards show how many issues are still to do, in progress or in review. Projects with no open issues display an explicit label.
+
+- **Installation:** Rebuild Space with the existing Compose settings.
+
 ## [5.3.2] — 2026-11-26 — Chat recovery, RSS and calls
 
 - Catch up on messages and edits when you return to a chat after a background disconnect.
