@@ -21,6 +21,15 @@ def trusted_networks(value):
         raise RuntimeError('TRUSTED_PROXIES must be a comma-separated list of IP addresses or CIDRs') from error
 
 
+def trusted_proxy(address, networks):
+    if isinstance(address, str):
+        try:
+            address = ipaddress.ip_address(address)
+        except ValueError:
+            return False
+    return any(address in network for network in networks)
+
+
 def client_ip(request, networks):
     client = getattr(request, 'client', None)
     peer = client.host if client else 'unknown'
@@ -28,9 +37,7 @@ def client_ip(request, networks):
         address = ipaddress.ip_address(peer)
     except ValueError:
         return peer  # TestClient uses a non-IP socket peer.
-    def trusted(ip):
-        return any(ip.version == net.version and ip in net for net in networks)
-    if not trusted(address):
+    if not trusted_proxy(address, networks):
         return str(address)
     forwarded = request.headers.get('x-forwarded-for', '')
     if len(forwarded) > 2048:
@@ -44,7 +51,7 @@ def client_ip(request, networks):
         return str(address)
     # Walk from the socket toward the visitor and stop at the first untrusted hop.
     for hop in reversed(chain):
-        if not trusted(hop):
+        if not trusted_proxy(hop, networks):
             return str(hop)
     return str(chain[0])
 

@@ -74,6 +74,35 @@ def test_second_factor_failure_is_distinct_from_invalid_password():
         assert incident['subject'] == 'owner' and incident['severity'] == 'high'
 
 
+def test_incident_details_use_the_same_evidence_as_the_counter():
+    admin, _, _ = owner()
+    with m.db() as c:
+        uid = c.execute("SELECT id FROM users WHERE role='owner'").fetchone()[0]
+    monitor = SecurityMonitor(m.db, lambda: 2000000000, m.protection)
+    for i in range(12):
+        monitor.record(request('203.0.113.' + str(i + 1)), 'auth_failure', 'login', 'owner')
+    req = request('203.0.113.12')
+    for _ in range(3):
+        monitor.record(req, 'auth_failure', '2fa', uid)
+    for _ in range(10):
+        monitor.record(req, 'scan_detected', outcome='blocked')
+    monitor.record(req, 'refresh_replay', user_id=uid, severity='high')
+    monitor.record(req, 'admin_action', 'lock', user_id=uid, severity='high')
+    monitor.record(req, 'admin_action', 'unlock', user_id=uid, severity='high')
+    with m.db() as c:
+        incidents = list(c.execute('SELECT * FROM security_incidents WHERE last_seen=?', (2000000000,)))
+    assert {row['kind'] for row in incidents} >= {'access_probe','factor_failures','distributed_attack','refresh_replay','high_risk'}
+    for row in incidents:
+        response = admin.get('/api/admin/security/incidents/' + row['id'])
+        assert response.status_code == 200
+        events = response.json()['events']
+        assert sum(item['count'] for item in events) == row['event_count']
+        if row['kind'] == 'high_risk':
+            assert len({(item['event'], item['action']) for item in events}) == 1
+        if row['kind'] == 'distributed_attack':
+            assert len({item['ip'] for item in events}) == 12
+
+
 def test_audit_failure_does_not_abort_caller_transaction_and_health_is_visible(monkeypatch):
     monitor = SecurityMonitor(m.db, lambda: m.now(), m.protection)
     original = monitor._record

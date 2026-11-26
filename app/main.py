@@ -188,9 +188,9 @@ def fail(code, message, headers=None): raise HTTPError(code, message, headers=he
 tokens = AuthTokens(db, lambda: now(), fail, APP_SECRET, SECURE)
 protection = Protection(db, lambda: now())
 from app.security_monitor import SecurityMonitor
-from app.security_policy import HEALTH_PROBES, SecurityPolicy
+from app.security_policy import HEALTH_PROBES, PublicHTTPError, SecurityPolicy
 security_monitor = SecurityMonitor(db, lambda: now(), protection)
-security_policy = SecurityPolicy(security_monitor, tokens)
+security_policy = SecurityPolicy(security_monitor, tokens, PUBLIC_URL)
 protection.monitor = tokens.monitor = security_monitor
 tokens.policy = app.security_policy = security_policy
 
@@ -224,6 +224,9 @@ async def security(request: Request, call_next):
     response = None
     try:
         await blocking(security_policy.check, request)
+    except PublicHTTPError as error:
+        return Response(error.detail, status_code=error.status_code,
+                        headers={**error.headers, 'Cache-Control': 'no-store'}, media_type='text/plain')
     except HTTPError as error:
         response = (JSONResponse({'detail': error.detail}, status_code=error.status_code, headers=error.headers)
                     if request.url.path.startswith('/api/') else security_policy.unavailable(error))

@@ -2,10 +2,15 @@
 import asyncio
 import threading
 from types import SimpleNamespace
+from urllib.parse import urlsplit
 
+import pytest
 from flask import Flask
 from pydantic import BaseModel
+from app.asgi import Socket
 from app.http import Application, JSONResponse, Query, Request, Response, StreamingResponse
+from app.protection import trusted_networks
+from app.security_policy import PublicHTTPError
 from app.storage import StorageGate, StorageMiddleware
 from tests.http_client import TestClient
 from tests.test_security import reset
@@ -21,6 +26,37 @@ def test_native_flask_and_security_headers_cover_head_options_and_routing_errors
         assert response.headers['x-content-type-options']=='nosniff'
         assert response.headers['cache-control']=='no-store'
         assert response.headers['x-frame-options']=='DENY'
+
+
+def test_public_https_redirect_behind_trusted_proxy(monkeypatch):
+    monkeypatch.setattr(m.security_policy, 'https_origin', urlsplit('https://notes.example.test'))
+    monkeypatch.setattr(m.protection, 'networks', trusted_networks('192.0.2.15/32'))
+    client = m.app.test_client()
+    peer = {'REMOTE_ADDR': '192.0.2.15'}
+    http = {'Host': 'notes.example.test:80', 'X-Forwarded-Proto': 'http'}
+    path = '/page/one%2Ftwo%3Fthree?search=a%2Fb&sort=new'
+    for method in ('GET', 'HEAD'):
+        r = client.open(path, method=method, headers=http, environ_overrides=peer)
+        assert r.status_code == 308
+        assert r.headers['Location'] == 'https://notes.example.test' + path
+        assert not r.headers.getlist('Set-Cookie')
+    r = client.post('/api/login', json={}, headers=http, environ_overrides=peer)
+    assert r.status_code == 403 and 'Location' not in r.headers
+    socket = Socket({'path': '/ws/chat', 'client': ('192.0.2.15', 9000),
+                     'headers': [(b'host', b'notes.example.test'), (b'x-forwarded-proto', b'http')]},
+                    None, None, m.security_policy)
+    with pytest.raises(PublicHTTPError) as blocked:
+        m.security_policy.check(socket)
+    assert blocked.value.status_code == 403
+
+    for host, scheme, remote in (
+        ('notes.example.test', 'https', '192.0.2.15'),
+        ('127.0.0.1:8000', 'http', '192.0.2.15'),
+        ('notes.example.test', 'http', '192.0.2.16'),
+    ):
+        r = client.get('/api/health', headers={'Host': host, 'X-Forwarded-Proto': scheme},
+                       environ_overrides={'REMOTE_ADDR': remote})
+        assert r.status_code == 200 and 'Location' not in r.headers
 
 
 def test_flask_query_body_validation_and_response_cookie_binding():

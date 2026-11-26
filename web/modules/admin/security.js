@@ -33,6 +33,17 @@ function eventRow(event){
   return `<details class="as-event"><summary><span class="as-event-copy"><strong>${esc(title)}</strong><span>${esc(stamp(event.last_seen))} · ${esc(event.ip||tText("admin:ipAddressUnknown"))}${event.subject?' · '+esc(event.subject):''}</span></span><span class="as-event-tags">${risk(event.severity)}${event.count>1?`<span class="as-count">×${number(event.count)}</span>`:''}</span></summary><div class="as-event-body">${event.event==='auth_success'?`<p class="hint">${tHtml("admin:separateVerificationCompletedASeparateEventLoginSuccessful")}</p>`:''}<dl class="as-facts">${pair(tText("admin:result"),outcomes[event.outcome]||event.outcome)}${action?pair(tText("admin:operation"),action):''}${pair(tText("admin:firstEvent"),stamp(event.first_seen))}${pair(tText("admin:lastEvent"),stamp(event.last_seen))}${event.route?pair(tText("admin:requestAddress"),event.route):''}${event.agent?pair(tText("admin:browserClient"),event.agent):''}${details}</dl>${event.ip&&event.ip!=='unknown'?`<button type="button" class="text-link" data-as-ban-ip="${esc(event.ip)}">${tHtml("admin:blockIp")}</button>`:''}</div></details>`;
 }
 
+function incidentRow(item){
+  const source=item.ip && item.ip!=='unknown' && item.ip!=='local' ? 'IP: '+item.ip : tText("admin:ipNotRecorded");
+  const metadata=[tText("admin:incidentEventCount",{total:number(item.event_count)}),source];
+  if(item.ip_count>1)metadata.push(tText("admin:incidentAddressCount",{total:number(item.ip_count)}));
+  return `<button type="button" class="as-incident" data-as-incident="${esc(item.id)}"><span class="as-event-copy">
+    <strong>${esc(item.title)}</strong>
+    <span>${esc(stamp(item.last_seen))}${item.subject?' · '+esc(item.subject):''}</span>
+    <span>${esc(metadata.join(' · '))}</span>
+  </span>${risk(item.severity)}<span class="as-chevron" aria-hidden="true">›</span></button>`;
+}
+
 export function mountAdminSecurity(host,ctx){
   if(ctx.state.me.role!=='owner'){host.textContent=tText("admin:availableOnlyToPortalAdministrator");return;}
   const disclosure=host.closest('.preference-row');
@@ -150,7 +161,7 @@ export function mountAdminSecurity(host,ctx){
         list.innerHTML=(data.events.map(eventRow).join('')||empty(tText("admin:noEventsFoundBasedOnTheSelectedCriteria")))+pagination(data.total,data.limit||50);
         bindEventActions(list);bindPagination(list,data.total,data.limit||50);
       }else if(kind==='incidents'){
-        list.innerHTML=(data.incidents.map(item=>`<button type="button" class="as-incident" data-as-incident="${esc(item.id)}"><span class="as-event-copy"><strong>${esc(item.title)}</strong><span>${esc(stamp(item.last_seen))}${item.subject?' · '+esc(item.subject):''}</span><span>${tHtml("admin:eventsIp", {value0:(number(item.event_count)), value1:(number(item.ip_count))})}</span></span>${risk(item.severity)}<span class="as-chevron" aria-hidden="true">›</span></button>`).join('')||empty(incidentStatus==='open'?tText("admin:noOpenIncidents"):tText("admin:noIncidentsWithThisStatus")))+pagination(data.total,data.limit||50);
+        list.innerHTML=(data.incidents.map(incidentRow).join('')||empty(incidentStatus==='open'?tText("admin:noOpenIncidents"):tText("admin:noIncidentsWithThisStatus")))+pagination(data.total,data.limit||50);
         list.querySelectorAll('[data-as-incident]').forEach(button=>button.onclick=()=>incident(button.dataset.asIncident));bindPagination(list,data.total,data.limit||50);
       }else if(kind==='bans'){
         list.innerHTML=data.bans.map(item=>`<article class="as-resource"><div><strong>${esc(item.ip)}</strong><span>${tHtml("admin:until", {value0:(item.kind==='ip'?tText("admin:allWebsiteAccess"):esc(actions[item.action]||item.action||tText("admin:accessCheck"))), value1:(esc(stamp(item.until)))})}</span>${item.reason?`<span>${esc(item.reason)}</span>`:''}</div><button type="button" class="text-link" data-as-unban="${esc(item.id)}">${tHtml("admin:unlock")}</button></article>`).join('')||empty(tText("admin:noActiveLocks"));

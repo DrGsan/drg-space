@@ -1,4 +1,8 @@
 {
+  "release5_3_4Title": "Security incidents and session recovery",
+  "release5_3_4Change1": "The incident list shows the recorded IP address. Incident details show the events that contributed to that incident, including when several accounts share an address.",
+  "release5_3_4Change2": "The web client keeps the sign-in state when session checks are temporarily unavailable and passes on the server's retry delay.",
+  "release5_3_4Change3": "Canonical HTTP requests forwarded by a trusted proxy are redirected to HTTPS for navigation. The deployment guide covers HTTPS enforcement at the public proxy.",
   "release5_3_3Title": "Drive retention and project cards",
   "release5_3_3Change1": "In Drive, open a shared folder's retention tree to see which files have a deletion scheduled. Review the exact list before turning off scheduled deletion for a file, a branch or the whole folder.",
   "release5_3_3Change2": "Project cards show how many issues are still to do, in progress or in review. Projects with no open issues display an explicit label.",
