@@ -1,4 +1,6 @@
 {
+  "release5_3_5Title": "Python runtime update",
+  "release5_3_5Change1": "The server image now uses Python 3.14.10 and the updated Debian 13.8 base packages.",
   "release5_3_4Title": "Security incidents and session recovery",
   "release5_3_4Change1": "The incident list shows the recorded IP address. Incident details show the events that contributed to that incident, including when several accounts share an address.",
   "release5_3_4Change2": "The web client keeps the sign-in state when session checks are temporarily unavailable and passes on the server's retry delay.",
