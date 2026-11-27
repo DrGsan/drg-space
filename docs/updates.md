@@ -1,5 +1,9 @@
 # Updating DrG Space
 
+## 5.3.5
+
+Rebuild the app with your existing Compose files and volumes. The Python 3.14.10 runtime image includes Debian 13.8 packages. Host operating system updates are managed separately.
+
 ## 5.3.4
 
 Rebuild Space with the existing Compose files. Check the HTTP redirect for your public domain and the HTTPS readiness endpoint after deployment. See [Public reverse proxy](nginx-public.md) for the proxy settings.

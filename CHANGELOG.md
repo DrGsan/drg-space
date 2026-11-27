@@ -2,6 +2,12 @@
 
 User-facing release history. Preview changes are consolidated into their stable release. Versions before 1.0.0 are retrospective development milestones, not claims of separately published releases. Historical behavior may differ from the current version; use the current installation and upgrade guides.
 
+## [5.3.5] — 2026-11-27 — Python runtime update
+
+- The server image now uses Python 3.14.10 and the updated Debian 13.8 base packages.
+
+- **Installation:** Rebuild the app with the existing Compose configuration and data volumes.
+
 ## [5.3.4] — 2026-11-26 — Security incidents and session recovery
 
 - The incident list shows the recorded IP address. Incident details show the events that contributed to that incident, including when several accounts share an address.

@@ -28,7 +28,7 @@ jobs:
         run: python3 scripts/check-public-content.py
       - uses: actions/setup-python@v7.0.0
         with:
-          python-version: "3.14.8"
+          python-version: "3.14.10"
       - run: python -m venv .venv
       - run: .venv/bin/python -m pip install --upgrade pip==26.2.1
       - run: .venv/bin/pip install -r requirements.lock.txt
@@ -71,7 +71,7 @@ jobs:
         run: python3 scripts/check-public-content.py
       - uses: actions/setup-python@v7.0.0
         with:
-          python-version: "3.14.8"
+          python-version: "3.14.10"
       - uses: actions/setup-node@v7.1.0
         if: matrix.engine == 'postgres' && matrix.encryption == 'true'
         with:
@@ -189,7 +189,7 @@ jobs:
         run: python3 scripts/check-public-content.py
       - uses: actions/setup-python@v7.0.0
         with:
-          python-version: "3.14.8"
+          python-version: "3.14.10"
       - run: python -m venv .venv
       - run: .venv/bin/python -m pip install --upgrade pip==26.2.1
       - run: .venv/bin/pip install -r requirements.lock.txt
